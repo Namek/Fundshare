@@ -32,44 +32,57 @@ let getAllUsers() : User list =
         | _ -> None)
         
 
-let getUserById (id : int) : User option =
-  defaultConnection
-    |> Sql.connect
-    |> Sql.query ("SELECT email, name FROM public.users WHERE id=" + id.ToString())
-    |> Sql.executeTable
-    |> Sql.mapEachRow 
-      (function
-        | [ "email", String email
-            "name", String name ] ->
-          Some
-            { id = id
-              email = email
-              name = name }
-        | _ -> None)
-    |> List.first
+//let getUserById (id : int) : User option =
+//  defaultConnection
+//    |> Sql.connect
+//    |> Sql.query ("SELECT email, name FROM public.users WHERE id=" + id.ToString())
+//    |> Sql.executeTable
+//    |> Sql.mapEachRow 
+//      (function
+//        | [ "email", String email
+//            "name", String name ] ->
+//          Some
+//            { id = id
+//              email = email
+//              name = name }
+//        | _ -> None)
+//    |> List.first
 
 
-let addTransaction (args) : UserTransaction option =
-  defaultConnection
-      |> Sql.connect
-      |> Sql.query "INSERT INTO \"public.users\"
-        (transaction_type, payor_id, payee_ids, tags, description, paid_at, inserted_at, updated_at)
-        VALUES (@transactionType, @payorId, @payeeIds, @tags, @description, @paidAt, @time, @time)"
-      |> Sql.parameters
-//        [ "transactionType, 
-      |> Sql.executeNonQuery
+//let addTransaction (args) : UserTransaction option =
+//  defaultConnection
+//      |> Sql.connect
+//      |> Sql.query "INSERT INTO \"public.users\"
+//        (transaction_type, payor_id, payee_ids, tags, description, paid_at, inserted_at, updated_at)
+//        VALUES (@transactionType, @payorId, @payeeIds, @tags, @description, @paidAt, @time, @time)"
+//      |> Sql.parameters
+////        [ "transactionType, 
+//      |> Sql.executeNonQuery
       
       
   
       
-let addTrans (args) : UserTransaction option =
+let addTransaction (args) : UserTransaction option =
+  defaultConnection
+    |> Sql.connect 
+    |> Sql.executeQueries (fun () ->
+      [ NonQuery ("INSERT INTO \"public.users\"", [])
+        NonQuery ("UPDATE balance", [])
+      ])
+    |> function
+      | Ok [NonQueryResult q1; NonQueryResult q2] ->
+          if q1+q2 > 0 then Some args else None
+      | _ -> None
+
+
+let getUserById (id : int) : User option =
   defaultConnection
     |> Sql.connect
-    |> Sql.openTransaction (fun q -> [
-      q "INSERT INTO \"public.users\""      |> Sql.parameters []        |> Sql.executeNonQuery
-      
-      q "UPDATE balance"        |> Sql.parameters []        |> Sql.executeNonQuery
-    ])
+    |> Sql.executeQuery (fun () ->
+       TableQuery ("SELECT", []))
     |> function
-      | Some [q1, q2] -> if q1+q2 > 0 then Some args else None
-      | None -> None
+      | Ok (TableResult rows) -> Some rows
+      | _ -> None
+    |> Option.map (fun rows ->
+      rows.Head
+    )

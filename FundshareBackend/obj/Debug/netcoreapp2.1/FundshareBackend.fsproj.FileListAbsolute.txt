@@ -1,3 +1,0 @@
-C:\Users\Namek\RiderProjects\Fundshare\FundshareBackend\obj\Debug\netcoreapp2.1\FundshareBackend.fsprojAssemblyReference.cache
-C:\Users\Namek\RiderProjects\Fundshare\FundshareBackend\obj\Debug\netcoreapp2.1\FundshareBackend.AssemblyInfoInputs.cache
-C:\Users\Namek\RiderProjects\Fundshare\FundshareBackend\obj\Debug\netcoreapp2.1\FundshareBackend.AssemblyInfo.fs
