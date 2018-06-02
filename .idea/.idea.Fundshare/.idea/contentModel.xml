@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ContentModelStore">
+    <e p="C:\Users\Namek\.Rider2018.1\system\resharper-host\local\Transient\ReSharperHost\v12\SolutionCaches\_Fundshare.-2061847755.00" t="ExcludeRecursive" />
+    <e p="C:\Users\Namek\RiderProjects\Fundshare" t="IncludeFlat">
+      <e p="Fundshare.sln" t="IncludeFlat" />
+      <e p="FundshareBackend" t="IncludeRecursive">
+        <e p="Api.fs" t="Include" />
+        <e p="bin" t="ExcludeRecursive" />
+        <e p="DataStructures.fs" t="Include" />
+        <e p="FundshareBackend.fsproj" t="IncludeRecursive" />
+        <e p="obj" t="ExcludeRecursive" />
+        <e p="Program.fs" t="Include" />
+        <e p="Repo.fs" t="Include" />
+        <e p="Sql.fs" t="Include" />
+      </e>
+      <e p="packages" t="ExcludeRecursive" />
+    </e>
+  </component>
+</project>
