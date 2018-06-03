@@ -19,10 +19,15 @@ let defaultConnection : string =
 //      |> Sql.config "SslMode=Require;"
     |> Sql.str
     
+    
+type Fraction =
+ private 
+  { num : int
+    den : int }
 
 type Balance =
  private 
-  { user1Id : int
+  { user1Id: int
     user2Id : int
     num : int
     den : int }
@@ -32,7 +37,8 @@ type Transaction =
   { transactionType : TransactionType
     payorId : int 
     payeeIds : int list
-    amount : int }
+    amount : int
+    updatedAt : DateTime }
     
 type Stats =
  private
@@ -65,26 +71,33 @@ let lcm (a : int) (b : int) : int =
   | a, b -> a*b / gcd a b
   
 // balance: how much the left is rebalanced to the right
-let calcTransactionBalance transaction : Balance list =
-  let peopleCount = transaction.payorId :: transaction.payeeIds |> List.distinct |> List.length
+// e.g. if num/den > 0 then user2 (right) is in debt to user1 (left)
+let calcTransactionBalances transaction : Balance list =
+  let peopleCount =
+    transaction.payorId :: transaction.payeeIds
+    |> List.distinct
+    |> List.length
   
   transaction.payeeIds
     |> List.filter (fun id -> id <> transaction.payorId)
     |> List.map (fun id ->
-      { user1Id = transaction.payorId
-        user2Id = id
-        num = transaction.amount
-        den = peopleCount })
+      let b =
+        { user1Id = transaction.payorId
+          user2Id = id
+          num = transaction.amount
+          den = peopleCount }
+          
+      // always contain {smaller_id, bigger_id} tuple for user ids
+      if b.user1Id < b.user2Id then b
+      else { user1Id = b.user2Id; user2Id = b.user1Id; num = -b.num; den = b.den }
+    )
     
-    // always contain {smaller_id, bigger_id} tuple for user ids
-    |> List.map (fun b ->
-        if b.user1Id < b.user2Id then b
-        else { user1Id = b.user2Id; user2Id = b.user1Id; num = -b.num; den = b.den })
+    
 
 let calculateBalanceFor2Users conn user1Id user2Id =
   let transactions : Transaction list  =
     Sql.executeQuery (TableQuery (
-      "SELECT transaction_type, payor_id, payee_ids, amount FROM public.transactions
+      "SELECT transaction_type, payor_id, payee_ids, amount, updatedAt FROM public.transactions
        WHERE payor_id = @u1 OR payor_id = @u2 OR @u1 IN payee_ids OR @u2 IN payee_ids",
       ["u1", Int user1Id; "u2", Int user2Id] )) (Sql.connect conn)
     |> function
@@ -95,29 +108,57 @@ let calculateBalanceFor2Users conn user1Id user2Id =
           "payor_id", Int payorId
           "payee_ids", IntArray payeeIds
           "amount", Int amount
+          "updatedAt", Date updatedAt
         ] -> Some <|
           { transactionType = decodeTransactionType tt
             payorId = payorId
             payeeIds = payeeIds
-            amount = amount }
+            amount = amount
+            updatedAt = updatedAt }
       | _ -> failwith "couldnt get transactions for 2 users")
       
+  let mutable stats = (0, 0, 0, (if transactions.IsEmpty then None else Some transactions.Head.updatedAt))
   
+  stats <- transactions
+    |> List.fold (fun acc_stats trans ->
+      let (
+        _isPayingForSelfOnly,
+        _isSharedPayment,
+        _isMoneyTransfer,
+        _lastUpdateAt
+        ) = acc_stats
+  
+      let lastUpdatedAt = (
+        if _lastUpdateAt.IsSome then
+          if (trans.updatedAt > _lastUpdateAt.Value) then (Some trans.updatedAt) else _lastUpdateAt
+        else
+          _lastUpdateAt)
+    
+      let newStats = 
+        (_isPayingForSelfOnly + (if isPayingForSelfOnly trans then 1 else 0),
+         _isSharedPayment + (if isSharedPayment trans then 1 else 0),
+         _isMoneyTransfer + (if isMoneyTransfer trans then 1 else 0),
+         _lastUpdateAt)
 
-  let stats = transactions |> List.reduce (fun trans acc_stats ->
-    let isPayingForSelfOnly = if isPayingForSelfOnly trans then 1 else 0
-    let isSharedPayment = if isSharedPayment trans then 1 else 0
-    let isMoneyTransfer = if isMoneyTransfer trans then 1 else 0
+      newStats
+      ) stats
     
-    acc_stats
-    |> 
-    
-    acc_stats) 
-    
-  let expectedUserIds = if user1Id < user2Id then [user1Id; user2Id] else [user2Id; user1Id]
+  let (expectedUser1Id, expectedUser2Id) = if user1Id < user2Id then (user1Id, user2Id) else (user2Id, user1Id)
   
   // transactions may contain other users than user1 and user2, so filter them out
-//  balanceCorrects 
+  let balanceCorrections : Balance list =
+    transactions
+    |> List.fold (fun allCollected trans ->
+         List.concat [(calcTransactionBalances trans); allCollected]) []
+    |> List.filter (fun balance ->
+         balance.user1Id = expectedUser1Id && balance.user2Id = expectedUser2Id)
+    
+  let totalBalance =
+    balanceCorrections
+    |> List.fold
+      (fun balances state -> )
+      
+    
   []  
   
 
