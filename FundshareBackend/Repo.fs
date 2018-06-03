@@ -94,7 +94,7 @@ let calcTransactionBalances transaction : Balance list =
     
     
 
-let calculateBalanceFor2Users conn user1Id user2Id =
+let calculateBalanceFor2Users conn user1Id user2Id : Fraction =
   let transactions : Transaction list  =
     Sql.executeQuery (TableQuery (
       "SELECT transaction_type, payor_id, payee_ids, amount, updatedAt FROM public.transactions
@@ -121,26 +121,26 @@ let calculateBalanceFor2Users conn user1Id user2Id =
   
   stats <- transactions
     |> List.fold (fun acc_stats trans ->
-      let (
-        _isPayingForSelfOnly,
-        _isSharedPayment,
-        _isMoneyTransfer,
-        _lastUpdateAt
-        ) = acc_stats
-  
-      let lastUpdatedAt = (
-        if _lastUpdateAt.IsSome then
-          if (trans.updatedAt > _lastUpdateAt.Value) then (Some trans.updatedAt) else _lastUpdateAt
-        else
-          _lastUpdateAt)
+        let (
+          _isPayingForSelfOnly,
+          _isSharedPayment,
+          _isMoneyTransfer,
+          _lastUpdateAt
+          ) = acc_stats
     
-      let newStats = 
-        (_isPayingForSelfOnly + (if isPayingForSelfOnly trans then 1 else 0),
-         _isSharedPayment + (if isSharedPayment trans then 1 else 0),
-         _isMoneyTransfer + (if isMoneyTransfer trans then 1 else 0),
-         _lastUpdateAt)
-
-      newStats
+        let lastUpdatedAt = (
+          if _lastUpdateAt.IsSome then
+            if (trans.updatedAt > _lastUpdateAt.Value) then (Some trans.updatedAt) else _lastUpdateAt
+          else
+            _lastUpdateAt)
+      
+        let newStats = 
+          (_isPayingForSelfOnly + (if isPayingForSelfOnly trans then 1 else 0),
+           _isSharedPayment + (if isSharedPayment trans then 1 else 0),
+           _isMoneyTransfer + (if isMoneyTransfer trans then 1 else 0),
+           _lastUpdateAt)
+  
+        newStats
       ) stats
     
   let (expectedUser1Id, expectedUser2Id) = if user1Id < user2Id then (user1Id, user2Id) else (user2Id, user1Id)
@@ -153,13 +153,17 @@ let calculateBalanceFor2Users conn user1Id user2Id =
     |> List.filter (fun balance ->
          balance.user1Id = expectedUser1Id && balance.user2Id = expectedUser2Id)
     
-  let totalBalance =
+  let totalBalance : Fraction =
     balanceCorrections
-    |> List.fold
-      (fun balances state -> )
-      
-    
-  []  
+    |> (List.fold (fun state correct ->
+        let n = state.num*correct.den + correct.num*state.den
+        let d = state.den*correct.den
+        let divisor = gcd n d
+        {num = n / divisor; den = d / divisor}
+      )
+      {num = 0; den = 0})
+
+  totalBalance
   
 
 let calculateBalanceForUsers conn userIds =
