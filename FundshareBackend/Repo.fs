@@ -18,9 +18,9 @@ let defaultConnection : string =
 let getAllUsers() : User list =
   defaultConnection
     |> Sql.connect
+    |> Sql.executeQuery (fun () ->
+      TableQuery ("SELECT id, email, name FROM public.users", []))
     
-    |> Sql.query "SELECT id, email, name FROM public.users"
-    |> Sql.executeTable // SqlTable
     |> Sql.mapEachRow (function
         | [ "id", Int id
             "email", String email
@@ -31,42 +31,19 @@ let getAllUsers() : User list =
               name = name }
         | _ -> None)
         
-
-//let getUserById (id : int) : User option =
-//  defaultConnection
-//    |> Sql.connect
-//    |> Sql.query ("SELECT email, name FROM public.users WHERE id=" + id.ToString())
-//    |> Sql.executeTable
-//    |> Sql.mapEachRow 
-//      (function
-//        | [ "email", String email
-//            "name", String name ] ->
-//          Some
-//            { id = id
-//              email = email
-//              name = name }
-//        | _ -> None)
-//    |> List.first
-
-
-//let addTransaction (args) : UserTransaction option =
-//  defaultConnection
-//      |> Sql.connect
-//      |> Sql.query "INSERT INTO \"public.users\"
-//        (transaction_type, payor_id, payee_ids, tags, description, paid_at, inserted_at, updated_at)
-//        VALUES (@transactionType, @payorId, @payeeIds, @tags, @description, @paidAt, @time, @time)"
-//      |> Sql.parameters
-////        [ "transactionType, 
-//      |> Sql.executeNonQuery
-      
-      
   
       
-let addTransaction (args) : UserTransaction option =
+let addTransaction (args : Input_AddTransaction) : UserTransaction option =
   defaultConnection
     |> Sql.connect 
     |> Sql.executeQueries (fun () ->
-      [ NonQuery ("INSERT INTO \"public.users\"", [])
+      [ NonQuery ("INSERT INTO \"public.users\" VALUES (transaction_type, payor_id, payee_ids, tags, description, paid_at, inserted_at, updated_at)",
+         [ "transactionType", Int 3
+           "payorId", Int args.payorId
+           "payeesIds", IntArray args.payeeIds
+           "tags", StringArray args.tags
+           "description", Option.map String args.description |> Option.defaultWith (fun () -> Null)
+         ])
         NonQuery ("UPDATE balance", [])
       ])
     |> function
@@ -79,10 +56,14 @@ let getUserById (id : int) : User option =
   defaultConnection
     |> Sql.connect
     |> Sql.executeQuery (fun () ->
-       TableQuery ("SELECT", []))
+       TableQuery ("SELECT email, name FROM public.users WHERE id=@userId LIMIT 1", [
+         "userId", Int id
+       ]))
     |> function
-      | Ok (TableResult rows) -> Some rows
+      | Ok (TableResult (row :: [])) -> Some row
       | _ -> None
-    |> Option.map (fun rows ->
-      rows.Head
-    )
+    |> function
+      | Some [ "email", String email
+               "name", String name ] ->
+        Some { email = email; name = name; id = id } 
+      | _ -> None

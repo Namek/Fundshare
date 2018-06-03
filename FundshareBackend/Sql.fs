@@ -22,6 +22,8 @@ type SqlValue =
     | Uuid of Guid
     | Null
     | Other of obj
+    | IntArray of int list
+    | StringArray of string list
 
 type SqlRow = list<string * SqlValue>
 
@@ -159,7 +161,7 @@ module Sql =
         [ while reader.Read() do yield readRow reader ]
 
         
-    let _executeQuery (session : Session) (sqlQuery : SqlQuery) : SqlResult =
+    let private _executeQuery (session : Session) (sqlQuery : SqlQuery) : SqlResult =
         let (query, parameters) = sqlQuery |> unpackSqlQuery
         
         use command = new NpgsqlCommand(query, session.Connection)
@@ -178,7 +180,9 @@ module Sql =
         
     let executeQuery (provideQuery : (unit -> SqlQuery)) (session : Session) : Result<SqlResult, string> =
         try
-            provideQuery() |> _executeQuery session |> Ok
+            let result = provideQuery() |> _executeQuery session |> Ok
+            do session.Connection.Close()
+            result
         with | ex -> Error ex.Message 
         
     // transactional
@@ -188,8 +192,11 @@ module Sql =
         try
             let results = provideQueries() |> List.map (_executeQuery session)
             trans.Commit()
-            if trans.IsCompleted then Ok results
-            else Error "transaction not completed"
+            let ret =
+              if trans.IsCompleted then Ok results
+              else Error "transaction not completed"
+            do session.Connection.Close()
+            ret
         with | ex ->
             trans.Rollback()
             Error ex.Message
@@ -260,3 +267,5 @@ module Sql =
 
     let mapEachRow (f: SqlRow -> Option<'a>) (table: SqlTable) =
         List.choose f table
+        
+    
