@@ -49,7 +49,6 @@ let Mutation = Define.Object("Mutation", [
       amount = ctx.Arg "amount"
       tags = ctx.Arg "tags"
       description = ctx.TryArg "description"
-      paidAt = ctx.TryArg "paidAt"
     }
     
     Repo.addTransaction args

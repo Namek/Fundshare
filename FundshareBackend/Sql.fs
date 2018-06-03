@@ -20,10 +20,10 @@ type SqlValue =
     | Bytea of byte[]
     | HStore of Map<string, string>
     | Uuid of Guid
-    | Null
-    | Other of obj
     | IntArray of int list
     | StringArray of string list
+    | Null
+    | Other of obj
 
 type SqlRow = list<string * SqlValue>
 
@@ -121,6 +121,8 @@ module Sql =
                   |> dict
                   |> Dictionary
                 upcast value
+            | IntArray arr -> upcast arr
+            | StringArray arr -> upcast arr
             | Null -> null
             | Other x -> x
 
@@ -143,6 +145,8 @@ module Sql =
               |> Seq.map (|KeyValue|)
               |> Map.ofSeq
               |> HStore
+          | :? array<int> as xs -> IntArray (Array.toList xs)
+          | :? array<string> as xs -> StringArray (Array.toList xs)
           | null -> Null
           | _ -> Other value
           
@@ -178,19 +182,19 @@ module Sql =
         | TableQuery (q, p) -> TableResult <| (command.ExecuteReader() |> readTable)
         
         
-    let executeQuery (provideQuery : (unit -> SqlQuery)) (session : Session) : Result<SqlResult, string> =
+    let executeQuery (query : SqlQuery) (session : Session) : Result<SqlResult, string> =
         try
-            let result = provideQuery() |> _executeQuery session |> Ok
+            let result = query |> _executeQuery session |> Ok
             do session.Connection.Close()
             result
         with | ex -> Error ex.Message 
         
     // transactional
-    let executeQueries (provideQueries : (unit -> SqlQuery list)) (session : Session) : Result<SqlResult list, string> =
+    let executeQueries (queries : SqlQuery list) (session : Session) : Result<SqlResult list, string> =
         use trans = session.Connection.BeginTransaction()
 
         try
-            let results = provideQueries() |> List.map (_executeQuery session)
+            let results = queries |> List.map (_executeQuery session)
             trans.Commit()
             let ret =
               if trans.IsCompleted then Ok results
@@ -249,20 +253,6 @@ module Sql =
 
 
     let multiline xs = String.concat Environment.NewLine xs
-
-//    let executeMany (props: SqlProps)  =
-//        if List.isEmpty props.SqlQuery then failwith "No query provided to execute..."
-//        let queryCount = List.length props.SqlQuery
-//        let singleQuery = String.concat ";" props.SqlQuery
-//        use connection = new NpgsqlConnection(props.ConnectionString)
-//        connection.Open()
-//        use command = new NpgsqlCommand(singleQuery, connection)
-//        if props.NeedPrepare then command.Prepare()
-//        populateCmd command props
-//        use reader = command.ExecuteReader()
-//        [ for _ in 1 .. queryCount do
-//            yield readTable reader
-//            reader.NextResult() |> ignore ]
 
 
     let mapEachRow (f: SqlRow -> Option<'a>) (table: SqlTable) =
