@@ -300,3 +300,12 @@ let getUserById (id : int) : User option =
              "name", String name ] ->
       Some { email = email; name = name; id = id } 
     | _ -> None
+    
+//let getAllUsers : User list =
+//  defaultConnection
+//  |> Sql.connect
+//  |> Sql.executeQuery
+//    (TableQuery ("SELECT * FROM public.users", [])
+    
+let validateUserCredentials (id : int) (password : string) : bool option =
+  Some false // TODO
