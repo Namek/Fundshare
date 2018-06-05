@@ -179,7 +179,7 @@ let calculateBalanceFor2Users conn (user1Id : int) (user2Id : int) : Balance =
   
 
 let calculateBalanceForUsers conn (userIds : int list) =
-  let idPairs = seq [
+  let idPairs = [
     for i in userIds do
       for j in userIds do
         if i < j then yield (i, j) ]
@@ -188,31 +188,55 @@ let calculateBalanceForUsers conn (userIds : int list) =
     
 
 let calculateBalanceForAllUsers conn =
-  let asd =
-    conn
-    |> Sql.connect
-    |> Sql.executeQuery (TableQuery ("SELECT id FROM public.users", []))
-    |> function
-      | Ok (TableResult rows) ->
-          Sql.mapEachRow (fun row ->
-            let (key, value) = row.Head
-            Some <| Sql.toInt value 
-          )
-      | _ -> failwith "omg"
-    
-    
-  asd |> (calculateBalanceForUsers conn)
-
-
-let updateBalances conn balances =
   conn
+  |> Sql.connect
+  |> Sql.executeQuery (TableQuery ("SELECT id FROM public.users", []))
+  |> function
+    | Ok (TableResult rows) ->
+        rows |> Sql.mapEachRow (fun row ->
+          let (key, value) = row.Head
+          Some <| Sql.toInt value 
+        )
+    | _ -> failwith "omg"
+  |> (calculateBalanceForUsers conn)
+
+
+let updateBalances conn (balances : Balance seq) =
+  let queries =
+    balances
+    |> Seq.map (fun b ->
+      NonQuery ("
+        INSERT INTO
+          balances (user1_id, user2_id, balance_num, balance_den, user1_has_more, shared_payment_count,
+                    transfer_count, unseen_update_count, last_update_at, inserted_at, updated_at)
+          VALUES (@user1Id, @user2Id, @num, @den, @user1HasMore, @spc, @tc, 0, @lastUpdate, @timeNow, @timeNow)
+        ON DUPLICATE KEY UPDATE
+          balance_num=@num, balance_den=@den, user1_has_more=@user1HasMore, shared_payment_count = @spc,
+          transfer_count=@tc, last_update_at=@lastUpdate, updated_at=@timeNow;
+        ",
+        [ "user1Id", Int b.user1Id
+          "user2Id", Int b.user2Id
+          "num", Int (abs b.num)
+          "den", Int b.den
+          "user1HasMore", Bool (b.num > 0)
+          "spc", Int b.sharedPaymentCount
+          "tc", Int b.moneyTransferCount
+          "lastUpdate", if b.lastUpdateAt.IsSome then Date b.lastUpdateAt.Value else Null
+          "timeNow", Date DateTime.Now
+        ] ))
+      |> Seq.toList
+
+  conn
+  |> Sql.connect
+  |> Sql.executeQueries queries
 
 let updateBalanceForAllUsers conn =
   calculateBalanceForAllUsers conn
   |> updateBalances conn
   
 let updateBalanceForUsers conn userIds =
-  []
+  calculateBalanceForUsers conn userIds
+  |> updateBalances conn
 
 
 let getAllUsers() : User list =

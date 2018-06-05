@@ -179,7 +179,7 @@ module Sql =
         match sqlQuery with
         | NonQuery _ -> NonQueryResult <| command.ExecuteNonQuery()
         | ScalarQuery _ -> ScalarResult <| (command.ExecuteScalar() |> readValue)
-        | TableQuery (q, p) -> TableResult <| (command.ExecuteReader() |> readTable)
+        | TableQuery _ -> TableResult <| (command.ExecuteReader() |> readTable)
         
         
     let executeQuery (query : SqlQuery) (session : Session) : Result<SqlResult, string> =
