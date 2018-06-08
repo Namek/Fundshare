@@ -40,7 +40,7 @@ type OptionConverter() =
     serializer.Serialize(writer, value)
   override x.ReadJson(reader, t, existingValue, serializer) = failwith "Not supported"  
 
-type GraphQLServerReturn = { data : Output; errors: Error list }
+type GraphQLServerReturn = { data : obj; errors: Error list }
 
 [<EntryPoint>]
 let main argv =
@@ -58,7 +58,7 @@ let main argv =
         let! result = executor.AsyncExecute(query)
         match result with
         | Direct (data, errors) ->
-          return Successful.OK (json {data = data; errors = errors})
+          return Successful.OK (json {data = data.["data"]; errors = errors})
         | _ ->
           return Successful.OK (json result.Content)
       }
