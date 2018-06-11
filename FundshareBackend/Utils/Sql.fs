@@ -1,6 +1,6 @@
 // original source: https://github.com/Zaid-Ajaj/Npgsql.FSharp/blob/master/src/Sql.fs
 // mod: added transactions
-module Utils.Sql
+module Fundshare.Utils.Sql
 
 open System
 open Npgsql
@@ -183,11 +183,17 @@ module Sql =
         
         
     let executeQuery (query : SqlQuery) (session : Session) : Result<SqlResult, string> =
-        try
-            let result = query |> _executeQuery session |> Ok
-            do session.Connection.Close()
-            result
-        with | ex -> Error ex.Message 
+      try
+        let result = query |> _executeQuery session |> Ok
+        do session.Connection.Close()
+        result
+      with | ex -> Error ex.Message 
+        
+    let executeQueryAndGetRow query session =
+      session |> executeQuery query
+      |> function
+        | Ok (TableResult (row :: [])) -> Some row
+        | _ -> None
         
     // transactional
     let executeQueries (queries : SqlQuery list) (session : Session) : Result<SqlResult list, string> =

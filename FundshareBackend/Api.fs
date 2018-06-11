@@ -7,7 +7,7 @@ open FSharp.Data.GraphQL.Execution
 open Fundshare.DataStructures
 
 type SignInResult =
-  { id : int
+  { userId : int
     name : string
     token : string }
   
@@ -30,7 +30,9 @@ and UserTransaction = Define.Object<UserTransaction>("UserTransaction", [
 ])
   
 and SignInResult = Define.Object<SignInResult>("SignInResult", [
-  Define.AutoField("token", String)    
+  Define.AutoField("userId", Int)
+  Define.AutoField("name", String)
+  Define.AutoField("token", String)
 ])
 
 and RegisterUserResult = Define.Object<RegisterUserResult>("RegisterUserResult", [
@@ -83,11 +85,9 @@ let Mutation = Define.Object("Mutation", [
     Define.Input("email", String)
     Define.Input("password", String)
   ], fun ctx () ->
-    let auth = Repo.validateUserCredentials (ctx.Arg "email") (ctx.Arg "password")
-    Some {id = 1; name="name"; token = "asd"}// TODO
+    Repo.validateUserCredentials (ctx.Arg "email") (ctx.Arg "password")
+    |> Option.map (fun user ->
+      
+      {userId = user.id; name = user.name; token = "asd"})
   )
 ])
-  
-
-
-//let schema = Schema(Query)

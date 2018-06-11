@@ -8,9 +8,16 @@
     <OutputPath>bin\Debug\netcoreapp2.1\</OutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Sql.fs" />
+    <Compile Include="Utils\Sql.fs" />
+    <Compile Include="Utils\Encodings.fs" />
+    <Compile Include="Utils\SuaveJson.fs" />
     <Compile Include="DataStructures.fs" />
     <Compile Include="Repo.fs" />
+    <Compile Include="Auth\KeyStore.fs" />
+    <Compile Include="Auth\JwtToken.fs" />
+    <Compile Include="Auth\Secure.fs" />
+    <Compile Include="Auth\IdentityStore.fs" />
+    <Compile Include="Auth\Auth.fs" />
     <Compile Include="Api.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
@@ -19,5 +26,6 @@
     <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
     <PackageReference Include="Npgsql" Version="4.0.0" />
     <PackageReference Include="suave" Version="2.4.0" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="5.2.2" />
   </ItemGroup>
 </Project>

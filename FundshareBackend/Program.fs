@@ -5,6 +5,7 @@ open System.Threading
 open System.Net
 open System.Text
 open System.IO
+open System.Security.Claims
 
 open Suave
 open Suave.Filters
@@ -16,6 +17,10 @@ open FSharp.Data.GraphQL.Execution
 
 open Fundshare.DataStructures
 open Fundshare.Api
+open Fundshare.Auth
+open Fundshare.Auth.Auth
+open Fundshare.Auth.JwtToken
+open Fundshare.Auth.Secure
 
 let httpFilesPath = @"C:\Users\Namek\RiderProjects\Fundshare\FundshareFrontend\dist"
 
@@ -63,7 +68,7 @@ let main argv =
           return Successful.OK (json result.Content)
       }
 
-  let graphiql : WebPart =
+  let graphql : WebPart =
     fun http ->
       async {
         let q = match tryParse "query" http.request.rawForm with
@@ -81,12 +86,40 @@ let main argv =
   let setCorsHeaders = 
     Writers.setHeader  "Access-Control-Allow-Origin" "*"
     >=> Writers.setHeader "Access-Control-Allow-Headers" "content-type"
+    
+  // TODO
+  //config :app, AppWeb.Auth.Guardian,
+  //  issuer: "app",
+  //  token_verify_module: Guardian.Token.Jwt.Verify,
+  //  secret_key: "8EEQKXaaDUMzVzcvfUUgsko4r+VwgCd8/33d6Cj+IR7IFCd7/s0z9mqDlvqg2n0L"
+  let authorizationServerConfig : AuthConfig = {
+    Audience = "main"
+    Secret = KeyStore.createSecret
+    Issuer = "app"
+    TokenTimeSpan = TimeSpan.FromMinutes(1.0)
+  }
+  
+  let jwtConfig : JwtConfig = {
+    Issuer = authorizationServerConfig.Issuer
+    ClientId = authorizationServerConfig.Audience
+    SecurityKey = KeyStore.securityKey <| authorizationServerConfig.Secret
+  }
+
+  let identityStore : IdentityStore = {
+    getClaims = IdentityStore.getClaims
+    validateUserCredentials = Repo.validateUserCredentials
+    getSecurityKey = KeyStore.securityKey
+    getSigningCredentials = KeyStore.hmacSha256
+  }
+  
+  let jwtAuth = jwtAuthorize jwtConfig identityStore.getClaims
   
   let app : WebPart =
     choose [
       GET >=> path "/" >=> Files.browseFileHome "index.html"
       GET >=> Files.browseHome
-      path "/api" >=> setCorsHeaders >=> graphiql >=> Writers.setMimeType "application/json"
+      path "/api" >=> jwtAuth (Suave.Successful.OK "Auth") >=> setCorsHeaders >=> graphql >=> Writers.setMimeType "application/json"
+      POST >=> path "/auth/token" >=> authCreateToken authorizationServerConfig identityStore   
       RequestErrors.NOT_FOUND "Page not found." 
     ]
   

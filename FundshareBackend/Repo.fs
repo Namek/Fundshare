@@ -289,23 +289,20 @@ let addTransaction (args : Input_AddTransaction) : UserTransaction option =
 let getUserById (id : int) : User option =
   defaultConnection
   |> Sql.connect
-  |> Sql.executeQuery
+  |> Sql.executeQueryAndGetRow
     (TableQuery ("SELECT email, name FROM public.users WHERE id=@userId LIMIT 1",
                  ["userId", Int id]))
   |> function
-    | Ok (TableResult (row :: [])) -> Some row
-    | _ -> None
-  |> function
-    | Some [ "email", String email
-             "name", String name ] ->
+    | Some [ "email", String email; "name", String name ] ->
       Some { email = email; name = name; id = id } 
     | _ -> None
     
-//let getAllUsers : User list =
-//  defaultConnection
-//  |> Sql.connect
-//  |> Sql.executeQuery
-//    (TableQuery ("SELECT * FROM public.users", [])
-    
-let validateUserCredentials (id : int) (password : string) : bool option =
-  Some false // TODO
+let validateUserCredentials (email : string) (password : String) : User option =
+  defaultConnection
+  |> Sql.connect
+  |> Sql.executeQueryAndGetRow
+    (TableQuery ("SELECT id, name FROM public.users WHERE email=@email AND password='@password' LIMIT 1",
+                 ["email", String email; "password", String password]))
+  |> Option.map (
+    fun ([ "id", Int id; "name", String name ]) ->
+      { id = id; name = name; email = email })
