@@ -4,20 +4,18 @@ open Fundshare
 open System
 open Fundshare.DataStructures
 open Utils.Sql
-open NpgsqlTypes
-open Utils.Sql
-open Utils.Sql
-open Utils.Sql
 
   
 let defaultConnection : string =
-  Sql.host "localhost"
-    |> Sql.port 5432
-    |> Sql.username "postgres"
-    |> Sql.password "postgres"
-    |> Sql.database "fundshare_dev"
+  Sql.host AppConfig.DB.host
+    |> Sql.port AppConfig.DB.port
+    |> Sql.username AppConfig.DB.username
+    |> Sql.password AppConfig.DB.password
+    |> Sql.database AppConfig.DB.database
 //      |> Sql.config "SslMode=Require;"
     |> Sql.str
+    
+let connect = fun () -> defaultConnection |> Sql.connect
     
     
 type Fraction =
@@ -188,8 +186,7 @@ let calculateBalanceForUsers conn (userIds : int list) =
     
 
 let calculateBalanceForAllUsers conn =
-  conn
-  |> Sql.connect
+  connect()
   |> Sql.executeQuery (TableQuery ("SELECT id FROM public.users", []))
   |> function
     | Ok (TableResult rows) ->
@@ -226,8 +223,7 @@ let updateBalances conn (balances : Balance seq) =
         ] ))
       |> Seq.toList
 
-  conn
-  |> Sql.connect
+  connect()
   |> Sql.executeQueries queries
 
 let updateBalanceForAllUsers conn =
@@ -240,8 +236,7 @@ let updateBalanceForUsers conn userIds =
 
 
 let getAllUsers() : User list =
-  defaultConnection
-  |> Sql.connect
+  connect()
   |> Sql.executeQuery (TableQuery ("SELECT id, email, name FROM public.users", []))
   |> function
     | Ok (TableResult (rows)) -> rows
@@ -258,19 +253,18 @@ let getAllUsers() : User list =
       
 let addTransaction (args : Input_AddTransaction) : UserTransaction option =
   let now = DateTime.Now
-  defaultConnection
-  |> Sql.connect 
+  connect()
   |> Sql.executeQueries
     [ ScalarQuery (
-        "INSERT INTO \"public.users\" (transaction_type, payor_id, payee_ids, tags, description, inserted_at, updated_at)
+        "INSERT INTO \"public.users\" (payor_id, payee_ids, tags, description, inserted_at, updated_at)
          VALUES (@tt, @pid, @pids, @tags, @descr, @timeNow, @timeNow) RETURNING id",
-        [ "tt", Int 3 // TODO enum!
-          "pid", Int args.payorId
+        [ "pid", Int args.payorId
           "pidds", IntArray args.payeeIds
           "tags", StringArray args.tags
           "descr", Option.map String args.description |> Option.defaultWith (fun () -> Null)
           "timeNow", Date <| now ])
 
+        // TODO !
       NonQuery ("UPDATE balance", [])
     ]
   |> function
@@ -287,8 +281,7 @@ let addTransaction (args : Input_AddTransaction) : UserTransaction option =
 
 
 let getUserById (id : int) : User option =
-  defaultConnection
-  |> Sql.connect
+  connect()
   |> Sql.executeQueryAndGetRow
     (TableQuery ("SELECT email, name FROM public.users WHERE id=@userId LIMIT 1",
                  ["userId", Int id]))
@@ -297,12 +290,26 @@ let getUserById (id : int) : User option =
       Some { email = email; name = name; id = id } 
     | _ -> None
     
-let validateUserCredentials (email : string) (password : String) : User option =
-  defaultConnection
-  |> Sql.connect
+let validateUserCredentials (email : string) (passwordSalted : String) : User option =
+  connect()
   |> Sql.executeQueryAndGetRow
-    (TableQuery ("SELECT id, name FROM public.users WHERE email=@email AND password='@password' LIMIT 1",
-                 ["email", String email; "password", String password]))
-  |> Option.map (
-    fun ([ "id", Int id; "name", String name ]) ->
-      { id = id; name = name; email = email })
+    (TableQuery ("SELECT id, name FROM public.users WHERE email=@email AND password_hash=@password LIMIT 1;",
+                 ["email", String email; "password", String passwordSalted]))
+  |> function
+    | (Some [ "id", Int id; "name", String name ]) ->
+      Some { id = id; name = name; email = email }
+    | _ -> None
+
+let addUser (email : string) (passwordHash : string) (name : String) : int option =
+  let now = DateTime.Now
+  connect()
+  |> Sql.executeQueryAndGetRow (
+    ScalarQuery (
+      "INSERT INTO public.users (email, name, password_hash, inserted_at, updated_at)
+       VALUES (@email, @name, @passwordHash, @now) RETURNING id",
+      ["email", String email; "name", String name; "passwordHash", String passwordHash; "now", Date now]
+    ))
+  |> function 
+    | Some [ "id", Int id ] ->
+        Some id
+    | _ -> None

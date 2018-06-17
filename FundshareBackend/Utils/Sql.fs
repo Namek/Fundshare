@@ -43,6 +43,7 @@ type SqlQuery =
 
 [<RequireQualifiedAccess>]
 module Sql =
+    open System.Diagnostics
 
     type ConnectionStringBuilder = private {
         Host: string
@@ -162,24 +163,33 @@ module Sql =
         |> List.map readFieldSync
 
     let readTable (reader: NpgsqlDataReader) : SqlTable =
-        [ while reader.Read() do yield readRow reader ]
+      let r = reader
+      [ while reader.Read() do yield readRow reader ]
 
         
     let private _executeQuery (session : Session) (sqlQuery : SqlQuery) : SqlResult =
-        let (query, parameters) = sqlQuery |> unpackSqlQuery
+      let (query, parameters) = sqlQuery |> unpackSqlQuery
         
-        use command = new NpgsqlCommand(query, session.Connection)
-        do populateCmd command parameters
+      use command = new NpgsqlCommand(query, session.Connection)
+      do populateCmd command parameters
 
-        if Option.isSome session.Transaction then
-            do command.Transaction <- session.Transaction.Value
+      if Option.isSome session.Transaction then
+          do command.Transaction <- session.Transaction.Value
 
         //        if props.NeedPrepare then command.Prepare()
         
-        match sqlQuery with
+      try
+        let result = match sqlQuery with
         | NonQuery _ -> NonQueryResult <| command.ExecuteNonQuery()
         | ScalarQuery _ -> ScalarResult <| (command.ExecuteScalar() |> readValue)
         | TableQuery _ -> TableResult <| (command.ExecuteReader() |> readTable)
+        do Debug.Print (result.ToString())
+        result
+      with | ex ->
+        Debug.Print ex.Message
+        failwith ex.Message
+
+      
         
         
     let executeQuery (query : SqlQuery) (session : Session) : Result<SqlResult, string> =
@@ -187,7 +197,9 @@ module Sql =
         let result = query |> _executeQuery session |> Ok
         do session.Connection.Close()
         result
-      with | ex -> Error ex.Message 
+      with | ex ->
+        do Debug.Print ex.Message
+        Error ex.Message 
         
     let executeQueryAndGetRow query session =
       session |> executeQuery query

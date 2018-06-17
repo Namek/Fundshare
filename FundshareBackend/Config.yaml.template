@@ -1,0 +1,15 @@
+﻿General:
+  httpFilesPath: C:\Users\Namek\RiderProjects\Fundshare\FundshareFrontend\dist
+
+DB:
+  host: localhost
+  port: 5432
+  username: root
+  password: mypassword
+  database: fundshare_dev
+
+Auth:
+  tokenEncryptionKey: 707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f
+  tokenIssuer: fundshare_web
+  passwordSalt: r32jf90e8uijk2l1ed
+  cookieAuthName: authorization

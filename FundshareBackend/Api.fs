@@ -1,59 +1,104 @@
 module Fundshare.Api
 
+open System
+open System.Text
 open FSharp.Data.GraphQL
 open FSharp.Data.GraphQL.Types
 open FSharp.Data.GraphQL.Execution
-
+open Paseto.Authentication
 open Fundshare.DataStructures
+open YoLo
 
 type SignInResult =
   { userId : int
-    name : string
-    token : string }
+    name : string }
+
+type SignOutResult =
+  { userId : int option }
   
 type RegisterUserResult =
   { id : int }
   
+
+
+/// PASETO
+let hexToBytes (hexString : string) =
+  let bytes : byte array = Array.zeroCreate (hexString.Length/2)
+  
+  for i in [0..(bytes.Length-1)] do
+    do bytes.[i] <- Convert.ToByte(hexString.Substring(i * 2, 2), 16)
+    
+  bytes
+  
+let tokenEncryptionKey = hexToBytes(AppConfig.Auth.tokenEncryptionKey);
+
+let createToken (userId : int) =
+  let now = DateTimeOffset.Now
+  
+  let claims = new PasetoInstance(
+    Issuer = AppConfig.Auth.tokenIssuer,
+    Subject = userId.ToString(),
+    Audience = "audience",
+    Expiration = System.Nullable(now.AddMinutes(72. * 60.)),
+    NotBefore = System.Nullable(now.AddMinutes(-10.)),
+    IssuedAt = System.Nullable(now)
+//      AdditionalClaims = Map.ofSeq ["roles", upcast ["Admin", "User"]],
+//      Footer = Map.ofSeq ["kid", upcast "dpm0"]
+  )
+  PasetoUtility.Encrypt(tokenEncryptionKey, claims);
+
+let parseToken token : PasetoInstance =
+  PasetoUtility.Decrypt(tokenEncryptionKey, token)
+  
   
 /////////////////////////
 
-let rec User = Define.Object<User>("User", [
-  Define.AutoField("id", Int)
-  Define.AutoField("email", String)
-  Define.AutoField("name", String)
-  // balances
-  // transactions
-])
+let rec User = Define.Object<User>("User",
+  [ Define.AutoField("id", Int)
+    Define.AutoField("email", String)
+    Define.AutoField("name", String)
+      // balances
+      // transactions
+  ])
   
 and UserTransaction = Define.Object<UserTransaction>("UserTransaction", [
   Define.AutoField("id", Int)
 ])
-  
 and SignInResult = Define.Object<SignInResult>("SignInResult", [
   Define.AutoField("userId", Int)
   Define.AutoField("name", String)
-  Define.AutoField("token", String)
 ])
-
+and SignOutResult = Define.Object<SignOutResult>("SignOutResult", [
+  Define.AutoField("userId", Nullable Int)
+])
 and RegisterUserResult = Define.Object<RegisterUserResult>("RegisterUserResult", [
   Define.AutoField("id", Int)
 ])
 
-//and Node = Define.Interface<obj>(fun () -> [ User; UserTransaction ])
 
-let AllGraphqlTypes : NamedDef list = [ User; UserTransaction; SignInResult; RegisterUserResult ]
+let AllGraphqlTypes : NamedDef list =
+  [ User
+    UserTransaction
+    SignInResult
+    SignOutResult
+    RegisterUserResult
+  ]
 
 //////////////////////
 
+type Session =
+  { authorizedUserId : int option
+    mutable token : string option }
+
   
-let Query = Define.Object("Query", [
-  Define.Field("users", ListOf User, "All users", [], fun ctx () -> [])
+let Query = Define.Object<Session>("Query", [
+  Define.Field("users", ListOf User, "All users", [], fun ctx _ -> [])
   Define.Field("user", Nullable User, "Specified user", [Define.Input ("id", Int)],
-    fun ctx () -> ctx.Arg("id") |> Repo.getUserById)
+    fun ctx session -> ctx.Arg("id") |> Repo.getUserById)
 //    Define.Field("currentUser", Nullable User, "Get currently logged in user", [], Session...) TODO 
 ])
   
-let Mutation = Define.Object("Mutation", [
+let Mutation = Define.Object<Session>("Mutation", [
   Define.Field("addTransaction", Nullable UserTransaction,
     "Remember transaction between payor and payees, then update balance between them", [
       Define.Input("payorId", Int)
@@ -61,7 +106,7 @@ let Mutation = Define.Object("Mutation", [
       Define.Input("amount", Int)
       Define.Input("tags", ListOf String)
       Define.Input("description", Nullable String)
-    ], fun ctx () ->
+    ], fun ctx session ->
     let args : Input_AddTransaction = {
       payorId = ctx.Arg "payorId"
       payeeIds = ctx.Arg "payeeIds"
@@ -73,21 +118,31 @@ let Mutation = Define.Object("Mutation", [
     Repo.addTransaction args
   )
   
-  Define.Field("registerUser", RegisterUserResult, "Register a new user", [
+  Define.Field("registerUser", Nullable RegisterUserResult, "Register a new user", [
     Define.Input("email", String)
     Define.Input("name", String)
-    Define.Input("password", String)
-  ], fun ctx () ->
-    { id = 1 } // TODO register new user
+    Define.Input("passwordHash", String)
+  ], fun ctx session ->
+    let passwordSalted = UTF8.sha1Hex <| (ctx.Arg "passwordHash") + AppConfig.Auth.passwordSalt
+    Repo.addUser (ctx.Arg "email") passwordSalted (ctx.Arg "name")
+      |> Option.map (fun id -> {id = id})
   )
   
   Define.Field("signIn", Nullable SignInResult, "Sign in user of given email with a password", [
     Define.Input("email", String)
-    Define.Input("password", String)
-  ], fun ctx () ->
-    Repo.validateUserCredentials (ctx.Arg "email") (ctx.Arg "password")
+    Define.Input("passwordHash", String, description = "sha1 hashed password where salt (added on the right) is login email")
+  ], fun ctx session ->
+    let email = (ctx.Arg "email")
+    let passwordSalted = UTF8.sha1Hex <| (ctx.Arg "passwordHash") + AppConfig.Auth.passwordSalt
+    
+    Repo.validateUserCredentials email passwordSalted
     |> Option.map (fun user ->
-      
-      {userId = user.id; name = user.name; token = "asd"})
+      do session.token <- Some <| createToken user.id
+      { userId = user.id; name = user.name })
+  )
+  
+  Define.Field("signOut", SignOutResult, "Sign out current user", [], fun ctx session ->
+    do session.token <- None
+    { userId = session.authorizedUserId }
   )
 ])

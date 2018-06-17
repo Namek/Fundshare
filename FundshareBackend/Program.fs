@@ -1,28 +1,16 @@
-﻿module Fundshare.Main
+module Fundshare.Main
 
 open System
-open System.Threading
-open System.Net
-open System.Text
-open System.IO
-open System.Security.Claims
-
 open Suave
+open Suave.Cookie
 open Suave.Filters
 open Suave.Operators
 open Newtonsoft.Json
 open FSharp.Data.GraphQL
 open FSharp.Data.GraphQL.Types
 open FSharp.Data.GraphQL.Execution
-
-open Fundshare.DataStructures
 open Fundshare.Api
-open Fundshare.Auth
-open Fundshare.Auth.Auth
-open Fundshare.Auth.JwtToken
-open Fundshare.Auth.Secure
 
-let httpFilesPath = @"C:\Users\Namek\RiderProjects\Fundshare\FundshareFrontend\dist"
 
 let tryParse fieldName (data : byte array) =
   let raw = Text.Encoding.UTF8.GetString(data)
@@ -30,6 +18,7 @@ let tryParse fieldName (data : byte array) =
   then
     let map = JsonConvert.DeserializeObject<Map<string,string>>(raw)
     Map.tryFind fieldName map
+      |> Option.bind (fun value -> if value <> null then Some value else None)
   else None
   
 type OptionConverter() =
@@ -49,7 +38,6 @@ type GraphQLServerReturn = { data : obj; errors: Error list }
 
 [<EntryPoint>]
 let main argv =
-
   let settings = JsonSerializerSettings()
   settings.Converters <- [| OptionConverter() :> JsonConverter |]
   settings.ContractResolver <- Newtonsoft.Json.Serialization.CamelCasePropertyNamesContractResolver()
@@ -58,73 +46,82 @@ let main argv =
   let schema = Schema(Query, Mutation, config = { SchemaConfig.Default with Types = AllGraphqlTypes })
   let executor = Executor(schema)
   
-  let executeQuery (query : string) =
-      async {
-        let! result = executor.AsyncExecute(query)
-        match result with
-        | Direct (data, errors) ->
-          return Successful.OK (json {data = data.["data"]; errors = errors})
-        | _ ->
-          return Successful.OK (json result.Content)
-      }
 
   let graphql : WebPart =
     fun http ->
       async {
-        let q = match tryParse "query" http.request.rawForm with
-          | Some query ->
-            // at the moment parser is not parsing new lines correctly, so we need to get rid of them
-            query.Trim().Replace("\r\n", " ").Replace("\n", " ")
-              
-          | None ->
-            Introspection.introspectionQuery
+        let token : string option =
+          http.request.cookies.TryFind AppConfig.Auth.cookieAuthName
+          |> Option.map (fun t -> t.value)
+
+        let authorizedUserId = 
+          token
+            |> Option.map(fun value ->
+                let token = parseToken value
+
+                match Int32.TryParse(token.Subject) with
+                | (true, int) -> Some(int)
+                | _ -> None
+              )
+            |> Option.defaultValue None
+
+        if authorizedUserId.IsSome then do printfn "%d" authorizedUserId.Value
+
+        let session : Session =
+          { authorizedUserId = authorizedUserId
+            token = token }
+      
+        let body = http.request.rawForm 
+        let query = body |> tryParse "query" |> Option.map (fun query -> query.Trim().Replace("\r\n", " ").Replace("\n", " "))
+        let variables = body |> tryParse "variables" |> Option.map (fun v -> JsonConvert.DeserializeObject<Map<string, obj>>(v))
         
-        let! res = executeQuery q
-        return! http |> res
+        let res =
+          match query, variables with
+          | Some query, Some variables ->
+              printfn "Received query: %s" query
+              printfn "Received variables: %A" variables
+              executor.AsyncExecute(query, variables = variables, data = session)
+          | Some query, None ->
+              printfn "Received query: %s" query
+              executor.AsyncExecute(query, data = session)
+          | None, _ ->
+              executor.AsyncExecute(Introspection.introspectionQuery)
+          |> Async.RunSynchronously
+
+        let setAuthCookie =
+          if token.IsSome && session.token.IsNone then
+              Cookie.unsetCookie AppConfig.Auth.cookieAuthName
+          else if session.token.IsSome then
+              Cookie.setCookie <| HttpCookie.createKV AppConfig.Auth.cookieAuthName session.token.Value
+          else
+            WebPart.succeed
+
+        return! http
+          |> match res with
+            | Direct (data, errors) ->
+              setAuthCookie >=> Successful.OK (json {data = data.["data"]; errors = errors})
+            | _ ->
+              setAuthCookie >=> Successful.OK (json res.Content)
       }
   
   let setCorsHeaders = 
     Writers.setHeader  "Access-Control-Allow-Origin" "*"
     >=> Writers.setHeader "Access-Control-Allow-Headers" "content-type"
-    
-  // TODO
-  //config :app, AppWeb.Auth.Guardian,
-  //  issuer: "app",
-  //  token_verify_module: Guardian.Token.Jwt.Verify,
-  //  secret_key: "8EEQKXaaDUMzVzcvfUUgsko4r+VwgCd8/33d6Cj+IR7IFCd7/s0z9mqDlvqg2n0L"
-  let authorizationServerConfig : AuthConfig = {
-    Audience = "main"
-    Secret = KeyStore.createSecret
-    Issuer = "app"
-    TokenTimeSpan = TimeSpan.FromMinutes(1.0)
-  }
-  
-  let jwtConfig : JwtConfig = {
-    Issuer = authorizationServerConfig.Issuer
-    ClientId = authorizationServerConfig.Audience
-    SecurityKey = KeyStore.securityKey <| authorizationServerConfig.Secret
-  }
-
-  let identityStore : IdentityStore = {
-    getClaims = IdentityStore.getClaims
-    validateUserCredentials = Repo.validateUserCredentials
-    getSecurityKey = KeyStore.securityKey
-    getSigningCredentials = KeyStore.hmacSha256
-  }
-  
-  let jwtAuth = jwtAuthorize jwtConfig identityStore.getClaims
   
   let app : WebPart =
     choose [
-      GET >=> path "/" >=> Files.browseFileHome "index.html"
-      GET >=> Files.browseHome
-      path "/api" >=> jwtAuth (Suave.Successful.OK "Auth") >=> setCorsHeaders >=> graphql >=> Writers.setMimeType "application/json"
-      POST >=> path "/auth/token" >=> authCreateToken authorizationServerConfig identityStore   
+      Filters.GET >=> path "/" >=> Files.browseFileHome "index.html"
+      path "/api" >=> setCorsHeaders >=> graphql >=> Writers.setMimeType "application/json"
+      Filters.GET >=> Files.browseHome  
       RequestErrors.NOT_FOUND "Page not found." 
     ]
+
+  Console.WriteLine("Serving files from: " + AppConfig.General.httpFilesPath)
   
-  let config = { defaultConfig with homeFolder = Some httpFilesPath; hideHeader = true }
+  let config = { defaultConfig with
+    homeFolder = Some AppConfig.General.httpFilesPath
+    hideHeader = true
+  }
   startWebServer config app
-  
   
   0
