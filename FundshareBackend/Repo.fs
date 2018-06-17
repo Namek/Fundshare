@@ -42,8 +42,7 @@ type BalanceCorrection =
   
 type Transaction =
  private
-  { transactionType : TransactionType
-    payorId : int 
+  { payorId : int 
     payeeIds : int list
     amount : int
     updatedAt : DateTime }
@@ -100,21 +99,19 @@ let calcTransactionBalanceCorrections transaction : BalanceCorrection list =
 let calculateBalanceFor2Users conn (user1Id : int) (user2Id : int) : Balance =
   let transactions : Transaction list  =
     Sql.executeQuery (TableQuery (
-      "SELECT transaction_type, payor_id, payee_ids, amount, updatedAt FROM public.transactions
+      "SELECT payor_id, payee_ids, amount, updatedAt FROM public.transactions
        WHERE payor_id = @u1 OR payor_id = @u2 OR @u1 IN payee_ids OR @u2 IN payee_ids",
       ["u1", Int user1Id; "u2", Int user2Id] )) (Sql.connect conn)
     |> function
       | Ok (TableResult rows) -> rows
       | _ -> failwith "---"
     |> Sql.mapEachRow (function
-      | [ "transaction_type", String tt
-          "payor_id", Int payorId
+      | [ "payor_id", Int payorId
           "payee_ids", IntArray payeeIds
           "amount", Int amount
           "updatedAt", Date updatedAt
         ] -> Some <|
-          { transactionType = decodeTransactionType tt
-            payorId = payorId
+          { payorId = payorId
             payeeIds = payeeIds
             amount = amount
             updatedAt = updatedAt }

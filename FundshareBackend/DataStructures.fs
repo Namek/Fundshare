@@ -12,8 +12,6 @@ type User = {
 //  updated_at : int64
 }
 
-type TransactionType = Shared | Transfer
-
 type UserTransaction = {
   id : int
   payorId : int
@@ -31,9 +29,3 @@ type Input_AddTransaction = {
   tags : string list
   description : string option
 }
-
-let decodeTransactionType (t : string) : TransactionType =
-  match t.ToLower() with 
-  | "shared" -> Shared
-  | "transfer" -> Transfer
-  | _ -> failwith <| "wrong transaction type: " + t
