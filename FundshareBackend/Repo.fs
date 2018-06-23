@@ -96,12 +96,12 @@ let calcTransactionBalanceCorrections transaction : BalanceCorrection list =
     
     
 
-let calculateBalanceFor2Users conn (user1Id : int) (user2Id : int) : Balance =
+let calculateBalanceFor2Users (user1Id : int) (user2Id : int) : Balance =
   let transactions : Transaction list  =
     Sql.executeQuery (TableQuery (
-      "SELECT payor_id, payee_ids, amount, updatedAt FROM public.transactions
+      "SELECT payor_id, payee_ids, amount, updated_at FROM public.transactions
        WHERE payor_id = @u1 OR payor_id = @u2 OR @u1 IN payee_ids OR @u2 IN payee_ids",
-      ["u1", Int user1Id; "u2", Int user2Id] )) (Sql.connect conn)
+      ["u1", Int user1Id; "u2", Int user2Id] )) (connect())
     |> function
       | Ok (TableResult rows) -> rows
       | _ -> failwith "---"
@@ -173,16 +173,16 @@ let calculateBalanceFor2Users conn (user1Id : int) (user2Id : int) : Balance =
   }
   
 
-let calculateBalanceForUsers conn (userIds : int list) =
+let calculateBalanceForUsers (userIds : int list) =
   let idPairs = [
     for i in userIds do
       for j in userIds do
         if i < j then yield (i, j) ]
   
-  idPairs |> Seq.map (uncurry (calculateBalanceFor2Users conn))
+  idPairs |> Seq.map (uncurry calculateBalanceFor2Users)
     
 
-let calculateBalanceForAllUsers conn =
+let calculateBalanceForAllUsers =
   connect()
   |> Sql.executeQuery (TableQuery ("SELECT id FROM public.users", []))
   |> function
@@ -192,10 +192,10 @@ let calculateBalanceForAllUsers conn =
           Some <| Sql.toInt value 
         )
     | _ -> failwith "omg"
-  |> (calculateBalanceForUsers conn)
+  |> calculateBalanceForUsers
 
 
-let updateBalances conn (balances : Balance seq) =
+let updateBalances (balances : Balance seq) =
   let queries =
     balances
     |> Seq.map (fun b ->
@@ -223,13 +223,13 @@ let updateBalances conn (balances : Balance seq) =
   connect()
   |> Sql.executeQueries queries
 
-let updateBalanceForAllUsers conn =
-  calculateBalanceForAllUsers conn
-  |> updateBalances conn
+let updateBalanceForAllUsers =
+  calculateBalanceForAllUsers
+  |> updateBalances
   
-let updateBalanceForUsers conn userIds =
-  calculateBalanceForUsers conn userIds
-  |> updateBalances conn
+let updateBalanceForUsers userIds =
+  calculateBalanceForUsers userIds
+  |> updateBalances
 
 
 let getAllUsers() : User list =
@@ -245,7 +245,9 @@ let getAllUsers() : User list =
         ] ->
           { id = id
             email = email
-            name = name } |> Some
+            name = name
+            balances = None
+            transactions = None } |> Some
       | _ -> None)
       
 let addTransaction (args : Input_AddTransaction) : UserTransaction option =
@@ -284,7 +286,7 @@ let getUserById (id : int) : User option =
                  ["userId", Int id]))
   |> function
     | Some [ "email", String email; "name", String name ] ->
-      Some { email = email; name = name; id = id } 
+      Some { email = email; name = name; id = id; balances = None; transactions = None } 
     | _ -> None
     
 let validateUserCredentials (email : string) (passwordSalted : String) : User option =
@@ -294,7 +296,7 @@ let validateUserCredentials (email : string) (passwordSalted : String) : User op
                  ["email", String email; "password", String passwordSalted]))
   |> function
     | (Some [ "id", Int id; "name", String name ]) ->
-      Some { id = id; name = name; email = email }
+      Some { id = id; name = name; email = email; balances = None; transactions = None }
     | _ -> None
 
 let addUser (email : string) (passwordHash : string) (name : String) : int option =
@@ -310,3 +312,39 @@ let addUser (email : string) (passwordHash : string) (name : String) : int optio
     | Some [ "id", Int id ] ->
         Some id
     | _ -> None
+    
+// TODO map graphql selectionSet to list of fields
+    
+let getUserTransactions (userId : int) : UserTransaction list =
+  connect()
+  |> Sql.executeQueryAndGetRows (TableQuery (
+    "SELECT id, payor_id, payee_ids, amount, description, tags, inserted_at FROM public.transactions
+     WHERE payor_id = @uid OR @uid IN payee_ids",
+    ["uid", Int userId] ))
+  |> (Option.map << Sql.mapEachRow) (
+        function
+        | [
+          "id", Int tid
+          "payor_id", Int pid
+          "payee_ids", IntArray pids
+          "amount", Int amount
+          "description", maybeDescr
+          "tags", StringArray tags
+          "inserted_at", Date insertedAt ] ->
+            
+          let descr : string option = match maybeDescr with
+          | String descrStr -> Some descrStr
+          | _ -> None
+
+          
+          Some <|
+          { id = tid
+            payorId = pid
+            payeeIds = pids
+            amount = amount
+            description = descr
+            tags = tags
+            insertedAt = insertedAt }
+    )
+  |> Option.defaultValue []
+  

@@ -7,12 +7,18 @@ type User = {
   id : int
   email : string
   name : string
-//  password_hash : string
-//  inserted_at : int64
-//  updated_at : int64
+  balances : (BalanceToOtherUser list) option
+  transactions : (UserTransaction list) option
 }
-
-type UserTransaction = {
+and Transaction = {
+  id : int
+  payorId : int
+  payeeIds : int list
+  amount : float
+  description : string option
+  tags : string list
+}
+and UserTransaction = {
   id : int
   payorId : int
   payeeIds : int list
@@ -21,11 +27,30 @@ type UserTransaction = {
   tags : string list
   insertedAt : DateTime
 }
-
-type Input_AddTransaction = {
+and Input_AddTransaction = {
   payorId : int
   payeeIds : int list
   amount : int
   tags : string list
   description : string option
+}
+and Balance = {
+  user1Id : int
+  user2Id : int
+  balanceNum : int
+  balanceDen : int
+  user1HasMore : bool
+  sharedPaymentCount : int
+  transferCount : int
+  unseenUpdateCount : int
+  lastUpdateAt : DateTime
+}
+and BalanceToOtherUser = {
+  otherUserId : int
+  value : float
+  iHaveMore : bool
+  sharedPaymentCount : int
+  unseenUpdateCount : int
+  lastUpdateAt : DateTime
+  otherUser : User
 }

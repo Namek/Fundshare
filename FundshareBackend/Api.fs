@@ -3,8 +3,10 @@ module Fundshare.Api
 open System
 open System.Text
 open FSharp.Data.GraphQL
+open FSharp.Data.GraphQL.Parser
 open FSharp.Data.GraphQL.Types
 open FSharp.Data.GraphQL.Execution
+open FSharp.Data.GraphQL.Linq
 open Paseto.Authentication
 open Fundshare.DataStructures
 open YoLo
@@ -53,13 +55,13 @@ let parseToken token : PasetoInstance =
   
 /////////////////////////
 
-let rec User = Define.Object<User>("User",
-  [ Define.AutoField("id", Int)
-    Define.AutoField("email", String)
-    Define.AutoField("name", String)
-      // balances
-      // transactions
-  ])
+let rec User = Define.Object<User>("User", [
+  Define.AutoField("id", ID)
+  Define.AutoField("email", String)
+  Define.AutoField("name", String)
+  Define.AutoField("balances", ListOf BalanceToOtherUser)
+  Define.Field("transactions", ListOf UserTransaction)
+])
   
 and UserTransaction = Define.Object<UserTransaction>("UserTransaction", [
   Define.AutoField("id", Int)
@@ -74,14 +76,23 @@ and SignOutResult = Define.Object<SignOutResult>("SignOutResult", [
 and RegisterUserResult = Define.Object<RegisterUserResult>("RegisterUserResult", [
   Define.AutoField("id", Int)
 ])
-
-
-let AllGraphqlTypes : NamedDef list =
+and BalanceToOtherUser = Define.Object<BalanceToOtherUser>("BalanceToOtherUser", [
+  Define.AutoField("otherUserId", Int)
+  Define.AutoField("value", Float)
+  Define.AutoField("iHaveMore", Boolean)
+  Define.AutoField("sharedPaymentCount", Int)
+  Define.AutoField("unseenUpdateCount", Int)
+  Define.AutoField("lastUpdateAt", Date)
+  //Define.AutoField("otherUser", User)
+])
+and AllGraphqlTypes : NamedDef list =
   [ User
     UserTransaction
     SignInResult
     SignOutResult
     RegisterUserResult
+    //Balance
+    BalanceToOtherUser
   ]
 
 //////////////////////
@@ -90,12 +101,27 @@ type Session =
   { authorizedUserId : int option
     mutable token : string option }
 
-  
+// TODO move helper
+let tryFindField (fieldName : string) ctx =
+  List.tryPick
+    (fun sel -> match sel with | Ast.Field f -> if f.Name = fieldName then Some f else None)
+    ctx.ExecutionInfo.Ast.SelectionSet
+
 let Query = Define.Object<Session>("Query", [
   Define.Field("users", ListOf User, "All users", [], fun ctx _ -> [])
   Define.Field("user", Nullable User, "Specified user", [Define.Input ("id", Int)],
-    fun ctx session -> ctx.Arg("id") |> Repo.getUserById)
-//    Define.Field("currentUser", Nullable User, "Get currently logged in user", [], Session...) TODO 
+    fun ctx session ->
+      let user = Repo.getUserById <| ctx.Arg("id") 
+      user |> Option.map (fun user ->
+        let transactions = 
+          tryFindField "transactions" ctx
+          |> Option.map (fun _ -> Repo.getUserTransactions user.id )
+
+        { user with transactions = transactions }
+      )
+  )
+  Define.Field("currentUser", Nullable User, "Get currently logged in user", [], fun ctx session ->
+    session.authorizedUserId |> Option.bind Repo.getUserById)
 ])
   
 let Mutation = Define.Object<Session>("Mutation", [

@@ -72,7 +72,7 @@ let main argv =
             token = token }
       
         let body = http.request.rawForm 
-        let query = body |> tryParse "query" |> Option.map (fun query -> query.Trim().Replace("\r\n", " ").Replace("\n", " "))
+        let query = body |> tryParse "query" |> Option.map (fun query -> query.Trim().Replace("{", " {").Replace("\r\n", ", ").Replace("\n", " "))
         let variables = body |> tryParse "variables" |> Option.map (fun v -> JsonConvert.DeserializeObject<Map<string, obj>>(v))
         
         let res =

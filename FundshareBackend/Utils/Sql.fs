@@ -4,8 +4,6 @@ module Fundshare.Utils.Sql
 
 open System
 open Npgsql
-open System.Threading.Tasks
-open System.Data
 open System.Collections.Generic
 
 type SqlValue =
@@ -54,19 +52,10 @@ module Sql =
         Config : string
     }
 
-
-    type SqlProps = private {
-        //ConnectionString : string
-        Connection : NpgsqlConnection option
-        //SqlQuery : string list
-        //Parameters : SqlRow
-        //IsTransaction : bool
-        //NeedPrepare : bool
-    }
-    
     type Session = {
         Connection : NpgsqlConnection
         Transaction : NpgsqlTransaction option
+        //NeedPrepare : bool
     }
 
     let private defaultConString() : ConnectionStringBuilder = {
@@ -77,21 +66,12 @@ module Sql =
             Port = 5432
             Config = ""
     }
-    let private defaultProps() = {
-        Connection = None
-        //SqlQuery = []
-        //Parameters = []
-        //IsTransaction = false
-        //NeedPrepare = false
-    }
-    
-    
+
     let connect (constr: string) : Session =
         let connection = new NpgsqlConnection(constr)
         let session = { Connection = connection; Transaction = None }
         connection.Open()
-        session
-        
+        session        
         
     let unpackSqlQuery (query : SqlQuery) : string * list<string * SqlValue> =
         match query with
@@ -176,7 +156,7 @@ module Sql =
       if Option.isSome session.Transaction then
           do command.Transaction <- session.Transaction.Value
 
-        //        if props.NeedPrepare then command.Prepare()
+          //if session.NeedPrepare then do command.Prepare()
         
       try
         let result = match sqlQuery with
@@ -188,9 +168,6 @@ module Sql =
       with | ex ->
         Debug.Print ex.Message
         failwith ex.Message
-
-      
-        
         
     let executeQuery (query : SqlQuery) (session : Session) : Result<SqlResult, string> =
       try
@@ -205,6 +182,13 @@ module Sql =
       session |> executeQuery query
       |> function
         | Ok (TableResult (row :: [])) -> Some row
+        | Ok (TableResult rows) -> failwith <| "expected to have exactly one row but got " + rows.Length.ToString()
+        | _ -> None
+
+    let executeQueryAndGetRows query session =
+      session |> executeQuery query
+      |> function
+        | Ok (TableResult rows) -> Some rows
         | _ -> None
         
     // transactional
@@ -222,11 +206,6 @@ module Sql =
         with | ex ->
             trans.Rollback()
             Error ex.Message
-      
-
-
-      
-
         
     let host x = { defaultConString() with Host = x }
     let username x con = { con with Username = x }
@@ -242,11 +221,6 @@ module Sql =
             con.Database
             con.Port
             con.Config
-
-//    let query (sql: string) props = { props with SqlQuery = [sql] }
-//    let prepare  props = { props with NeedPrepare = true}
-//    let queryMany queries props = { props with SqlQuery = queries }
-//    let parameters ls props = { props with Parameters = ls }
 
     let toBool = function
         | Bool x -> x
@@ -268,12 +242,7 @@ module Sql =
         | Number x -> x
         | value -> failwithf "Could not convert %A into a floating number" value
 
-
-
     let multiline xs = String.concat Environment.NewLine xs
-
 
     let mapEachRow (f: SqlRow -> Option<'a>) (table: SqlTable) =
         List.choose f table
-        
-    
