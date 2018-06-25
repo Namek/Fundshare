@@ -1,5 +1,7 @@
 obj/
 bin/
 .idea/
+.vs/
 Config.yaml
-
+dist/
+elm-stuff/
