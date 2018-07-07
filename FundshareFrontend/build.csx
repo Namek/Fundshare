@@ -67,7 +67,7 @@ void onFileChanged(WatcherChangeTypes evt, FileSystemEventArgs args)
         else
             shouldInvoke = (DateTime.Now.ToFileTimeUtc() - lastUpdate) > 5000;
 
-        log((DateTime.Now.ToFileTimeUtc() - lastUpdate).ToString());
+        //log((DateTime.Now.ToFileTimeUtc() - lastUpdate).ToString());
 
         if (shouldInvoke) {
             _onFileChanged(evt, args);
@@ -78,17 +78,19 @@ void onFileChanged(WatcherChangeTypes evt, FileSystemEventArgs args)
 }
 void _onFileChanged(WatcherChangeTypes evt, FileSystemEventArgs args)
 {
-    var path = args.FullPath;
+    var path = args.FullPath.Replace('\\', '/');
     var srcSubfolder = Path.GetDirectoryName(path)
         .Replace('\\', '/').Split('/').Last();
 
+    log($"  changed: {path}");
+
     bool notifyBrowser = true;
 
-    if (srcSubfolder == "elm")
+    if (path.Contains("src/elm") && (path.EndsWith(".elm") || path.EndsWith(".js")))
         buildElm();
     else if (path.EndsWith(".scss"))
         buildScss();
-    else if (srcSubfolder == "static")
+    else if (path.Contains("src/static"))
         copyStatic(path);
     else
         notifyBrowser = false;
@@ -133,10 +135,10 @@ void copyStatic(string filePath, string logPrefix = "Copying ")
     var finalPath = Path.Combine(outputDir, shortPath);
 
     log($"{logPrefix}{shortPath}");
-    
+
     if (!Directory.Exists(dir))
         Directory.CreateDirectory(dir);
-    
+
     File.Copy(filePath, finalPath, true);
 }
 

@@ -14,12 +14,14 @@ open Fundshare.Api
 
 let tryParse fieldName (data : byte array) =
   let raw = Text.Encoding.UTF8.GetString(data)
-  if raw <> null && raw <> ""
-  then
-    let map = JsonConvert.DeserializeObject<Map<string,string>>(raw)
-    Map.tryFind fieldName map
-      |> Option.bind (fun value -> if value <> null then Some value else None)
-  else None
+  try
+    if raw <> null && raw <> "" then
+      let map = JsonConvert.DeserializeObject<Map<string, obj>>(raw)
+      Map.tryFind fieldName map
+        |> Option.bind (fun value -> if value <> null then Some value else None)
+    else None
+  with _ ->
+    None
   
 type OptionConverter() =
   inherit JsonConverter()  
@@ -72,8 +74,26 @@ let main argv =
             token = token }
       
         let body = http.request.rawForm 
-        let query = body |> tryParse "query" |> Option.map (fun query -> query.Trim().Replace("{", " {").Replace("\r\n", ", ").Replace("\n", " "))
-        let variables = body |> tryParse "variables" |> Option.map (fun v -> JsonConvert.DeserializeObject<Map<string, obj>>(v))
+        let raw = Text.Encoding.UTF8.GetString(body)
+        let qv = 
+          try
+            if raw <> null && raw <> "" then
+              let map = JsonConvert.DeserializeObject<Map<string, obj>>(raw)
+              let query =
+                Map.tryFind "query" map
+                |> Option.bind (fun value -> if value <> null then Some (value.ToString()) else None)
+              let variables = None//Map.tryFind "variables" map |> Option.bind (fun v -> Some (v :?> Linq.JObject))
+              
+              (query, variables)
+            else
+             (None, None)
+          with _ ->
+            (None, None)
+
+        let (query, variables) = qv
+
+        //let query = body |> tryParse "query" |> Option.map (fun query -> query.ToString().Trim().Replace("{", " {").Replace("\r\n", ", ").Replace("\n", " "))
+        //let variables = body |> tryParse "variables" |> Option.map (fun v ->  JsonConvert.DeserializeObject<Map<string, obj>>(v))
         
         let res =
           match query, variables with

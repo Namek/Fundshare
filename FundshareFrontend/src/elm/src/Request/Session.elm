@@ -5,6 +5,7 @@ import GraphQL.Request.Builder exposing (..)
 import GraphQL.Request.Builder.Arg as Arg
 import GraphQL.Request.Builder.Variable as Var
 import Json.Encode as Encode
+import Misc.Sha1 exposing (sha1)
 import Ports
 
 
@@ -19,12 +20,12 @@ signIn credentials =
             Var.required "email" .email Var.string
 
         passwordVar =
-            Var.required "password" .password Var.string
+            Var.required "passwordHash" (.password >> sha1) Var.string
     in
     extract
         (field "signIn"
             [ ( "email", Arg.variable emailVar )
-            , ( "password", Arg.variable passwordVar )
+            , ( "passwordHash", Arg.variable passwordVar )
             ]
             (object SignInResult
                 |> with (field "token" [] string)
@@ -32,7 +33,7 @@ signIn credentials =
                 |> with (field "name" [] string)
             )
         )
-        |> mutationDocument
+        |> namedMutationDocument "SignIn"
         |> request credentials
 
 
