@@ -30,9 +30,9 @@ if (!Directory.Exists(outputDir))
 
 if (Args.Contains("build"))
 {
+    copyStatics();
     buildElm();
     buildScss();
-    copyStatics();
 }
 
 
@@ -133,11 +133,12 @@ void copyStatic(string filePath, string logPrefix = "Copying ")
     var dir = Path.GetDirectoryName(filePath);
     var shortPath = filePath.Replace(staticsFolder, "").TrimStart('\\').TrimStart('/');
     var finalPath = Path.Combine(outputDir, shortPath);
+    var finalPathDir = Path.GetDirectoryName(finalPath);
 
     log($"{logPrefix}{shortPath}");
 
-    if (!Directory.Exists(dir))
-        Directory.CreateDirectory(dir);
+    if (!Directory.Exists(finalPathDir))
+        Directory.CreateDirectory(finalPathDir);
 
     File.Copy(filePath, finalPath, true);
 }

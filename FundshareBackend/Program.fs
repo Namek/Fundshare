@@ -10,6 +10,7 @@ open FSharp.Data.GraphQL
 open FSharp.Data.GraphQL.Types
 open FSharp.Data.GraphQL.Execution
 open Fundshare.Api
+open System.Net
 
 
 let tryParse fieldName (data : byte array) =
@@ -141,6 +142,7 @@ let main argv =
   let config = { defaultConfig with
     homeFolder = Some AppConfig.General.httpFilesPath
     hideHeader = true
+    bindings = [ HttpBinding.create HTTP IPAddress.Loopback 5000us ]
   }
   startWebServer config app
   
