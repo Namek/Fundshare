@@ -85,7 +85,7 @@ update ctx msg =
             let
                 cmd =
                     signIn model
-                        |> sendMutationRequest Nothing
+                        |> sendMutationRequest
                         |> Task.attempt SignInResponse
             in
             { model | isLoading = True }
@@ -97,11 +97,11 @@ update ctx msg =
                 Err error ->
                     { model | isLoading = False } => Cmd.none => Cmd.none
 
-                Ok { token, id, name } ->
+                Ok { id, name } ->
                     let
                         session : Session
                         session =
-                            { authToken = token, user = { id = id, name = name, email = model.email } }
+                            { user = { id = id, name = name, email = model.email } }
                     in
                     model
                         => Cmd.batch

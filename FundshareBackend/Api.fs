@@ -107,7 +107,7 @@ let tryFindField (fieldName : string) ctx =
     (fun sel -> match sel with | Ast.Field f -> if f.Name = fieldName then Some f else None)
     ctx.ExecutionInfo.Ast.SelectionSet
 
-let Query = Define.Object<Session>("Query", [
+let Query = Define.Object<Session>("query", [
   Define.Field("users", ListOf User, "All users", [], fun ctx _ -> [])
   Define.Field("user", Nullable User, "Specified user", [Define.Input ("id", Int)],
     fun ctx session ->
@@ -124,7 +124,7 @@ let Query = Define.Object<Session>("Query", [
     session.authorizedUserId |> Option.bind Repo.getUserById)
 ])
   
-let Mutation = Define.Object<Session>("Mutation", [
+let Mutation = Define.Object<Session>("mutation", [
   Define.Field("addTransaction", Nullable UserTransaction,
     "Remember transaction between payor and payees, then update balance between them", [
       Define.Input("payorId", Int)
@@ -158,11 +158,12 @@ let Mutation = Define.Object<Session>("Mutation", [
     Define.Input("email", String)
     Define.Input("passwordHash", String, description = "sha1 hashed password where salt (added on the right) is login email")
   ], fun ctx session ->
-    let email = (ctx.Arg "email")
+    let email = ctx.Arg "email"
     let passwordSalted = UTF8.sha1Hex <| (ctx.Arg "passwordHash") + AppConfig.Auth.passwordSalt
     
     Repo.validateUserCredentials email passwordSalted
     |> Option.map (fun user ->
+      // a little dirty - 'do' in '.map'
       do session.token <- Some <| createToken user.id
       { userId = user.id; name = user.name })
   )

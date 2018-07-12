@@ -11,7 +11,7 @@ import Request.Common exposing (date)
     currentUser {
       balances {
         otherUser {
-          id
+          userId
           name
         }
         value
@@ -72,7 +72,7 @@ type alias QBalance =
 
 
 type alias QOtherUser =
-    { id : Int
+    { userId : Int
     , name : String
     }
 

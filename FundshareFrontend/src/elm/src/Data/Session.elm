@@ -9,8 +9,7 @@ import Json.Encode as Encode exposing (Value)
 {-| If one has access to this data then he's logged in.
 -}
 type alias Session =
-    { authToken : String
-    , user : User
+    { user : User
     }
 
 
@@ -28,15 +27,13 @@ type SessionState
 decoder : Decoder Session
 decoder =
     decode Session
-        |> required "authToken" Decode.string
         |> required "user" User.decoder
 
 
 encode : Session -> Value
 encode session =
     Encode.object
-        [ ( "authToken", Encode.string session.authToken )
-        , ( "user", User.encode session.user )
+        [ ( "user", User.encode session.user )
         ]
 
 

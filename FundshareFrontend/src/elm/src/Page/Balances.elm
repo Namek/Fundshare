@@ -384,7 +384,7 @@ update { model, session } msg =
             let
                 cmd =
                     getBalances
-                        |> sendQueryRequest session
+                        |> sendQueryRequest
                         |> Task.attempt RefreshBalancesResponse
             in
             model => cmd

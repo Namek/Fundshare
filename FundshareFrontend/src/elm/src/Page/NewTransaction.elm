@@ -105,7 +105,7 @@ update ctx msg =
             let
                 cmd =
                     getPeople
-                        |> sendQueryRequest session
+                        |> sendQueryRequest
                         |> Task.attempt RefreshPeopleListResponse
             in
             model
@@ -247,7 +247,7 @@ update ctx msg =
                 sendReqCmd =
                     newTransaction
                         |> Maybe.andThen (Just << addTransaction)
-                        |> Maybe.andThen (Just << sendMutationRequest (Just session))
+                        |> Maybe.andThen (Just << sendMutationRequest)
             in
             case sendReqCmd of
                 Just cmd ->

@@ -74,7 +74,7 @@ update { model, session } msg =
             let
                 cmd =
                     requestUserTransactions
-                        |> sendQueryRequest session
+                        |> sendQueryRequest
                         |> Task.attempt RefreshTransactionsResponse
             in
             model => cmd => Cmd.none

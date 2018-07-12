@@ -10,7 +10,7 @@ import Ports
 
 
 type alias SignInResult =
-    { token : String, id : Int, name : String }
+    { userId : Int, name : String }
 
 
 signIn : { a | email : String, password : String } -> Request Mutation SignInResult
@@ -28,8 +28,7 @@ signIn credentials =
             , ( "passwordHash", Arg.variable passwordVar )
             ]
             (object SignInResult
-                |> with (field "token" [] string)
-                |> with (field "id" [] int)
+                |> with (field "userId" [] int)
                 |> with (field "name" [] string)
             )
         )

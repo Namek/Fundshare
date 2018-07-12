@@ -18,7 +18,7 @@ import Request.Common exposing (date)
           paidAt
           payeeIds
           payees {
-            id
+            userId
           }
         }
       }

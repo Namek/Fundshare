@@ -1,16 +1,17 @@
 module Fundshare.Main
 
 open System
+open System.Net
 open Suave
 open Suave.Cookie
 open Suave.Filters
 open Suave.Operators
 open Newtonsoft.Json
+open Chiron
 open FSharp.Data.GraphQL
 open FSharp.Data.GraphQL.Types
 open FSharp.Data.GraphQL.Execution
 open Fundshare.Api
-open System.Net
 
 
 let tryParse fieldName (data : byte array) =
@@ -19,10 +20,22 @@ let tryParse fieldName (data : byte array) =
     if raw <> null && raw <> "" then
       let map = JsonConvert.DeserializeObject<Map<string, obj>>(raw)
       Map.tryFind fieldName map
-        |> Option.bind (fun value -> if value <> null then Some value else None)
+      |> Option.bind (fun value -> if value <> null then Some value else None)
     else None
   with _ ->
     None
+
+let rec chironJsonToObj (value : Chiron.Json) : obj =
+  match value with
+  | String str -> str :> obj
+  | Number n -> n :> obj
+  | Bool b -> b :> obj
+  | Null () -> null
+  | Array omg -> (List.map chironJsonToObj omg) :> obj
+  | Object map -> chironJsonMapToObjMap map :> obj
+
+and chironJsonMapToObjMap (json : Map<string, Chiron.Json>) : Map<string, obj> =
+  json |> Map.map (fun key value -> chironJsonToObj value)
   
 type OptionConverter() =
   inherit JsonConverter()  
@@ -76,22 +89,31 @@ let main argv =
       
         let body = http.request.rawForm 
         let raw = Text.Encoding.UTF8.GetString(body)
-        let qv = 
+        let (query, variables) = 
           try
             if raw <> null && raw <> "" then
-              let map = JsonConvert.DeserializeObject<Map<string, obj>>(raw)
+              let map =
+                match Chiron.Parsing.Json.tryParse raw with
+                | Choice1Of2 (Object map) -> Some <| chironJsonMapToObjMap map
+                | Choice2Of2 err -> None // TODO print err
+                | _ -> None
+
               let query =
-                Map.tryFind "query" map
-                |> Option.bind (fun value -> if value <> null then Some (value.ToString()) else None)
-              let variables = None//Map.tryFind "variables" map |> Option.bind (fun v -> Some (v :?> Linq.JObject))
+                Option.map (Map.tryFind "query") map
+                |> Option.flatten
+                |> Option.map (fun value -> value.ToString())
+                |> Option.map (fun query -> query.ToString().Trim().Replace("{", " {").Replace("\r\n", ", ").Replace("\n", " "))
+
+              let variables =
+                Option.map (Map.tryFind "variables") map
+                |> Option.flatten
+                |> Option.map (fun map -> map :?> Map<string, obj>)
               
               (query, variables)
             else
              (None, None)
           with _ ->
             (None, None)
-
-        let (query, variables) = qv
 
         //let query = body |> tryParse "query" |> Option.map (fun query -> query.ToString().Trim().Replace("{", " {").Replace("\r\n", ", ").Replace("\n", " "))
         //let variables = body |> tryParse "variables" |> Option.map (fun v ->  JsonConvert.DeserializeObject<Map<string, obj>>(v))

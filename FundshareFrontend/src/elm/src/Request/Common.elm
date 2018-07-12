@@ -13,35 +13,24 @@ type alias Error =
     GraphQLClient.Error
 
 
-authorizedWith : Session -> RequestOptions
-authorizedWith { authToken } =
-    Just authToken |> makeRequestOpts
-
-
-makeRequestOpts : Maybe String -> RequestOptions
-makeRequestOpts authToken =
-    let
-        headers =
-            authToken
-                |> Maybe.andThen (\token -> Just [ Http.header "authorization" ("Bearer " ++ token) ])
-                |> Maybe.withDefault []
-    in
+makeRequestOpts : RequestOptions
+makeRequestOpts =
     { method = "POST"
-    , headers = headers
+    , headers = []
     , url = "/api"
     , timeout = Nothing
     , withCredentials = False
     }
 
 
-sendQueryRequest : { session | authToken : String } -> Request Query a -> Task GraphQLClient.Error a
-sendQueryRequest { authToken } request =
-    GraphQLClient.customSendQuery (Just authToken |> makeRequestOpts) request
+sendQueryRequest : Request Query a -> Task GraphQLClient.Error a
+sendQueryRequest request =
+    GraphQLClient.customSendQuery makeRequestOpts request
 
 
-sendMutationRequest : Maybe { session | authToken : String } -> Request Mutation a -> Task GraphQLClient.Error a
-sendMutationRequest maybeSession request =
-    GraphQLClient.customSendMutation (maybeSession |> Maybe.andThen (Just << .authToken) |> makeRequestOpts) request
+sendMutationRequest : Request Mutation a -> Task GraphQLClient.Error a
+sendMutationRequest request =
+    GraphQLClient.customSendMutation makeRequestOpts request
 
 
 type DateTimeType
