@@ -8,12 +8,12 @@ open Utils.Sql
   
 let defaultConnection : string =
   Sql.host AppConfig.DB.host
-    |> Sql.port AppConfig.DB.port
-    |> Sql.username AppConfig.DB.username
-    |> Sql.password AppConfig.DB.password
-    |> Sql.database AppConfig.DB.database
-//      |> Sql.config "SslMode=Require;"
-    |> Sql.str
+  |> Sql.port AppConfig.DB.port
+  |> Sql.username AppConfig.DB.username
+  |> Sql.password AppConfig.DB.password
+  |> Sql.database AppConfig.DB.database
+//    |> Sql.config "SslMode=Require;"
+  |> Sql.str
     
 let connect = fun () -> defaultConnection |> Sql.connect
     

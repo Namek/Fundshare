@@ -1,4 +1,5 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="./fsc.props" />
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp2.1</TargetFramework>
@@ -18,7 +19,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Chiron" Version="6.2.1" />
-    <PackageReference Include="FSharp.Configuration" Version="1.5.0" />
+    <PackageReference Include="FSharp.Configuration" Version="2.0.0-alpha2" />
     <PackageReference Include="FSharp.Data.GraphQL.Server" Version="0.0.4-beta01" />
     <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
     <PackageReference Include="Npgsql" Version="4.0.0" />

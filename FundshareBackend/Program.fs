@@ -115,9 +115,6 @@ let main argv =
           with _ ->
             (None, None)
 
-        //let query = body |> tryParse "query" |> Option.map (fun query -> query.ToString().Trim().Replace("{", " {").Replace("\r\n", ", ").Replace("\n", " "))
-        //let variables = body |> tryParse "variables" |> Option.map (fun v ->  JsonConvert.DeserializeObject<Map<string, obj>>(v))
-        
         let res =
           match query, variables with
           | Some query, Some variables ->
@@ -164,7 +161,7 @@ let main argv =
   let config = { defaultConfig with
     homeFolder = Some AppConfig.General.httpFilesPath
     hideHeader = true
-    bindings = [ HttpBinding.create HTTP IPAddress.Loopback 5000us ]
+    bindings = [ HttpBinding.create HTTP (IPAddress.Parse(AppConfig.General.listenHost)) (uint16 AppConfig.General.listenPort) ]
   }
   startWebServer config app
   
