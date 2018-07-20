@@ -164,7 +164,9 @@ let Mutation = Define.Object<Session>("mutation", [
     Repo.validateUserCredentials email passwordSalted
     |> Option.map (fun user ->
       // a little dirty - 'do' in '.map'
-      do session.token <- Some <| createToken user.id
+      if session.token = None then do
+        session.token <- Some <| createToken user.id
+
       { userId = user.id; name = user.name })
   )
   
