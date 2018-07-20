@@ -179,9 +179,11 @@ module Sql =
         Error ex.Message 
         
     let executeQueryAndGetRow query session =
-      session |> executeQuery query
+      session
+      |> executeQuery query
       |> function
         | Ok (TableResult (row :: [])) -> Some row
+        | Ok (TableResult []) -> None
         | Ok (TableResult rows) -> failwith <| "expected to have exactly one row but got " + rows.Length.ToString()
         | _ -> None
 

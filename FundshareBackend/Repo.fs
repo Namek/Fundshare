@@ -100,8 +100,8 @@ let calculateBalanceFor2Users (user1Id : int) (user2Id : int) : Balance =
   let transactions : Transaction list  =
     Sql.executeQuery (TableQuery (
       "SELECT payor_id, payee_ids, amount, updated_at FROM public.transactions
-       WHERE payor_id = @u1 OR payor_id = @u2 OR @u1 IN payee_ids OR @u2 IN payee_ids",
-      ["u1", Int user1Id; "u2", Int user2Id] )) (connect())
+       WHERE payor_id = @u1 OR payor_id = @u2 OR @u1 = any(payee_ids) OR @u2 = any(payee_ids)",
+      [ "u1", Int user1Id; "u2", Int user2Id ] )) (connect())
     |> function
       | Ok (TableResult rows) -> rows
       | _ -> failwith "---"
@@ -182,7 +182,7 @@ let calculateBalanceForUsers (userIds : int list) =
   idPairs |> Seq.map (uncurry calculateBalanceFor2Users)
     
 
-let calculateBalanceForAllUsers =
+let calculateBalanceForAllUsers = fun () ->
   connect()
   |> Sql.executeQuery (TableQuery ("SELECT id FROM public.users", []))
   |> function
@@ -223,8 +223,8 @@ let updateBalances (balances : Balance seq) =
   connect()
   |> Sql.executeQueries queries
 
-let updateBalanceForAllUsers =
-  calculateBalanceForAllUsers
+let updateBalanceForAllUsers = fun () ->
+  calculateBalanceForAllUsers()
   |> updateBalances
   
 let updateBalanceForUsers userIds =

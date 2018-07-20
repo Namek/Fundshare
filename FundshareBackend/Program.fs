@@ -107,6 +107,7 @@ let main argv =
               let variables =
                 Option.map (Map.tryFind "variables") map
                 |> Option.flatten
+                |> Option.bind (fun v -> if v <> null then Some v else None)
                 |> Option.map (fun map -> map :?> Map<string, obj>)
               
               (query, variables)
