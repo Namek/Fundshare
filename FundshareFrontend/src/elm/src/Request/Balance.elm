@@ -52,7 +52,7 @@ getBalances =
                 )
             )
         )
-        |> queryDocument
+        |> namedQueryDocument "CurrentUser"
         |> request {}
 
 
@@ -79,4 +79,4 @@ type alias QOtherUser =
 
 queryToBalance : QBalance -> Balance
 queryToBalance b =
-    Balance b.otherUser.id b.otherUser.name b.value b.iHaveMore b.sharedPaymentCount b.transferCount b.unseenUpdateCount b.lastUpdateAt
+    Balance b.otherUser.userId b.otherUser.name b.value b.iHaveMore b.sharedPaymentCount b.transferCount b.unseenUpdateCount b.lastUpdateAt

@@ -97,11 +97,11 @@ update ctx msg =
                 Err error ->
                     { model | isLoading = False } => Cmd.none => Cmd.none
 
-                Ok { id, name } ->
+                Ok { userId, name } ->
                     let
                         session : Session
                         session =
-                            { user = { id = id, name = name, email = model.email } }
+                            { user = { id = userId, name = name, email = model.email } }
                     in
                     model
                         => Cmd.batch

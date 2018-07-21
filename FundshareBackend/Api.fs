@@ -55,11 +55,11 @@ let parseToken token : PasetoInstance =
   
 /////////////////////////
 
-let rec User = Define.Object<User>("User", [
+let rec User = Define.Object<User>("User", fieldsFn = fun () -> [
   Define.AutoField("id", ID)
   Define.AutoField("email", String)
   Define.AutoField("name", String)
-  Define.AutoField("balances", ListOf BalanceToOtherUser)
+  Define.Field("balances", ListOf BalanceToOtherUser)
   Define.Field("transactions", ListOf UserTransaction)
 ])
   
@@ -81,9 +81,10 @@ and BalanceToOtherUser = Define.Object<BalanceToOtherUser>("BalanceToOtherUser",
   Define.AutoField("value", Float)
   Define.AutoField("iHaveMore", Boolean)
   Define.AutoField("sharedPaymentCount", Int)
+  Define.AutoField("transferCount", Int)
   Define.AutoField("unseenUpdateCount", Int)
   Define.AutoField("lastUpdateAt", Date)
-  //Define.AutoField("otherUser", User)
+  Define.Field("otherUser", User)
 ])
 and AllGraphqlTypes : NamedDef list =
   [ User

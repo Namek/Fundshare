@@ -11,6 +11,7 @@ open Chiron
 open FSharp.Data.GraphQL
 open FSharp.Data.GraphQL.Types
 open FSharp.Data.GraphQL.Execution
+open FSharp.Data.GraphQL.Execution
 open Fundshare.Api
 
 
@@ -116,19 +117,6 @@ let main argv =
           with _ ->
             (None, None)
 
-        let res =
-          match query, variables with
-          | Some query, Some variables ->
-              printfn "Received query: %s" query
-              printfn "Received variables: %A" variables
-              executor.AsyncExecute(query, variables = variables, data = session)
-          | Some query, None ->
-              printfn "Received query: %s" query
-              executor.AsyncExecute(query, data = session)
-          | None, _ ->
-              executor.AsyncExecute(Introspection.introspectionQuery)
-          |> Async.RunSynchronously
-
         let setAuthCookie =
           if token.IsSome && session.token.IsNone then
               Cookie.unsetCookie AppConfig.Auth.cookieAuthName
@@ -137,12 +125,32 @@ let main argv =
           else
             WebPart.succeed
 
-        return! http
-          |> match res with
-            | Direct (data, errors) ->
+        let result : Result<GQLResponse, string> =
+          try
+            match query, variables with
+            | Some query, Some variables ->
+                printfn "Received query: %s" query
+                printfn "Received variables: %A" variables
+                executor.AsyncExecute(query, variables = variables, data = session)
+            | Some query, None ->
+                printfn "Received query: %s" query
+                executor.AsyncExecute(query, data = session)
+            | None, _ ->
+                executor.AsyncExecute(Introspection.introspectionQuery)
+            |> Async.RunSynchronously
+            |> Result.Ok
+          with
+            | :? Exception as ex -> Result.Error ex.Message
+            | _ -> Result.Error "internal error occured"
+
+
+        return! http |>
+          match result with
+            | Result.Ok (Direct (data, errors)) ->
               setAuthCookie >=> Successful.OK (json {data = data.["data"]; errors = errors})
-            | _ ->
-              setAuthCookie >=> Successful.OK (json res.Content)
+            | Result.Ok response ->
+              setAuthCookie >=> Successful.OK (json response.Content)
+            | Result.Error str -> Successful.OK str
       }
   
   let setCorsHeaders = 

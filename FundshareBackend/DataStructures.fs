@@ -50,6 +50,7 @@ and BalanceToOtherUser = {
   value : float
   iHaveMore : bool
   sharedPaymentCount : int
+  transferCount : int
   unseenUpdateCount : int
   lastUpdateAt : DateTime
   otherUser : User
