@@ -53,5 +53,5 @@ and BalanceToOtherUser = {
   transferCount : int
   unseenUpdateCount : int
   lastUpdateAt : DateTime
-  otherUser : User
+  otherUser : User option
 }

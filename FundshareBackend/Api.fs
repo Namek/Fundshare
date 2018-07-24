@@ -49,8 +49,9 @@ let createToken (userId : int) =
   )
   PasetoUtility.Encrypt(tokenEncryptionKey, claims);
 
-let parseToken token : PasetoInstance =
-  PasetoUtility.Decrypt(tokenEncryptionKey, token)
+let parseToken token : PasetoInstance option =
+  let value = PasetoUtility.Decrypt(tokenEncryptionKey, token)
+  if value <> null then Some value else None
   
   
 /////////////////////////
@@ -59,7 +60,7 @@ let rec User = Define.Object<User>("User", fieldsFn = fun () -> [
   Define.AutoField("id", ID)
   Define.AutoField("email", String)
   Define.AutoField("name", String)
-  Define.Field("balances", ListOf BalanceToOtherUser)
+  Define.Field("balances", ListOf BalanceToOtherUser, fun ctx user -> Repo.getUserBalances user.id )
   Define.Field("transactions", ListOf UserTransaction)
 ])
   

@@ -23,7 +23,7 @@ type Fraction =
   { num : int
     den : int }
     
-type Balance =
+type BalanceDao =
  private
   { user1Id : int
     user2Id : int
@@ -96,7 +96,7 @@ let calcTransactionBalanceCorrections transaction : BalanceCorrection list =
     
     
 
-let calculateBalanceFor2Users (user1Id : int) (user2Id : int) : Balance =
+let calculateBalanceFor2Users (user1Id : int) (user2Id : int) : BalanceDao =
   let transactions : Transaction list  =
     Sql.executeQuery (TableQuery (
       "SELECT payor_id, payee_ids, amount, updated_at FROM public.transactions
@@ -195,7 +195,7 @@ let calculateBalanceForAllUsers = fun () ->
   |> calculateBalanceForUsers
 
 
-let updateBalances (balances : Balance seq) =
+let updateBalances (balances : BalanceDao seq) =
   let queries =
     balances
     |> Seq.map (fun b ->
@@ -348,3 +348,40 @@ let getUserTransactions (userId : int) : UserTransaction list =
     )
   |> Option.defaultValue []
   
+let getUserBalances userId : BalanceToOtherUser list =
+  connect()
+  |> Sql.executeQueryAndGetRows (TableQuery (
+    "(SELECT user2_id as other_user_id, balance_num, balance_den, (not user1_has_more) as sign, shared_payment_count,
+     	transfer_count, unseen_update_count, last_update_at
+     FROM public.balances
+     WHERE user1_id = @uid)
+     UNION
+     (SELECT user1_id as other_user_id, balance_num, balance_den, user1_has_more as sign, shared_payment_count,
+     	transfer_count, unseen_update_count, last_update_at
+     FROM public.balances
+     WHERE user2_id = @uid)", ["uid", Int userId]))
+  |> (Option.map << Sql.mapEachRow) (
+    function
+    | [ "other_user_id", Int otherUserId
+        "balance_num", Int num
+        "balance_den", Int den
+        "sign", Bool signBool
+        "shared_payment_count", Int sharedPaymentCount
+        "transfer_count", Int transferCount
+        "unseen_update_count", Int unseenUpdateCount
+        "last_update_at", Date lastUpdateAt
+      ] ->
+        let sign = if signBool then 1 else -1
+        Some <|
+          { otherUserId = otherUserId
+            value = (float num) / (float den)
+            iHaveMore = signBool
+            sharedPaymentCount = sharedPaymentCount
+            transferCount = transferCount
+            unseenUpdateCount = unseenUpdateCount
+            lastUpdateAt = lastUpdateAt
+            otherUser = None
+          }
+    | _ -> None
+  )
+  |> Option.orDefault (fun () -> [])

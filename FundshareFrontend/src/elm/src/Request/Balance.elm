@@ -52,7 +52,7 @@ getBalances =
                 )
             )
         )
-        |> namedQueryDocument "CurrentUser"
+        |> namedQueryDocument "currentUserBalances"
         |> request {}
 
 

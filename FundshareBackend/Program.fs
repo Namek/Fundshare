@@ -73,14 +73,12 @@ let main argv =
 
         let authorizedUserId = 
           token
-            |> Option.map(fun value ->
-                let token = parseToken value
-
-                match Int32.TryParse(token.Subject) with
-                | (true, int) -> Some(int)
-                | _ -> None
-              )
-            |> Option.defaultValue None
+          |> Option.bind parseToken
+          |> Option.map (fun token ->
+            match Int32.TryParse(token.Subject) with
+            | (true, int) -> Some(int)
+            | _ -> None)
+          |> Option.defaultValue None
 
         if authorizedUserId.IsSome then do printfn "%d" authorizedUserId.Value
 
