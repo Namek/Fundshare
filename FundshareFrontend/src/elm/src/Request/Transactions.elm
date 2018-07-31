@@ -9,7 +9,7 @@ import Request.Common exposing (date)
 
 {-| Decoder for query:
 
-    query {
+    query currentUserTransactions {
       currentUser {
         transactions {
           amount
@@ -53,7 +53,5 @@ requestUserTransactions =
                 )
             )
         )
-        |> queryDocument
+        |> namedQueryDocument "currentUserTransactions"
         |> request {}
-
-

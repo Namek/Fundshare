@@ -29,5 +29,5 @@ getPayments =
                 )
             )
         )
-        |> queryDocument
+        |> namedQueryDocument "currentUserPayments"
         |> request {}

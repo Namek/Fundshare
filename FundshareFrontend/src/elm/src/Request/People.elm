@@ -19,5 +19,5 @@ getPeople =
             []
             (list person)
         )
-        |> queryDocument
+        |> namedQueryDocument "users"
         |> request {}

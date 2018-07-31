@@ -8,7 +8,7 @@ import Request.Common exposing (date)
 
 {-| The exact call is:
 
-    currentUser {
+    currentUser currentUserBalances {
       balances {
         otherUser {
           userId

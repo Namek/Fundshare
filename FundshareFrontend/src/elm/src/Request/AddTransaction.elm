@@ -40,7 +40,7 @@ addTransaction newTransaction =
             ]
             (extract (field "id" [] int))
         )
-        |> mutationDocument
+        |> namedMutationDocument "addTransaction"
         |> request newTransaction
 
 
