@@ -85,7 +85,7 @@ let main argv =
         let session : Session =
           { authorizedUserId = authorizedUserId
             token = token }
-      
+
         let body = http.request.rawForm 
         let raw = Text.Encoding.UTF8.GetString(body)
         let (query, variables) = 
@@ -130,7 +130,7 @@ let main argv =
                 printfn "Received query: %s" query
                 printfn "Received variables: %A" variables
                 executor.AsyncExecute(query, variables = variables, data = session)
-            | Some query, None ->
+            | Some query, _ ->
                 printfn "Received query: %s" query
                 executor.AsyncExecute(query, data = session)
             | None, _ ->

@@ -13,12 +13,6 @@ type alias Session =
     }
 
 
-
--- type SessionState
---     = LoggedSession Session
---     | GuestSession
-
-
 type SessionState
     = LoggedSession Session
     | GuestSession

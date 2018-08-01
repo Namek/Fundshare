@@ -66,6 +66,12 @@ let rec User = Define.Object<User>("User", fieldsFn = fun () -> [
   
 and UserTransaction = Define.Object<UserTransaction>("UserTransaction", [
   Define.AutoField("id", Int)
+  Define.AutoField("payorId", Int)
+  Define.AutoField("payeeIds", ListOf Int)
+  Define.AutoField("amount", Int)
+  Define.AutoField("tags", ListOf String)
+  Define.AutoField("description", Nullable String)
+  Define.Field("payees", ListOf User, fun ctx session -> [])
 ])
 and SignInResult = Define.Object<SignInResult>("SignInResult", [
   Define.AutoField("userId", Int)
@@ -100,7 +106,7 @@ and AllGraphqlTypes : NamedDef list =
 //////////////////////
 
 type Session =
-  { authorizedUserId : int option
+  { mutable authorizedUserId : int option
     mutable token : string option }
 
 // TODO move helper
@@ -110,7 +116,12 @@ let tryFindField (fieldName : string) ctx =
     ctx.ExecutionInfo.Ast.SelectionSet
 
 let Query = Define.Object<Session>("query", [
-  Define.Field("users", ListOf User, "All users", [], fun ctx _ -> [])
+  Define.Field("users", ListOf User, "All users", [],
+    fun ctx session ->
+      if session.authorizedUserId.IsNone then []
+      else
+        Repo.getAllUsers()
+  )
   Define.Field("user", Nullable User, "Specified user", [Define.Input ("id", Int)],
     fun ctx session ->
       let user = Repo.getUserById <| ctx.Arg("id") 
@@ -168,8 +179,10 @@ let Mutation = Define.Object<Session>("mutation", [
       // a little dirty - 'do' in '.map'
       if session.token = None then do
         session.token <- Some <| createToken user.id
+        session.authorizedUserId <- Some user.id
 
       { userId = user.id; name = user.name })
+    //|> Option.defaultWith TODO: session.token = None
   )
   
   Define.Field("signOut", SignOutResult, "Sign out current user", [], fun ctx session ->
