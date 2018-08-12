@@ -61,7 +61,7 @@ let rec User = Define.Object<User>("User", fieldsFn = fun () -> [
   Define.AutoField("email", String)
   Define.AutoField("name", String)
   Define.Field("balances", ListOf BalanceToOtherUser, fun ctx user -> Repo.getUserBalances user.id )
-  Define.Field("transactions", ListOf UserTransaction)
+  Define.Field("transactions", ListOf UserTransaction, fun ctx user -> Repo.getUserTransactions user.id)
 ])
   
 and UserTransaction = Define.Object<UserTransaction>("UserTransaction", [
@@ -118,7 +118,10 @@ let tryFindField (fieldName : string) ctx =
 let Query = Define.Object<Session>("query", [
   Define.Field("users", ListOf User, "All users", [],
     fun ctx session ->
-      if session.authorizedUserId.IsNone then []
+      if session.authorizedUserId.IsNone then
+        let exc = new UnauthorizedAccessException("you are not logged in")
+        do ctx.AddError exc
+        raise exc
       else
         Repo.getAllUsers()
   )

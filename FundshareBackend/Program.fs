@@ -84,7 +84,7 @@ let main argv =
 
         let session : Session =
           { authorizedUserId = authorizedUserId
-            token = token }
+            token = if authorizedUserId.IsSome then token else None }
 
         let body = http.request.rawForm 
         let raw = Text.Encoding.UTF8.GetString(body)
@@ -145,7 +145,10 @@ let main argv =
         return! http |>
           match result with
             | Result.Ok (Direct (data, errors)) ->
-              setAuthCookie >=> Successful.OK (json {data = data.["data"]; errors = errors})
+              setAuthCookie >=> Successful.OK (json {
+                data = data.["data"]
+                errors = if data.ContainsKey("errors") then data.["errors"] :?> Error list else []
+              })
             | Result.Ok response ->
               setAuthCookie >=> Successful.OK (json response.Content)
             | Result.Error str -> Successful.OK str
