@@ -1,9 +1,11 @@
 module Main exposing (init, subscriptions, update)
 
+import Cmd.Extra
 import Data.Context exposing (GlobalMsg(..))
 import Data.Session as Session exposing (Session, SessionState(..))
 import Data.Transaction exposing (TransactionId)
-import Data.User exposing (UserId(..))
+import Data.User exposing (User, UserId(..))
+import GraphQL.Client.Http
 import Html exposing (..)
 import Json.Decode as Decode exposing (Value)
 import Material exposing (subscriptions)
@@ -16,10 +18,25 @@ import Page.NewTransaction as NewTransaction
 import Page.NotFound as NotFound
 import Page.Transaction as Transaction
 import Page.TransactionList as TransactionList
-import Ports
+import Request.Common exposing (sendMutationRequest)
+import Request.Session exposing (SignInResult, checkSession)
 import Route exposing (Route, modifyUrl)
 import Task
 import Views.Page as Page exposing (ActivePage(..), frame)
+
+
+-- MAIN --
+
+
+main : Program Value Model Msg
+main =
+    Navigation.programWithFlags (Route.fromLocation >> SetRoute)
+        { init = init
+        , view = view
+        , subscriptions = subscriptions
+        , update = update
+        }
+
 
 
 -- STATE --
@@ -29,16 +46,23 @@ type alias Model =
     { pageState : PageState
     , session : SessionState
     , mdl : Material.Model
+    , delayedMessagesToAuth : List Msg
     }
 
 
 init : Value -> Location -> ( Model, Cmd Msg )
 init json location =
-    setRoute (Route.fromLocation location)
-        { pageState = Loaded initialPage
-        , session = Session.decodeFromJson json
-        , mdl = Material.model
-        }
+    {- check authorization before setting location from URL -}
+    let
+        ( model, routeMsg ) =
+            setRoute (Route.fromLocation location)
+                { pageState = Loaded initialPage
+                , session = GuestSession
+                , mdl = Material.model
+                , delayedMessagesToAuth = []
+                }
+    in
+    model => Cmd.Extra.perform CheckAuthSession
 
 
 initialPage : Page
@@ -188,9 +212,11 @@ type PageState
 
 
 type Msg
-    = SetRoute (Maybe Route)
+    = HandleGlobalMsg GlobalMsg
+    | SetRoute (Maybe Route)
+    | CheckAuthSession
+    | CheckAuthSessionResponse (Result GraphQL.Client.Http.Error (Maybe SignInResult))
     | MaterialMsg (Material.Msg Msg)
-    | HandleGlobalMsg GlobalMsg
     | LoginLoaded (Result PageLoadError Login.Model)
     | LoginMsg Login.Msg
     | NewPaymentLoaded (Result PageLoadError NewTransaction.Model)
@@ -213,6 +239,59 @@ pageErrored model activePage errorMessage =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        HandleGlobalMsg globalMsg ->
+            case globalMsg of
+                Navigate route ->
+                    model => Route.modifyUrl route
+
+                SetSession (Just session) ->
+                    { model | session = LoggedSession session } => Cmd.none
+
+                SetSession Nothing ->
+                    { model | session = GuestSession } => Cmd.none
+
+        SetRoute route ->
+            setRoute route model
+
+        {- first thing that comes from this app to backend -}
+        CheckAuthSession ->
+            let
+                cmd =
+                    checkSession
+                        |> sendMutationRequest
+                        |> Task.attempt CheckAuthSessionResponse
+            in
+            model => cmd
+
+        CheckAuthSessionResponse response ->
+            let
+                maybeUser : Maybe SignInResult
+                maybeUser =
+                    response
+                        |> Result.toMaybe
+                        |> Maybe.andThen (\resp -> resp)
+            in
+            case maybeUser of
+                {- no valid token, guest session -}
+                Nothing ->
+                    model
+                        => Cmd.batch
+                            [ Route.modifyUrl Route.Logout
+                            , (HandleGlobalMsg <| SetSession Nothing) |> Cmd.Extra.perform
+                            ]
+
+                Just user ->
+                    let
+                        delayedMsgs =
+                            model.delayedMessagesToAuth
+
+                        globalMsgs =
+                            HandleGlobalMsg (SetSession (Just { user = user }))
+                                :: delayedMsgs
+                    in
+                    { model | delayedMessagesToAuth = [] }
+                        => Cmd.batch (List.map Cmd.Extra.perform globalMsgs)
+
         MaterialMsg msg ->
             Material.update MaterialMsg msg model
 
@@ -274,17 +353,6 @@ updatePage page msg model =
             pageErrored model
     in
     case ( msg, page ) of
-        ( SetRoute route, _ ) ->
-            setRoute route model
-
-        ( HandleGlobalMsg globalMsg, _ ) ->
-            case globalMsg of
-                Navigate route ->
-                    model => Route.modifyUrl route
-
-                SetSession session ->
-                    { model | session = LoggedSession session } => Cmd.none
-
         ( LoginLoaded (Ok subModel), _ ) ->
             { model | pageState = Loaded (Login subModel) } => Cmd.none
 
@@ -404,8 +472,7 @@ setRoute maybeRoute model =
         Just Route.Logout ->
             ( { model | session = GuestSession }
             , Cmd.batch
-                [ Ports.storeSession Nothing
-                , Route.modifyUrl Route.Login
+                [ Route.modifyUrl Route.Login
                 ]
             )
 
@@ -466,17 +533,3 @@ getPage pageState =
 
         TransitioningFrom page ->
             page
-
-
-
--- MAIN --
-
-
-main : Program Value Model Msg
-main =
-    Navigation.programWithFlags (Route.fromLocation >> SetRoute)
-        { init = init
-        , view = view
-        , subscriptions = subscriptions
-        , update = update
-        }

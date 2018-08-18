@@ -141,16 +141,15 @@ let main argv =
             | :? Exception as ex -> Result.Error ex.Message
             | _ -> Result.Error "internal error occured"
 
-
-        return! http |>
-          match result with
+        return! http
+        |> match result with
             | Result.Ok (Direct (data, errors)) ->
               setAuthCookie >=> Successful.OK (json {
                 data = data.["data"]
                 errors = if data.ContainsKey("errors") then data.["errors"] :?> Error list else []
-              })
+              }) >=> setAuthCookie
             | Result.Ok response ->
-              setAuthCookie >=> Successful.OK (json response.Content)
+              setAuthCookie >=> Successful.OK (json response.Content) >=> setAuthCookie
             | Result.Error str -> Successful.OK str
       }
   

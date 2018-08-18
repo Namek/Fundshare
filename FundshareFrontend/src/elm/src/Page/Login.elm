@@ -2,7 +2,7 @@ module Page.Login exposing (Model, Msg, initialModel, update, view)
 
 import Cmd.Extra
 import Data.Context exposing (ContextData, GlobalMsg(..))
-import Data.Session exposing (Session)
+import Data.Session exposing (Session, SessionState(LoggedSession))
 import GraphQL.Client.Http
 import Html exposing (Html, div, p, text)
 import Html.Events
@@ -97,19 +97,12 @@ update ctx msg =
                 Err error ->
                     { model | isLoading = False } => Cmd.none => Cmd.none
 
-                Ok { userId, name } ->
-                    let
-                        session : Session
-                        session =
-                            { user = { id = userId, name = name, email = model.email } }
-                    in
+                Ok user ->
                     model
                         => Cmd.batch
-                            [ storeSession session
-                            , Route.modifyUrl Route.Balances
-                            ]
+                            [ Route.modifyUrl Route.Balances ]
                         => Cmd.batch
-                            [ SetSession session |> Cmd.Extra.perform ]
+                            [ SetSession (Just { user = user }) |> Cmd.Extra.perform ]
 
 
 ids =

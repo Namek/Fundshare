@@ -38,7 +38,7 @@ passContextWithoutSession ctx modelGetter lift subMatId =
 
 type GlobalMsg
     = Navigate Route
-    | SetSession Session
+    | SetSession (Maybe Session)
 
 
 matId : List Int -> List Int -> List Int

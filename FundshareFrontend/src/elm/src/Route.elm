@@ -1,7 +1,6 @@
 module Route exposing (Route(..), fromLocation, href, modifyUrl, routeToString)
 
 import Data.Transaction exposing (TransactionId)
-import Data.User as User exposing (UserId)
 import Html exposing (Attribute)
 import Html.Attributes as Attr
 import Navigation exposing (Location)

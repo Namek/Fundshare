@@ -12,11 +12,17 @@ open Fundshare.DataStructures
 open YoLo
 
 type SignInResult =
-  { userId : int
-    name : string }
+  { id : int
+    name : string
+    email : string }
 
 type SignOutResult =
   { userId : int option }
+  
+type CheckSessionResult =
+  { id : int
+    name : string
+    email : string }
   
 type RegisterUserResult =
   { id : int }
@@ -74,11 +80,17 @@ and UserTransaction = Define.Object<UserTransaction>("UserTransaction", [
   Define.Field("payees", ListOf User, fun ctx session -> [])
 ])
 and SignInResult = Define.Object<SignInResult>("SignInResult", [
-  Define.AutoField("userId", Int)
+  Define.AutoField("id", Int)
   Define.AutoField("name", String)
+  Define.AutoField("email", String)
 ])
 and SignOutResult = Define.Object<SignOutResult>("SignOutResult", [
   Define.AutoField("userId", Nullable Int)
+])
+and CheckSessionResult = Define.Object<CheckSessionResult>("CheckSessionResult", [
+  Define.AutoField("id", Int)
+  Define.AutoField("name", String)
+  Define.AutoField("email", String)
 ])
 and RegisterUserResult = Define.Object<RegisterUserResult>("RegisterUserResult", [
   Define.AutoField("id", Int)
@@ -98,6 +110,7 @@ and AllGraphqlTypes : NamedDef list =
     UserTransaction
     SignInResult
     SignOutResult
+    CheckSessionResult
     RegisterUserResult
     //Balance
     BalanceToOtherUser
@@ -176,20 +189,28 @@ let Mutation = Define.Object<Session>("mutation", [
   ], fun ctx session ->
     let email = ctx.Arg "email"
     let passwordSalted = UTF8.sha1Hex <| (ctx.Arg "passwordHash") + AppConfig.Auth.passwordSalt
-    
+
     Repo.validateUserCredentials email passwordSalted
     |> Option.map (fun user ->
       // a little dirty - 'do' in '.map'
-      if session.token = None then do
+      do
         session.token <- Some <| createToken user.id
         session.authorizedUserId <- Some user.id
 
-      { userId = user.id; name = user.name })
+      { id = user.id; email = user.email; name = user.name })
     //|> Option.defaultWith TODO: session.token = None
   )
   
   Define.Field("signOut", SignOutResult, "Sign out current user", [], fun ctx session ->
     do session.token <- None
     { userId = session.authorizedUserId }
+  )
+  
+  Define.Field("checkSession", Nullable CheckSessionResult, "Check who are is signed in based on httponly safe cookies", [], fun ctx session ->
+    session.authorizedUserId
+    |> Option.map Repo.getUserById
+    |> Option.flatten
+    |> Option.map (fun user ->
+      { id = user.id; name = user.name; email = user.email } )
   )
 ])

@@ -1,16 +1,14 @@
 module Request.Session exposing (..)
 
-import Data.Session as Session exposing (Session)
+import Data.User exposing (User)
 import GraphQL.Request.Builder exposing (..)
 import GraphQL.Request.Builder.Arg as Arg
 import GraphQL.Request.Builder.Variable as Var
-import Json.Encode as Encode
 import Misc.Sha1 exposing (sha1)
-import Ports
 
 
 type alias SignInResult =
-    { userId : Int, name : String }
+    User
 
 
 signIn : { a | email : String, password : String } -> Request Mutation SignInResult
@@ -27,8 +25,9 @@ signIn credentials =
             [ ( "email", Arg.variable emailVar )
             , ( "passwordHash", Arg.variable passwordVar )
             ]
-            (object SignInResult
-                |> with (field "userId" [] int)
+            (object User
+                |> with (field "id" [] int)
+                |> with (field "email" [] string)
                 |> with (field "name" [] string)
             )
         )
@@ -36,9 +35,18 @@ signIn credentials =
         |> request credentials
 
 
-storeSession : Session -> Cmd msg
-storeSession session =
-    Session.encode session
-        |> Encode.encode 0
-        |> Just
-        |> Ports.storeSession
+checkSession : Request Mutation (Maybe SignInResult)
+checkSession =
+    extract
+        (field "checkSession"
+            []
+            (nullable <|
+                (object User
+                    |> with (field "id" [] int)
+                    |> with (field "email" [] string)
+                    |> with (field "name" [] string)
+                )
+            )
+        )
+        |> namedMutationDocument "CheckSession"
+        |> request ()
