@@ -11,7 +11,6 @@ open Chiron
 open FSharp.Data.GraphQL
 open FSharp.Data.GraphQL.Types
 open FSharp.Data.GraphQL.Execution
-open FSharp.Data.GraphQL.Execution
 open Fundshare.Api
 
 
@@ -32,7 +31,7 @@ let rec chironJsonToObj (value : Chiron.Json) : obj =
   | Number n -> n :> obj
   | Bool b -> b :> obj
   | Null () -> null
-  | Array omg -> (List.map chironJsonToObj omg) :> obj
+  | Array arr -> (List.map chironJsonToObj arr) :> obj
   | Object map -> chironJsonMapToObjMap map :> obj
 
 and chironJsonMapToObjMap (json : Map<string, Chiron.Json>) : Map<string, obj> =
@@ -61,7 +60,11 @@ let main argv =
   let json o = JsonConvert.SerializeObject(o, settings)
   
   let schema = Schema(Query, Mutation, config = { SchemaConfig.Default with Types = AllGraphqlTypes })
-  let executor = Executor(schema)
+  
+  let authorize : OperationExecutionMiddleware = fun executionContext continueFn ->
+    continueFn executionContext
+
+  let executor = Executor(schema, [ ExecutorMiddleware(execute = authorize) ])
   
 
   let graphql : WebPart =
@@ -82,9 +85,10 @@ let main argv =
 
         if authorizedUserId.IsSome then do printfn "%d" authorizedUserId.Value
 
-        let session : Session =
+        let session : Session ref =
           { authorizedUserId = authorizedUserId
-            token = if authorizedUserId.IsSome then token else None }
+            token = (if authorizedUserId.IsSome then token else None) }
+          |> ref
 
         let body = http.request.rawForm 
         let raw = Text.Encoding.UTF8.GetString(body)
@@ -115,11 +119,15 @@ let main argv =
           with _ ->
             (None, None)
 
-        let setAuthCookie =
-          if token.IsSome && session.token.IsNone then
-              Cookie.unsetCookie AppConfig.Auth.cookieAuthName
-          else if session.token.IsSome then
-              Cookie.setCookie <| HttpCookie.createKV AppConfig.Auth.cookieAuthName session.token.Value
+        let unsetInvalidCookie =
+          if token.IsSome && (!session).token.IsNone then
+            Cookie.unsetCookie AppConfig.Auth.cookieAuthName
+          else
+            WebPart.succeed
+
+        let setAuthCookie session =
+          if (!session).token.IsSome then
+            Cookie.setCookie <| HttpCookie.createKV AppConfig.Auth.cookieAuthName (!session).token.Value
           else
             WebPart.succeed
 
@@ -144,12 +152,12 @@ let main argv =
         return! http
         |> match result with
             | Result.Ok (Direct (data, errors)) ->
-              setAuthCookie >=> Successful.OK (json {
+              unsetInvalidCookie >=> Successful.OK (json {
                 data = data.["data"]
                 errors = if data.ContainsKey("errors") then data.["errors"] :?> Error list else []
-              }) >=> setAuthCookie
+              }) >=> setAuthCookie session
             | Result.Ok response ->
-              setAuthCookie >=> Successful.OK (json response.Content) >=> setAuthCookie
+              unsetInvalidCookie >=> Successful.OK (json response.Content) >=> setAuthCookie session
             | Result.Error str -> Successful.OK str
       }
   

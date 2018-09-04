@@ -128,10 +128,10 @@ let tryFindField (fieldName : string) ctx =
     (fun sel -> match sel with | Ast.Field f -> if f.Name = fieldName then Some f else None)
     ctx.ExecutionInfo.Ast.SelectionSet
 
-let Query = Define.Object<Session>("query", [
+let Query = Define.Object<Ref<Session>>("query", [
   Define.Field("users", ListOf User, "All users", [],
     fun ctx session ->
-      if session.authorizedUserId.IsNone then
+      if (!session).authorizedUserId.IsNone then
         let exc = new UnauthorizedAccessException("you are not logged in")
         do ctx.AddError exc
         raise exc
@@ -150,10 +150,10 @@ let Query = Define.Object<Session>("query", [
       )
   )
   Define.Field("currentUser", Nullable User, "Get currently logged in user", [], fun ctx session ->
-    session.authorizedUserId |> Option.bind Repo.getUserById)
+    (!session).authorizedUserId |> Option.bind Repo.getUserById)
 ])
   
-let Mutation = Define.Object<Session>("mutation", [
+let Mutation = Define.Object<Ref<Session>>("mutation", [
   Define.Field("addTransaction", Nullable UserTransaction,
     "Remember transaction between payor and payees, then update balance between them", [
       Define.Input("payorId", Int)
@@ -194,20 +194,25 @@ let Mutation = Define.Object<Session>("mutation", [
     |> Option.map (fun user ->
       // a little dirty - 'do' in '.map'
       do
-        session.token <- Some <| createToken user.id
-        session.authorizedUserId <- Some user.id
+        session := {
+          token = Some <| createToken user.id
+          authorizedUserId = Some user.id }
 
       { id = user.id; email = user.email; name = user.name })
-    //|> Option.defaultWith TODO: session.token = None
   )
   
   Define.Field("signOut", SignOutResult, "Sign out current user", [], fun ctx session ->
-    do session.token <- None
-    { userId = session.authorizedUserId }
+    let ret = { userId = (!session).authorizedUserId }
+    
+    do session := {
+      token = None
+      authorizedUserId = None }
+
+    ret
   )
   
   Define.Field("checkSession", Nullable CheckSessionResult, "Check who are is signed in based on httponly safe cookies", [], fun ctx session ->
-    session.authorizedUserId
+    (!session).authorizedUserId
     |> Option.map Repo.getUserById
     |> Option.flatten
     |> Option.map (fun user ->
