@@ -25,12 +25,13 @@ import Task
 import Views.Page as Page exposing (ActivePage(..), frame)
 
 
+
 -- MAIN --
 
 
 main : Program Value Model Msg
 main =
-    Navigation.programWithFlags (Route.fromLocation >> SetRoute)
+    Navigation.programWithFlags SetLocation
         { init = init
         , view = view
         , subscriptions = subscriptions
@@ -44,9 +45,9 @@ main =
 
 type alias Model =
     { pageState : PageState
+    , lastLocation : Navigation.Location
     , session : SessionState
     , mdl : Material.Model
-    , delayedMessagesToAuth : List Msg
     }
 
 
@@ -54,13 +55,12 @@ init : Value -> Location -> ( Model, Cmd Msg )
 init json location =
     {- check authorization before setting location from URL -}
     let
-        ( model, routeMsg ) =
-            setRoute (Route.fromLocation location)
-                { pageState = Loaded initialPage
-                , session = GuestSession
-                , mdl = Material.model
-                , delayedMessagesToAuth = []
-                }
+        model =
+            { pageState = Loaded initialPage
+            , lastLocation = location
+            , session = GuestSession
+            , mdl = Material.model
+            }
     in
     model => Cmd.Extra.perform CheckAuthSession
 
@@ -213,6 +213,7 @@ type PageState
 
 type Msg
     = HandleGlobalMsg GlobalMsg
+    | SetLocation Navigation.Location
     | SetRoute (Maybe Route)
     | CheckAuthSession
     | CheckAuthSessionResponse (Result GraphQL.Client.Http.Error (Maybe SignInResult))
@@ -250,10 +251,13 @@ update msg model =
                 SetSession Nothing ->
                     { model | session = GuestSession } => Cmd.none
 
+        SetLocation location ->
+            { model | lastLocation = location }
+                => Cmd.Extra.perform (Route.fromLocation location |> SetRoute)
+
         SetRoute route ->
             setRoute route model
 
-        {- first thing that comes from this app to backend -}
         CheckAuthSession ->
             let
                 cmd =
@@ -263,6 +267,7 @@ update msg model =
             in
             model => cmd
 
+        {- first thing that comes from this app to backend - decide whether user is still logged in -}
         CheckAuthSessionResponse response ->
             let
                 maybeUser : Maybe SignInResult
@@ -274,23 +279,19 @@ update msg model =
             case maybeUser of
                 {- no valid token, guest session -}
                 Nothing ->
-                    model
-                        => Cmd.batch
-                            [ Route.modifyUrl Route.Logout
-                            , (HandleGlobalMsg <| SetSession Nothing) |> Cmd.Extra.perform
-                            ]
+                    { model | session = GuestSession }
+                        => Route.modifyUrl Route.Logout
 
                 Just user ->
                     let
-                        delayedMsgs =
-                            model.delayedMessagesToAuth
+                        modelWithSession =
+                            { model | session = LoggedSession { user = user } }
 
-                        globalMsgs =
-                            HandleGlobalMsg (SetSession (Just { user = user }))
-                                :: delayedMsgs
+                        ( newModel, rerouteCmd ) =
+                            setRoute (Route.fromLocation model.lastLocation) modelWithSession
                     in
-                    { model | delayedMessagesToAuth = [] }
-                        => Cmd.batch (List.map Cmd.Extra.perform globalMsgs)
+                    newModel
+                        => rerouteCmd
 
         MaterialMsg msg ->
             Material.update MaterialMsg msg model
