@@ -103,7 +103,7 @@ and BalanceToOtherUser = Define.Object<BalanceToOtherUser>("BalanceToOtherUser",
   Define.AutoField("transferCount", Int)
   Define.AutoField("unseenUpdateCount", Int)
   Define.AutoField("lastUpdateAt", Date)
-  Define.Field("otherUser", User)
+  Define.Field("otherUser", User, fun ctx balance -> (Repo.getUserById balance.otherUserId).Value)
 ])
 and AllGraphqlTypes : NamedDef list =
   [ User

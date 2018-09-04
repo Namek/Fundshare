@@ -353,12 +353,12 @@ let getUserTransactions (userId : int) : UserTransaction list =
 let getUserBalances userId : BalanceToOtherUser list =
   connect()
   |> Sql.executeQueryAndGetRows (TableQuery (
-    "(SELECT user2_id as other_user_id, balance_num, balance_den, (not user1_has_more) as sign, shared_payment_count,
+    "(SELECT user2_id as other_user_id, balance_num, balance_den, user1_has_more as sign, shared_payment_count,
      	transfer_count, unseen_update_count, last_update_at
      FROM public.balances
      WHERE user1_id = @uid)
      UNION
-     (SELECT user1_id as other_user_id, balance_num, balance_den, user1_has_more as sign, shared_payment_count,
+     (SELECT user1_id as other_user_id, balance_num, balance_den, (not user1_has_more) as sign, shared_payment_count,
      	transfer_count, unseen_update_count, last_update_at
      FROM public.balances
      WHERE user2_id = @uid)", ["uid", Int userId]))
@@ -376,7 +376,7 @@ let getUserBalances userId : BalanceToOtherUser list =
         let sign = if signBool then 1 else -1
         Some <|
           { otherUserId = otherUserId
-            value = (float num) / (float den)
+            value = (float num) / (float (100*den))
             iHaveMore = signBool
             sharedPaymentCount = sharedPaymentCount
             transferCount = transferCount
