@@ -109,7 +109,7 @@ let calculateBalanceFor2Users (user1Id : int) (user2Id : int) : BalanceDao =
       | [ "payor_id", Int payorId
           "payee_ids", IntArray payeeIds
           "amount", Int amount
-          "updatedAt", Date updatedAt
+          "updated_at", Date updatedAt
         ] -> Some <|
           { payorId = payorId
             payeeIds = payeeIds
@@ -136,7 +136,7 @@ let calculateBalanceFor2Users (user1Id : int) (user2Id : int) : BalanceDao =
         let newStats = 
           (_isSharedPayment + (if isSharedPayment trans then 1 else 0),
            _isMoneyTransfer + (if isMoneyTransfer trans then 1 else 0),
-           _lastUpdateAt)
+           lastUpdatedAt)
   
         newStats
       ) stats
@@ -159,7 +159,7 @@ let calculateBalanceFor2Users (user1Id : int) (user2Id : int) : BalanceDao =
         let divisor = gcd n d
         {num = n / divisor; den = d / divisor}
       )
-      {num = 0; den = 0})
+      {num = 0; den = 1})
       
   let (s1, s2, d) = stats
 
@@ -201,10 +201,12 @@ let updateBalances (balances : BalanceDao seq) =
     |> Seq.map (fun b ->
       NonQuery ("
         INSERT INTO
-          balances (user1_id, user2_id, balance_num, balance_den, user1_has_more, shared_payment_count,
-                    transfer_count, unseen_update_count, last_update_at, inserted_at, updated_at)
-          VALUES (@user1Id, @user2Id, @num, @den, @user1HasMore, @spc, @tc, 0, @lastUpdate, @timeNow, @timeNow)
-        ON DUPLICATE KEY UPDATE
+          public.balances
+            (user1_id, user2_id, balance_num, balance_den, user1_has_more, shared_payment_count,
+             transfer_count, unseen_update_count, last_update_at, inserted_at, updated_at)
+          VALUES
+            (@user1Id, @user2Id, @num, @den, @user1HasMore, @spc, @tc, 0, @lastUpdate, @timeNow, @timeNow)
+        ON CONFLICT (user1_id, user2_id) DO UPDATE SET
           balance_num=@num, balance_den=@den, user1_has_more=@user1HasMore, shared_payment_count = @spc,
           transfer_count=@tc, last_update_at=@lastUpdate, updated_at=@timeNow;
         ",
