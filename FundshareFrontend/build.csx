@@ -108,7 +108,7 @@ void buildElm()
     var input = Path.Combine(srcDir, "elm", "src", "Main.elm");
     var output = Path.Combine(outputDir, "js", "elm.js");
     var workDir = Path.Combine(currentDir, "src", "elm");
-    exec(workDir, "elm-make", $@"--yes {input} --output={output}");
+    exec(workDir, "elm", $@"make {input} --output={output}");
 }
 
 void buildScss()
