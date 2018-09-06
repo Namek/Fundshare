@@ -1,8 +1,12 @@
 #! "netcoreapp2.1"
 
+using System.Runtime.CompilerServices;
 using System.Threading;
 
-var currentDir = Directory.GetCurrentDirectory();
+public static string GetScriptFolder([CallerFilePath] string path = null) =>
+    Path.GetDirectoryName(path);
+
+var currentDir = GetScriptFolder();
 var outputDir = Path.Combine(currentDir, "dist");
 var srcDir = Path.Combine(currentDir, "src");
 var staticsFolder = Path.Combine(srcDir, "static");
