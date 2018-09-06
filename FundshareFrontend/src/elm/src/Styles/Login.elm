@@ -22,7 +22,12 @@ type LoginStyleClass
 
 cls : LoginStyleClass -> String
 cls c =
-    c |> t2k
+    case c of
+        Form ->
+            "Form"
+
+        BtnLogin ->
+            "BtnLogin"
 
 
 cs : LoginStyleClass -> Options.Property c m

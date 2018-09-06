@@ -1,4 +1,4 @@
-module Styles.Internal exposing (c, cc, p2k, t2k)
+module Styles.Internal exposing (c, cc, p2k)
 
 import Regex exposing (Regex)
 
@@ -12,15 +12,8 @@ p2k =
         >> String.join "--"
 
 
-{-| Any type to class name in kebab-case.
--}
-t2k : a -> String
-t2k =
-    toString >> p2k
-
-
 ( c, cc ) =
-    ( \str -> "." ++ t2k str
+    ( \str -> "." ++ p2k str
     , \cls cls2 -> c cls ++ c cls2
     )
 

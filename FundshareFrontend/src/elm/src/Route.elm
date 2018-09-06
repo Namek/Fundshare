@@ -63,7 +63,7 @@ routeToString page =
                     [ "balances" ]
 
                 Transaction id ->
-                    [ "transaction", toString id ]
+                    [ "transaction", String.fromInt id ]
 
                 TransactionList ->
                     [ "history" ]

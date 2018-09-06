@@ -178,7 +178,7 @@ view ctx =
                 , Options.on "keydown" (Json.map (ctx.lift << OnInFormKeyDown) Html.Events.keyCode)
                 , Textfield.disabled |> when formDisabled
                 , Textfield.value model.password
-                , Textfield.error ("Minimum " ++ toString minPasswordLength ++ " characters")
+                , Textfield.error ("Minimum " ++ String.fromInt minPasswordLength ++ " characters")
                     |> when shouldErrorPassword
                 ]
                 []

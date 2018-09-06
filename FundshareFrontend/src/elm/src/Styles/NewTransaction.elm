@@ -37,7 +37,57 @@ type PaymentAddStyleClass
 
 cls : PaymentAddStyleClass -> String
 cls c =
-    c |> t2k
+    case c of
+        Window ->
+            "Window"
+
+        Header ->
+            "Header"
+
+        MainContainer ->
+            "MainContainer"
+
+        Main ->
+            "Main"
+
+        MoneyDirection ->
+            "MoneyDirection"
+
+        MoneyDirectionArrow ->
+            "MoneyDirectionArrow"
+
+        Amount ->
+            "Amount"
+
+        TagsContainer ->
+            "TagsContainer"
+
+        UsualTags ->
+            "UsualTags"
+
+        UsualTagContainer ->
+            "UsualTagContainer"
+
+        UsualTag ->
+            "UsualTag"
+
+        UsualTagSelected ->
+            "UsualTagSelected"
+
+        Description ->
+            "Description"
+
+        BtnSaveContainer ->
+            "BtnSaveContainer"
+
+        SaveInfo ->
+            "SaveInfo"
+
+        WithMargin ->
+            "WithMargin"
+
+        SaveErrorText ->
+            "SaveErrorText"
 
 
 cs : PaymentAddStyleClass -> Options.Property c m

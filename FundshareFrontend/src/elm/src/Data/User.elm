@@ -18,7 +18,7 @@ type UserId
 
 userIdToString : UserId -> String
 userIdToString (UserId userId) =
-    toString userId
+    String.fromInt userId
 
 
 decoder : Decoder User

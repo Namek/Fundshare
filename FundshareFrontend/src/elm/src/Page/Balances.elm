@@ -170,9 +170,9 @@ viewBalanceSummary ctx =
                         , css "margin-top" "4pt"
                         , css "margin-bottom" "0"
                         ]
-                        [ text (toString sharedPaymentCount ++ " shared payments")
+                        [ text (String.fromInt sharedPaymentCount ++ " shared payments")
                         , Html.br [] []
-                        , text (toString transferCount ++ " transfers")
+                        , text (String.fromInt transferCount ++ " transfers")
                         ]
                     ]
                 ]
@@ -192,7 +192,7 @@ viewBalanceSummary ctx =
                     , Typo.display2
                     , Color.text comparedColor
                     ]
-                    [ text (totalBalance |> abs |> toString) ]
+                    [ text (totalBalance |> abs |> String.fromFloat) ]
                 , Options.span
                     [ Typo.subhead, white ]
                     [ text " zł" ]
@@ -229,7 +229,7 @@ viewBalanceSummary ctx =
                     [ Button.icon, Button.ripple, white, css "margin-left" "4pt" ]
                     [ Icon.view "event" [] ]
                 , viewIf (unseenUpdateCount > 0) <|
-                    Options.span [ Badge.add (toString unseenUpdateCount), Badge.overlap ] []
+                    Options.span [ Badge.add (String.fromInt unseenUpdateCount), Badge.overlap ] []
                 ]
             ]
         ]
@@ -311,9 +311,9 @@ viewBalance ctx index balance =
                         , css "margin-top" "4pt"
                         , css "margin-bottom" "0"
                         ]
-                        [ text (toString balance.sharedPaymentCount ++ " shared payments")
+                        [ text (String.fromInt balance.sharedPaymentCount ++ " shared payments")
                         , Html.br [] []
-                        , text (toString balance.transferCount ++ " transfers")
+                        , text (String.fromInt balance.transferCount ++ " transfers")
                         ]
                     ]
                 ]
@@ -329,7 +329,7 @@ viewBalance ctx index balance =
                     , textSize.value
                     , Color.text comparedColor
                     ]
-                    [ text (toString value) ]
+                    [ text (String.fromFloat value) ]
                 , Options.span
                     [ Typo.subhead, white ]
                     [ text " zł" ]
@@ -366,7 +366,7 @@ viewBalance ctx index balance =
                     [ Button.icon, Button.ripple, white, css "margin-left" "4pt" ]
                     [ Icon.view "event" [] ]
                 , viewIf (balance.unseenUpdateCount > 0) <|
-                    Options.span [ Badge.add (toString balance.unseenUpdateCount), Badge.overlap ] []
+                    Options.span [ Badge.add (String.fromInt balance.unseenUpdateCount), Badge.overlap ] []
                 ]
             ]
         ]

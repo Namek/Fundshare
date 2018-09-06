@@ -41,7 +41,7 @@ type alias Context msg =
 
 view : Context msg -> Html msg
 view { model } =
-    div [] [ text <| "payment " ++ toString model.paymentId ]
+    div [] [ text <| "payment " ++ String.fromInt model.paymentId ]
 
 
 
