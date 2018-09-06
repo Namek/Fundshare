@@ -1,4 +1,4 @@
-module Data.Person exposing (..)
+module Data.Person exposing (Person, PersonId)
 
 
 type alias Person =

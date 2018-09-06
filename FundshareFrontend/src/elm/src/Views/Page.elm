@@ -69,6 +69,7 @@ tabData isLoggedIn =
         , ( "History", TransactionList, Route.TransactionList, "event" )
         , ( "New Transaction", NewTransaction, Route.NewTransaction, "add" )
         ]
+
     else
         []
 
@@ -137,6 +138,7 @@ findTabIndex isLoggedIn activePage =
                 ( _, x, _, _ ) :: xs ->
                     if x == activePage then
                         i
+
                     else
                         rec xs (i + 1)
 
@@ -171,6 +173,7 @@ frame lift mdl liftMdl isLoading isLoggedIn session page content =
                     (\isLoading ->
                         if isLoading then
                             spinner
+
                         else
                             content
                     )

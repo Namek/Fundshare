@@ -234,7 +234,9 @@ pageErrored model activePage errorMessage =
         error =
             Errored.pageLoadError activePage errorMessage
     in
-    { model | pageState = Loaded (Errored error) } ! []
+    ( { model | pageState = Loaded (Errored error) }
+    , Cmd.none
+    )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -375,7 +377,9 @@ updatePage page msg model =
                     ]
 
         ( NewPaymentLoaded (Ok subModel), _ ) ->
-            { model | pageState = Loaded (NewTransaction subModel) } ! []
+            ( { model | pageState = Loaded (NewTransaction subModel) }
+            , Cmd.none
+            )
 
         ( NewTransactionMsg subMsg, NewTransaction subModel ) ->
             let
@@ -396,7 +400,9 @@ updatePage page msg model =
                     ]
 
         ( BalancesLoaded (Ok subModel), _ ) ->
-            { model | pageState = Loaded (Balances subModel) } ! []
+            ( { model | pageState = Loaded (Balances subModel) }
+            , Cmd.none
+            )
 
         ( BalancesMsg subMsg, Balances subModel ) ->
             let
@@ -434,11 +440,15 @@ updatePage page msg model =
         ( _, NotFound ) ->
             -- Disregard incoming messages when we're on the
             -- NotFound page.
-            model ! []
+            ( model
+            , Cmd.none
+            )
 
         ( _, _ ) ->
             -- Disregard incoming messages that arrived for the wrong page
-            model ! []
+            ( model
+            , Cmd.none
+            )
 
 
 
@@ -449,8 +459,9 @@ setRoute : Maybe Route -> Model -> ( Model, Cmd Msg )
 setRoute maybeRoute model =
     let
         transition toMsg task =
-            { model | pageState = TransitioningFrom (getPage model.pageState) }
-                ! [ Task.attempt toMsg task ]
+            ( { model | pageState = TransitioningFrom (getPage model.pageState) }
+            , Task.attempt toMsg task
+            )
 
         errored =
             pageErrored model
@@ -465,10 +476,14 @@ setRoute maybeRoute model =
     in
     case maybeRoute of
         Nothing ->
-            { model | pageState = Loaded NotFound } ! []
+            ( { model | pageState = Loaded NotFound }
+            , Cmd.none
+            )
 
         Just Route.Login ->
-            { model | pageState = Loaded (Login Login.initialModel) } ! []
+            ( { model | pageState = Loaded (Login Login.initialModel) }
+            , Cmd.none
+            )
 
         Just Route.Logout ->
             ( { model | session = GuestSession }
@@ -486,8 +501,9 @@ setRoute maybeRoute model =
                         ( subModel, subMsg ) =
                             NewTransaction.init session
                     in
-                    { model | pageState = Loaded (NewTransaction <| subModel) }
-                        ! [ Cmd.map NewTransactionMsg subMsg ]
+                    ( { model | pageState = Loaded (NewTransaction <| subModel) }
+                    , Cmd.map NewTransactionMsg subMsg
+                    )
 
                 GuestSession ->
                     setRoute (Just Route.Login) model
@@ -499,8 +515,9 @@ setRoute maybeRoute model =
                         ( subModel, subMsg ) =
                             Balances.init session
                     in
-                    { model | pageState = Loaded (Balances <| subModel) }
-                        ! [ Cmd.map BalancesMsg subMsg ]
+                    ( { model | pageState = Loaded (Balances <| subModel) }
+                    , Cmd.map BalancesMsg subMsg
+                    )
                 )
 
         Just (Route.Transaction paymentId) ->
@@ -510,8 +527,9 @@ setRoute maybeRoute model =
                         ( subModel, subMsg ) =
                             Transaction.init session paymentId
                     in
-                    { model | pageState = Loaded (Transaction paymentId <| subModel) }
-                        ! [ Cmd.map TransactionMsg subMsg ]
+                    ( { model | pageState = Loaded (Transaction paymentId <| subModel) }
+                    , Cmd.map TransactionMsg subMsg
+                    )
                 )
 
         Just Route.TransactionList ->
@@ -521,8 +539,9 @@ setRoute maybeRoute model =
                         ( subModel, subMsg ) =
                             TransactionList.init session
                     in
-                    { model | pageState = Loaded (TransactionList <| subModel) }
-                        ! [ Cmd.map TransactionListMsg subMsg ]
+                    ( { model | pageState = Loaded (TransactionList <| subModel) }
+                    , Cmd.map TransactionListMsg subMsg
+                    )
                 )
 
 

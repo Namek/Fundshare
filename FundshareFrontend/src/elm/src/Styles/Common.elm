@@ -1,8 +1,7 @@
-module Styles.Common
-    exposing
-        ( commonGlobalStylesheet
-        , csg
-        )
+module Styles.Common exposing
+    ( commonGlobalStylesheet
+    , csg
+    )
 
 import Styles.Internal exposing (..)
 

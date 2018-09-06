@@ -7,6 +7,6 @@ import Material.Progress as Loading
 
 spinner : Html msg
 spinner =
-    div [ style [ ( "transform", "scale(5)" ) ] ]
+    div [ style "transform" "scale(5)" ]
         [ Loading.indeterminate
         ]

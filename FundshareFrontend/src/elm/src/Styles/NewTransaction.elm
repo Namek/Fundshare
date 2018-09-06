@@ -1,11 +1,10 @@
-module Styles.NewTransaction
-    exposing
-        ( PaymentAddStyleClass(..)
-        , c
-        , cls
-        , cs
-        , newTransactionStylesheet
-        )
+module Styles.NewTransaction exposing
+    ( PaymentAddStyleClass(..)
+    , c
+    , cls
+    , cs
+    , newTransactionStylesheet
+    )
 
 import Material.Options as Options
 import Styles.Internal exposing (..)

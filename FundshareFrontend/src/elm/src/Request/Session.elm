@@ -1,4 +1,4 @@
-module Request.Session exposing (..)
+module Request.Session exposing (SignInResult, checkSession, signIn)
 
 import Data.User exposing (User)
 import GraphQL.Request.Builder exposing (..)

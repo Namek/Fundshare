@@ -1,11 +1,10 @@
-module Styles.Login
-    exposing
-        ( LoginStyleClass(..)
-        , c
-        , cls
-        , cs
-        , loginStylesheet
-        )
+module Styles.Login exposing
+    ( LoginStyleClass(..)
+    , c
+    , cls
+    , cs
+    , loginStylesheet
+    )
 
 import Html exposing (..)
 import Material.Options as Options

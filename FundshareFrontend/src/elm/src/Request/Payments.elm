@@ -1,4 +1,4 @@
-module Request.Payments exposing (..)
+module Request.Payments exposing (PaymentFilter(..), getPayments)
 
 import Data.Payment exposing (PaymentId)
 import Date exposing (Date)

@@ -1,4 +1,4 @@
-module Data.Context exposing (..)
+module Data.Context exposing (ContextData, GlobalMsg(..), Logged, matId, passContext, passContextWithoutSession)
 
 import Data.Session exposing (..)
 import Material

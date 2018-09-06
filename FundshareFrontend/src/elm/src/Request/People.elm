@@ -1,4 +1,4 @@
-module Request.People exposing (..)
+module Request.People exposing (getPeople)
 
 import Data.Person exposing (Person, PersonId)
 import GraphQL.Request.Builder exposing (..)

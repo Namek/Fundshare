@@ -1,4 +1,4 @@
-module Data.Transaction exposing (..)
+module Data.Transaction exposing (Transaction, TransactionId)
 
 import Data.Person exposing (PersonId)
 import Date exposing (Date)

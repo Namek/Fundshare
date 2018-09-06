@@ -2,7 +2,7 @@ module Page.Login exposing (Model, Msg, initialModel, update, view)
 
 import Cmd.Extra
 import Data.Context exposing (ContextData, GlobalMsg(..))
-import Data.Session exposing (Session, SessionState(LoggedSession))
+import Data.Session exposing (Session, SessionState(..))
 import GraphQL.Client.Http
 import Html exposing (Html, div, p, text)
 import Html.Events
@@ -76,6 +76,7 @@ update ctx msg =
                 msg =
                     if keyCode == 13 && isLoginFilled model then
                         Cmd.Extra.perform SignIn
+
                     else
                         Cmd.none
             in
@@ -124,12 +125,14 @@ view ctx =
         shouldErrorEmail =
             if String.isEmpty model.email || model.focusedField == Email then
                 False
+
             else
                 not <| match emailRegex model.email
 
         shouldErrorPassword =
             if String.isEmpty model.password || model.focusedField == Password then
                 False
+
             else
                 isPasswordTooShort
 

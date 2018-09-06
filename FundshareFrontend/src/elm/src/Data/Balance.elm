@@ -1,4 +1,4 @@
-module Data.Balance exposing (..)
+module Data.Balance exposing (Balance)
 
 import Data.Person exposing (PersonId)
 import Date exposing (Date)

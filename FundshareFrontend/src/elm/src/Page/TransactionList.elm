@@ -21,6 +21,7 @@ import Request.Transactions exposing (requestUserTransactions)
 import Task
 
 
+
 -- MODEL --
 
 

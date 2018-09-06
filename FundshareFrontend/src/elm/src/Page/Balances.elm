@@ -30,6 +30,7 @@ import Request.Common exposing (..)
 import Task
 
 
+
 -- MODEL --
 
 
@@ -96,6 +97,7 @@ viewBalanceSummary ctx =
                         b.value
                             * (if b.iHaveMore then
                                 1
+
                                else
                                 -1
                               )
@@ -104,7 +106,7 @@ viewBalanceSummary ctx =
                 |> (*) 100
                 |> round
                 |> toFloat
-                |> flip (/) 100
+                |> (\a -> (/) a 100)
 
         iHaveMore =
             totalBalance > 0
@@ -115,6 +117,7 @@ viewBalanceSummary ctx =
         comparedColor =
             if totalBalance == 0 then
                 Color.white
+
             else
                 iHaveMore
                     |> either
@@ -247,6 +250,7 @@ viewBalance ctx index balance =
         comparedColor =
             if value == 0 then
                 Color.white
+
             else
                 iHaveMore
                     |> either
@@ -258,10 +262,12 @@ viewBalance ctx index balance =
                 { sign = css "opacity" "0"
                 , value = Typo.display2
                 }
+
             else if value >= 1000 then
                 { sign = Typo.display1
                 , value = Typo.display2
                 }
+
             else
                 { sign = Typo.display1
                 , value = Typo.display2

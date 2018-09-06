@@ -7,6 +7,7 @@ import Navigation exposing (Location)
 import UrlParser as Url exposing ((</>), Parser, oneOf, parseHash, s, string)
 
 
+
 -- ROUTING --
 
 
@@ -88,5 +89,6 @@ fromLocation : Location -> Maybe Route
 fromLocation location =
     if String.isEmpty location.hash then
         Just NewTransaction
+
     else
         parseHash route location

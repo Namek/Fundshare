@@ -1,4 +1,4 @@
-module Request.AddTransaction exposing (..)
+module Request.AddTransaction exposing (NewTransaction, addTransaction)
 
 import Data.Person exposing (PersonId)
 import Data.Transaction exposing (TransactionId)

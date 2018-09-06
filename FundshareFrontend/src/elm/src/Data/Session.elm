@@ -1,4 +1,4 @@
-module Data.Session exposing (..)
+module Data.Session exposing (Session, SessionState(..), decodeFromJson, decoder, encode)
 
 import Data.User as User exposing (User)
 import Json.Decode as Decode exposing (Decoder)

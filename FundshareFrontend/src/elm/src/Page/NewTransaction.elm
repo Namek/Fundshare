@@ -146,6 +146,7 @@ update ctx msg =
         SetAmount str ->
             (if (String.trim >> String.length) str == 0 then
                 { model | amount = Nothing }
+
              else
                 case match moneyRegex str of
                     True ->
@@ -172,6 +173,7 @@ update ctx msg =
                 cmd =
                     if keyCode == 13 then
                         Dom.focus idsStr.paymentDescription |> Task.attempt ElementFocused
+
                     else
                         Cmd.none
             in
@@ -182,6 +184,7 @@ update ctx msg =
                 msg =
                     if keyCode == 13 then
                         [ Cmd.Extra.perform SaveTransaction ]
+
                     else
                         []
             in
@@ -206,6 +209,7 @@ update ctx msg =
                 newChips =
                     if tagExists then
                         List.Extra.remove tagName model.tags.chips
+
                     else
                         tagName :: model.tags.chips
 
@@ -521,8 +525,10 @@ viewDescription ctx =
             (if isFormDisabled model then
                 if String.isEmpty model.paymentDescription then
                     "No description"
+
                 else
                     "Description"
+
              else
                 "Description (optional)"
             )
@@ -545,6 +551,7 @@ viewTags ctx =
         text =
             if isFormDisabled ctx.model then
                 "Tags (optional)"
+
             else
                 "Tags"
 

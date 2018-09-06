@@ -1,4 +1,4 @@
-module Request.Transactions exposing (..)
+module Request.Transactions exposing (requestUserTransactions)
 
 import Data.Transaction exposing (Transaction, TransactionId)
 import Date exposing (Date)
