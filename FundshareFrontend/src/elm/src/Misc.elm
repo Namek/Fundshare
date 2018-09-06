@@ -58,4 +58,21 @@ delay : Time.Time -> msg -> Cmd msg
 delay time msg =
     Process.sleep time
         |> Task.andThen (always <| Task.succeed msg)
-        |> Task.perform identity
+        |> Task.perform
+
+
+{-| If the set does not contain the element, add it. If it does contain the element, remove it.
+
+    Set.Extra.toggle 1 (Set.fromList [1,2,3])
+    --> Set.fromList [2, 3]
+    Set.Extra.toggle 1 (Set.fromList [2,3])
+    --> Set.fromList [1, 2, 3]
+
+-}
+toggle : comparable -> Set comparable -> Set comparable
+toggle elem set =
+    if Set.member elem set then
+        Set.remove elem set
+
+    else
+        Set.insert elem set

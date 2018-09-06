@@ -25,7 +25,7 @@ import Material.Textfield as Textfield
 import Material.Toggles as Toggles
 import Material.Typography as Typo
 import Maybe.Extra exposing (isJust, isNothing)
-import Misc exposing ((=>), match, moneyRegex, viewIf)
+import Misc exposing ((=>), match, moneyRegex, toggle, viewIf)
 import Request.AddTransaction exposing (..)
 import Request.Common exposing (..)
 import Request.People exposing (..)
@@ -139,7 +139,7 @@ update ctx msg =
                 => Cmd.none
 
         TogglePayee personId ->
-            { model | payees = Set.Extra.toggle personId model.payees }
+            { model | payees = Misc.toggle personId model.payees }
                 => Cmd.none
                 => Cmd.none
 
