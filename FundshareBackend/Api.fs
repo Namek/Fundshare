@@ -9,6 +9,7 @@ open FSharp.Data.GraphQL.Execution
 open FSharp.Data.GraphQL.Linq
 open Paseto.Authentication
 open Fundshare.DataStructures
+open FundshareBackend.Utils
 open YoLo
 
 type SignInResult =
@@ -178,17 +179,17 @@ let Mutation = Define.Object<Ref<Session>>("mutation", [
     Define.Input("name", String)
     Define.Input("passwordHash", String)
   ], fun ctx session ->
-    let passwordSalted = UTF8.sha1Hex <| (ctx.Arg "passwordHash") + AppConfig.Auth.passwordSalt
+    let passwordSalted = Md5.hash <| (ctx.Arg "passwordHash") + AppConfig.Auth.passwordSalt
     Repo.addUser (ctx.Arg "email") passwordSalted (ctx.Arg "name")
       |> Option.map (fun id -> {id = id})
   )
   
   Define.Field("signIn", Nullable SignInResult, "Sign in user of given email with a password", [
     Define.Input("email", String)
-    Define.Input("passwordHash", String, description = "sha1 hashed password where salt (added on the right) is login email")
+    Define.Input("passwordHash", String, description = "md5 hashed password where salt (added on the right) is login email")
   ], fun ctx session ->
     let email = ctx.Arg "email"
-    let passwordSalted = UTF8.sha1Hex <| (ctx.Arg "passwordHash") + AppConfig.Auth.passwordSalt
+    let passwordSalted = Md5.hash <| (ctx.Arg "passwordHash") + AppConfig.Auth.passwordSalt
 
     Repo.validateUserCredentials email passwordSalted
     |> Option.map (fun user ->

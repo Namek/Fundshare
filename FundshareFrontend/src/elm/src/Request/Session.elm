@@ -4,7 +4,7 @@ import Data.User exposing (User)
 import GraphQL.Request.Builder exposing (..)
 import GraphQL.Request.Builder.Arg as Arg
 import GraphQL.Request.Builder.Variable as Var
-import Misc.Sha1 exposing (sha1)
+import MD5
 
 
 type alias SignInResult =
@@ -18,7 +18,7 @@ signIn credentials =
             Var.required "email" .email Var.string
 
         passwordVar =
-            Var.required "passwordHash" (.password >> sha1) Var.string
+            Var.required "passwordHash" (.password >> MD5.hex) Var.string
     in
     extract
         (field "signIn"
