@@ -25,6 +25,7 @@ import Material.Textfield as Textfield
 import Material.Typography as Typo
 import Maybe.Extra
 import Misc exposing ((=>), either, viewIf)
+import Misc.Time exposing (timeDistanceInWords)
 import Request.Balance exposing (getBalances)
 import Request.Common exposing (..)
 import Task
@@ -142,7 +143,7 @@ viewBalanceSummary ctx =
             in
             case ( lastUpdateAt, ctx.model.dateTimeNow ) of
                 ( Just last, Just now ) ->
-                    Date.Distance.inWords last now ++ " ago"
+                    timeDistanceInWords last now ++ " ago"
 
                 _ ->
                     "no changes yet"

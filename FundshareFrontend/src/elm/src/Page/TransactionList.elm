@@ -5,7 +5,6 @@ import Data.Context exposing (ContextData, GlobalMsg, Logged)
 import Data.Session exposing (Session)
 import Data.Transaction exposing (Transaction)
 import Date exposing (Date, now)
-import Date.Distance
 import Html exposing (Html, div, p, text)
 import Html.Events
 import Json.Decode as Json

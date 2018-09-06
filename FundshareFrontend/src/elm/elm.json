@@ -19,10 +19,10 @@
             "elm-community/list-extra": "8.0.0",
             "elm-community/maybe-extra": "5.0.0",
             "jamesmacaulay/elm-graphql": "2.0.0",
-            "alpacaaa/elm-date-distance": "1.1.0",
             "debois/elm-mdl": "8.1.0"
         },
         "indirect": {
+            "elm/virtual-dom": "1.0.0"
         }
     },
     "test-dependencies": {
