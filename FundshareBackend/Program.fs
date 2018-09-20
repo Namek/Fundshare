@@ -6,6 +6,7 @@ open Suave
 open Suave.Cookie
 open Suave.Filters
 open Suave.Operators
+open Suave.Writers
 open Newtonsoft.Json
 open Chiron
 open FSharp.Data.GraphQL
@@ -54,8 +55,8 @@ type GraphQLServerReturn = { data : obj; errors: Error list }
 
 [<EntryPoint>]
 let main argv =
-  do Repo.updateBalanceForAllUsers () |> ignore
-  printfn "Balances recalculated and updated."
+//  do Repo.updateBalanceForAllUsers () |> ignore
+//  printfn "Balances recalculated and updated."
 
   let settings = JsonSerializerSettings()
   settings.Converters <- [| OptionConverter() :> JsonConverter |]
@@ -155,26 +156,37 @@ let main argv =
         return! http
         |> match result with
             | Result.Ok (Direct (data, errors)) ->
-              unsetInvalidCookie >=> Successful.OK (json {
+              let resultJson = json {
                 data = data.["data"]
                 errors = if data.ContainsKey("errors") then data.["errors"] :?> Error list else []
-              }) >=> setAuthCookie session
+              }
+              do printfn "Respond with: %s" resultJson |> ignore
+              unsetInvalidCookie >=> Successful.OK resultJson >=> setAuthCookie session
             | Result.Ok response ->
-              unsetInvalidCookie >=> Successful.OK (json response.Content) >=> setAuthCookie session
+              let resultJson = json response.Content
+              do printfn "Respond with: %s" resultJson |> ignore
+              unsetInvalidCookie >=> Successful.OK resultJson >=> setAuthCookie session
             | Result.Error str -> Successful.OK str
       }
   
   let setCorsHeaders = 
-    Writers.setHeader  "Access-Control-Allow-Origin" "*"
-    >=> Writers.setHeader "Access-Control-Allow-Headers" "content-type"
+    setHeader  "Access-Control-Allow-Origin" "*"
+    >=> setHeader "Access-Control-Allow-Headers" "content-type"
+    
+  let noCache = 
+    setHeader "Cache-Control" "no-cache, no-store, must-revalidate"
+    >=> setHeader "Pragma" "no-cache"
+    >=> setHeader "Expires" "0"
   
   let app : WebPart =
     choose [
-      Filters.GET >=> path "/" >=> Files.browseFileHome "index.html"
-      path "/api" >=> setCorsHeaders >=> graphql >=> Writers.setMimeType "application/json"
-      Filters.GET >=> Files.browseHome  
+      choose [Filters.GET; Filters.HEAD] >=> choose [
+        path "/" >=> Files.browseFileHome "index.html"
+        Files.browseHome
+      ]
+      path "/api" >=> setCorsHeaders >=> graphql >=> setMimeType "application/json"
       RequestErrors.NOT_FOUND "Page not found." 
-    ]
+    ] >=> noCache
 
   Console.WriteLine("Serving files from: " + AppConfig.General.httpFilesPath)
   

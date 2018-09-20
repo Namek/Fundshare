@@ -295,7 +295,7 @@ let validateUserCredentials (email : string) (passwordSalted : String) : User op
   connect()
   |> Sql.executeQueryAndGetRow
     (TableQuery ("SELECT id, name FROM public.users WHERE email=@email AND password_hash=@password LIMIT 1;",
-                 ["email", String email; "password", String passwordSalted]))
+                 ["email", String email; "password", String (String.toLowerInvariant passwordSalted)]))
   |> function
     | (Some [ "id", Int id; "name", String name ]) ->
       Some { id = id; name = name; email = email; balances = None; transactions = None }
