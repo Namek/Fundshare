@@ -1,37 +1,29 @@
 module Page.NewTransaction exposing (Model, Msg, init, update, view)
 
+import Browser.Dom as Dom
 import Cmd.Extra
 import Data.Context exposing (..)
 import Data.Person exposing (Person, PersonId)
 import Data.Session exposing (Session)
 import Data.Transaction exposing (TransactionId)
-import Dom
+import Element exposing (Element, centerY, column, el, fill, padding, paddingXY, paragraph, rgb255, row, spaceEvenly, text, width, wrappedRow)
+import Element.Background as Bg
+import Element.Font as Font
+import Element.Input as Input
 import GraphQL.Client.Http
-import Html exposing (..)
 import Html.Attributes as Attr
 import Html.Events exposing (keyCode)
 import Json.Decode as Json
 import Json.Encode
 import List
 import List.Extra
-import Material.Button as Button
-import Material.Color as Color
-import Material.Elevation as Elevation
-import Material.Icon as Icon
-import Material.List as Lists
-import Material.Options as Opts exposing (css)
-import Material.Progress as Loading
-import Material.Textfield as Textfield
-import Material.Toggles as Toggles
-import Material.Typography as Typo
 import Maybe.Extra exposing (isJust, isNothing)
-import Misc exposing ((=>), match, moneyRegex, toggle, viewIf)
+import Misc exposing (attrWhen, either, match, moneyRegex, noCmd, toggle, viewIf)
 import Request.AddTransaction exposing (..)
 import Request.Common exposing (..)
 import Request.People exposing (..)
 import Route
 import Set exposing (Set)
-import Set.Extra
 import Styles.Common exposing (csg)
 import Styles.NewTransaction exposing (..)
 import Task
@@ -40,7 +32,7 @@ import Views.ChipsTextfield as ChipsTextfield
 
 type alias Model =
     { paymentDescription : String
-    , amount : Maybe String
+    , amount : Float
     , payor : Maybe PersonId
     , payees : Set PersonId
     , people : List Person
@@ -62,23 +54,26 @@ type alias SaveResult =
 
 init : Session -> ( Model, Cmd Msg )
 init session =
-    { paymentDescription = ""
-    , amount = Nothing
-    , payor = Just session.user.id
-    , payees = Set.empty
-    , people = []
-    , tags = ChipsTextfield.init
-    , saveState = Composing
-    }
-        => Cmd.Extra.perform RefreshPeopleList
+    let
+        model =
+            { paymentDescription = ""
+            , amount = 0
+            , payor = Just session.user.id
+            , payees = Set.empty
+            , people = []
+            , tags = ChipsTextfield.init
+            , saveState = Composing
+            }
+    in
+    ( model, Cmd.Extra.perform RefreshPeopleList )
 
 
 type Msg
     = RefreshPeopleList
     | RefreshPeopleListResponse (Result GraphQL.Client.Http.Error (List Person))
     | SelectPayor PersonId
-    | TogglePayee PersonId
-    | SetAmount String
+    | TogglePayee PersonId Bool
+    | SetAmount Float
     | SetPaymentDescription String
     | ElementFocused (Result Dom.Error ())
     | OnPaymentAmountKeyDown Int
@@ -108,65 +103,43 @@ update ctx msg =
                         |> sendQueryRequest
                         |> Task.attempt RefreshPeopleListResponse
             in
-            model
-                => cmd
-                => Cmd.none
+            ( model, cmd ) |> noCmd
 
         RefreshPeopleListResponse result ->
-            (case result of
-                Err err ->
-                    model
-
-                Ok people ->
-                    { model
-                        | people = people
-
-                        -- , payees = payeesForTransactionType model.transactionType session.user.id people
-                    }
-            )
-                => (Dom.focus idsStr.paymentAmount |> Task.attempt ElementFocused)
-                => Cmd.none
+            let
+                newModel =
+                    result
+                        |> Result.andThen (\people -> Ok { model | people = people })
+                        |> Result.withDefault model
+            in
+            ( newModel, Dom.focus idsStr.paymentAmount |> Task.attempt ElementFocused )
+                |> noCmd
 
         SelectPayor personId ->
-            let
-                payees =
-                    Set.empty
+            { model | payor = Just personId, payees = Set.empty } |> noCmd |> noCmd
 
-                -- payeesForTransactionType model.transactionType personId model.people
-            in
-            { model | payor = Just personId, payees = payees }
-                => Cmd.none
-                => Cmd.none
+        TogglePayee personId isSelected ->
+            { model
+                | payees =
+                    if isSelected then
+                        Set.insert personId model.payees
 
-        TogglePayee personId ->
-            { model | payees = Misc.toggle personId model.payees }
-                => Cmd.none
-                => Cmd.none
+                    else
+                        Set.remove personId model.payees
+            }
+                |> noCmd
+                |> noCmd
 
-        SetAmount str ->
-            (if (String.trim >> String.length) str == 0 then
-                { model | amount = Nothing }
-
-             else
-                case match moneyRegex str of
-                    True ->
-                        { model | amount = Just str }
-
-                    False ->
-                        model
-            )
-                => Cmd.none
-                => Cmd.none
+        SetAmount amount ->
+            { model | amount = amount }
+                |> noCmd
+                |> noCmd
 
         SetPaymentDescription str ->
-            { model | paymentDescription = str }
-                => Cmd.none
-                => Cmd.none
+            { model | paymentDescription = str } |> noCmd |> noCmd
 
         ElementFocused res ->
-            model
-                => Cmd.none
-                => Cmd.none
+            model |> noCmd |> noCmd
 
         OnPaymentAmountKeyDown keyCode ->
             let
@@ -177,29 +150,25 @@ update ctx msg =
                     else
                         Cmd.none
             in
-            model => cmd => Cmd.none
+            ( model, cmd ) |> noCmd
 
         OnPaymentDescriptionKeyDown keyCode ->
             let
-                msg =
+                cmds =
                     if keyCode == 13 then
                         [ Cmd.Extra.perform SaveTransaction ]
 
                     else
                         []
             in
-            model
-                => Cmd.none
-                => Cmd.none
+            ( model, Cmd.batch cmds ) |> noCmd
 
-        TagsMsg msg ->
+        TagsMsg tagsMsg ->
             let
                 ( subModel, subMsg ) =
-                    ChipsTextfield.update msg model.tags
+                    ChipsTextfield.update tagsMsg model.tags
             in
-            { model | tags = subModel }
-                => Cmd.map TagsMsg subMsg
-                => Cmd.none
+            ( { model | tags = subModel }, Cmd.map TagsMsg subMsg ) |> noCmd
 
         ToggleTag tagName ->
             let
@@ -219,34 +188,29 @@ update ctx msg =
                 newTags =
                     { tags | chips = newChips }
             in
-            { model | tags = newTags } => Cmd.none => Cmd.none
+            { model | tags = newTags } |> noCmd |> noCmd
 
         SaveTransaction ->
             let
                 newTransaction : Maybe NewTransaction
                 newTransaction =
-                    case
-                        ( Maybe.withDefault "0" model.amount |> String.toInt
-                        , Set.toList model.payees
-                        , model.payor
-                        )
-                    of
-                        ( Ok 0, _, _ ) ->
+                    case ( model.payor, floor (model.amount * 100) ) of
+                        ( _, 0 ) ->
                             Nothing
 
-                        ( Ok amount, payeeIds, Just payorId ) ->
-                            { amount = amount * 100
+                        ( Nothing, _ ) ->
+                            Nothing
+
+                        ( Just payorId, amount ) ->
+                            { amount = amount
                             , description = Just model.paymentDescription
 
                             -- , paidAt = Nothing
                             , payorId = payorId
-                            , payeeIds = payeeIds
+                            , payeeIds = Set.toList model.payees
                             , tags = Just model.tags.chips
                             }
                                 |> Just
-
-                        _ ->
-                            Nothing
 
                 sendReqCmd =
                     newTransaction
@@ -255,14 +219,13 @@ update ctx msg =
             in
             case sendReqCmd of
                 Just cmd ->
-                    { model | saveState = Saving }
-                        => Task.attempt SaveTransactionResponse cmd
-                        => Cmd.none
+                    ( { model | saveState = Saving }
+                    , Task.attempt SaveTransactionResponse cmd
+                    )
+                        |> noCmd
 
                 _ ->
-                    model
-                        => Cmd.none
-                        => Cmd.none
+                    model |> noCmd |> noCmd
 
         SaveTransactionResponse result ->
             (case result of
@@ -272,20 +235,18 @@ update ctx msg =
                 Ok res ->
                     { model | saveState = Saved (SaveResult res) }
             )
-                => Cmd.none
-                => Cmd.none
+                |> noCmd
+                |> noCmd
 
         OpenSavedTransaction ->
             case model.saveState of
                 Saved { paymentId } ->
-                    model
-                        => Cmd.none
-                        => Cmd.batch [ Route.modifyUrl <| Route.Transaction paymentId ]
+                    ( model |> noCmd
+                    , Cmd.Extra.perform (Navigate <| Route.Transaction paymentId)
+                    )
 
                 _ ->
-                    model
-                        => Cmd.none
-                        => Cmd.none
+                    model |> noCmd |> noCmd
 
 
 {-| IDs useful for focusing visual elements.
@@ -298,22 +259,25 @@ idsStr =
 
 {-| IDs needed for Material UI to conveniently distinguish states of components.
 -}
-ids =
-    { paymentDescription = 0
-    , amount = 1
-    , btnAdd = 2
-    , catSel = 3
-    , payorSelection = 4
-    , payeeSelection = 5
-    , tags = 6
-    , usualTags = 7
-    , btnOpenSavedPayment = 8
-    }
+
+
+
+-- ids =
+--     { paymentDescription = 0
+--     , amount = 1
+--     , btnAdd = 2
+--     , catSel = 3
+--     , payorSelection = 4
+--     , payeeSelection = 5
+--     , tags = 6
+--     , usualTags = 7
+--     , btnOpenSavedPayment = 8
+--     }
 
 
 isFormFilled : Model -> Bool
 isFormFilled model =
-    model.amount /= Nothing
+    model.amount /= 0
 
 
 isFormDisabled : Model -> Bool
@@ -341,7 +305,7 @@ isFormEnabled model =
 -- VIEW
 
 
-view : Context msg -> Html msg
+view : Context msg -> Element msg
 view ctx =
     let
         { model } =
@@ -350,19 +314,18 @@ view ctx =
         formDisabled =
             isFormDisabled model
     in
-    Opts.div [ css "width" "100%", css "user-select" "none" ]
-        [ Opts.stylesheet newTransactionStylesheet
-        , Opts.div
-            [ Elevation.e2
-            , Elevation.e0 |> Opts.when formDisabled
-            , cs Window
-            ]
-            [ Opts.styled p [ cs Header ] [ text "New transaction" ]
-            , Opts.div [ cs MainContainer ]
-                [ Opts.div [ cs Main ]
+    row
+        [ width fill
+        , Element.htmlAttribute (Attr.style "user-select" "none")
+        ]
+        [ row
+            []
+            [ paragraph [] [ text "New transaction" ]
+            , row []
+                [ row [ paddingXY 10 15 ]
                     [ viewAmount ctx
                     , viewMoneyDirection ctx
-                    , Opts.div [] [ viewDescription ctx ]
+                    , row [] [ viewDescription ctx ]
                     , viewTags ctx
                     ]
                 , viewUsualTags ctx
@@ -373,26 +336,34 @@ view ctx =
         ]
 
 
-viewAmount : Context msg -> Html msg
+viewAmount : Context msg -> Element msg
 viewAmount ctx =
     let
         { model } =
             ctx
     in
-    input
-        [ Attr.type_ "number"
-        , Attr.property "pattern" (Json.Encode.string "[0-9]*([,.][0-9]{2})?")
-        , Attr.value <| Maybe.withDefault "" model.amount
-        , Attr.id idsStr.paymentAmount
-        , Attr.class <| cls Amount
-        , Attr.placeholder "PLN"
-        , Html.Events.onInput (ctx.lift << SetAmount)
-        , Html.Events.on "keydown" (Json.map (ctx.lift << OnPaymentAmountKeyDown) Html.Events.keyCode)
-        ]
-        []
+    Input.slider []
+        { onChange = ctx.lift << SetAmount
+        , label = Input.labelAbove [] Element.none
+        , min = 0
+        , max = 99999
+        , value = model.amount
+        , thumb = Input.defaultThumb
+        , step = Just 0.01
+        }
 
 
 
+-- [ Attr.type_ "number"
+-- , Attr.property "pattern" (Json.Encode.string "[0-9]*([,.][0-9]{2})?")
+-- , Attr.value <| Maybe.withDefault "" model.amount
+-- , Attr.id idsStr.paymentAmount
+-- , Attr.class <| cls Amount
+-- , Attr.placeholder "PLN"
+-- , Html.Events.onInput (ctx.lift << SetAmount)
+-- , Html.Events.on "keydown" (Json.map (ctx.lift << OnPaymentAmountKeyDown) Html.Events.keyCode)
+-- ]
+-- []
 {- Textfield.render ctx.liftMaterial
    [ ids.amount ]
    ctx.mdl
@@ -415,138 +386,119 @@ viewAmount ctx =
 -}
 
 
-payorSelection : Context msg -> Html msg
+payorSelection : Context msg -> Element msg
 payorSelection ctx =
     let
         { model } =
             ctx
 
-        viewEl : Int -> Person -> Html msg
+        viewEl : Int -> Person -> Element msg
         viewEl idx person =
             let
                 isSelected =
                     model.payor
                         |> Maybe.Extra.unwrap False (\pid -> pid == person.id)
             in
-            Lists.li
-                [ Opts.onClick (ctx.lift <| SelectPayor person.id) |> Opts.when (isFormEnabled model)
-                , csg "interactive" |> Opts.cs |> Opts.when (isFormEnabled model)
+            row
+                [-- Opts.onClick (ctx.lift <| SelectPayor person.id) |> Opts.when (isFormEnabled model)
+                 -- , csg "interactive" |> Opts.cs |> Opts.when (isFormEnabled model)
                 ]
-                [ Lists.content []
-                    [ Opts.span [ Lists.action2 ]
-                        [ Toggles.radio
-                            ctx.liftMaterial
-                            [ ids.payorSelection, idx ]
-                            ctx.mdl
-                            [ Toggles.value isSelected
-                            , Toggles.group "payorSelection"
-                            , Opts.onToggle (ctx.lift <| SelectPayor person.id) |> Opts.when (isFormEnabled model)
-                            , Toggles.ripple |> Opts.when (isFormEnabled model)
-                            ]
-                            []
-                        ]
-                    , text person.name
-                    ]
-                ]
+                [ paragraph [] [ Element.el [] (text person.name) ] ]
+
+        -- [ Input.radioRow  { onChange : option -> msg, options : List.List (Element.Input.Option option msg), selected : Maybe.Maybe option, label : Element.Input.Label msg }
+        --         [ Toggles.value isSelected
+        --         , Toggles.group "payorSelection"
+        --         , Opts.onToggle (ctx.lift <| SelectPayor person.id) |> Opts.when (isFormEnabled model)
+        --         , Toggles.ripple |> Opts.when (isFormEnabled model)
+        --         ]
+        --         []
+        --     ]
+        -- , text person.name
+        -- ]
     in
-    div []
-        [ ctx.model.people
-            |> List.indexedMap viewEl
-            |> Lists.ul []
-        ]
+    row []
+        (ctx.model.people |> List.indexedMap viewEl)
 
 
-payeeSelection : Context msg -> Html msg
+payeeSelection : Context msg -> Element msg
 payeeSelection ctx =
     let
         { model } =
             ctx
 
-        viewEl : Int -> Person -> Html msg
+        viewEl : Int -> Person -> Element msg
         viewEl idx person =
             let
                 isSelected =
                     model.payees |> Set.member person.id
             in
-            Lists.li
-                [ Opts.onClick (ctx.lift <| TogglePayee person.id) |> Opts.when (isFormEnabled model)
-                , csg "interactive" |> Opts.cs |> Opts.when (isFormEnabled model)
-                ]
-                [ Lists.content []
-                    [ Opts.span [ Lists.action2 ]
-                        [ Toggles.checkbox
-                            ctx.liftMaterial
-                            [ ids.payeeSelection, idx ]
-                            ctx.mdl
-                            [ Toggles.value isSelected
-                            , Opts.onToggle (ctx.lift <| TogglePayee person.id) |> Opts.when (isFormEnabled model)
-                            , Toggles.ripple |> Opts.when (isFormEnabled model)
-                            ]
-                            []
-                        ]
-                    , text person.name
-                    ]
-                ]
+            Input.checkbox []
+                { onChange = ctx.lift << TogglePayee person.id
+                , checked = isSelected
+                , icon = always (text "")
+                , label = Input.labelAbove [] <| text person.name
+                }
     in
-    div []
-        [ ctx.model.people
+    row []
+        (ctx.model.people
             |> List.filter
                 (\p ->
                     Just p.id /= model.payor
                 )
             |> List.indexedMap viewEl
-            |> Lists.ul []
-        ]
+        )
 
 
-viewMoneyDirection : Context msg -> Html msg
+viewMoneyDirection : Context msg -> Element msg
 viewMoneyDirection ctx =
     let
         { model } =
             ctx
     in
-    Opts.div [ cs MoneyDirection ]
+    row [ spaceEvenly ]
         [ payorSelection ctx
-        , Opts.span [ cs MoneyDirectionArrow ] [ text "⇢" ]
+        , Element.el
+            [ centerY ]
+            (text "⇢")
         , payeeSelection ctx
         ]
 
 
-viewDescription : Context msg -> Html msg
+viewDescription : Context msg -> Element msg
 viewDescription ctx =
     let
         { model } =
             ctx
     in
-    Textfield.render ctx.liftMaterial
-        [ ids.paymentDescription ]
-        ctx.mdl
-        [ Textfield.label
-            (if isFormDisabled model then
-                if String.isEmpty model.paymentDescription then
-                    "No description"
+    Input.text
+        [ width fill
 
-                else
-                    "Description"
-
-             else
-                "Description (optional)"
-            )
-        , Textfield.floatingLabel
-        , Opts.onInput (ctx.lift << SetPaymentDescription)
-        , Opts.on "keydown" (Json.map (ctx.lift << OnPaymentDescriptionKeyDown) Html.Events.keyCode)
-        , Textfield.value model.paymentDescription
-        , Opts.id idsStr.paymentDescription
-        , cs Description
+        -- Opts.on "keydown" (Json.map (ctx.lift << OnPaymentDescriptionKeyDown) Html.Events.keyCode)
         ]
-        []
+        { onChange = ctx.lift << SetPaymentDescription
+        , placeholder = Nothing
+        , label =
+            Input.labelAbove []
+                (text <|
+                    if isFormDisabled model then
+                        if String.isEmpty model.paymentDescription then
+                            "No description"
+
+                        else
+                            "Description"
+
+                    else
+                        "Description (optional)"
+                )
+        , text = model.paymentDescription
+        }
 
 
-viewTags : Context msg -> Html msg
+viewTags : Context msg -> Element msg
 viewTags ctx =
     let
         subContext =
-            passContextWithoutSession ctx .tags (ctx.lift << TagsMsg) [ ids.tags ]
+            passContextWithoutSession ctx .tags (ctx.lift << TagsMsg)
 
         text =
             if isFormDisabled ctx.model then
@@ -558,12 +510,10 @@ viewTags ctx =
         cfg =
             ChipsTextfield.Config (isFormEnabled ctx.model) text "No tags were selected."
     in
-    Opts.span [ cs TagsContainer ]
-        [ ChipsTextfield.view subContext cfg
-        ]
+    ChipsTextfield.view subContext cfg
 
 
-viewUsualTags : Context msg -> Html msg
+viewUsualTags : Context msg -> Element msg
 viewUsualTags ctx =
     let
         iconizedTags =
@@ -574,82 +524,70 @@ viewUsualTags ctx =
             , ( "food", "restaurant" )
             ]
     in
-    Opts.div [ cs UsualTags ] <|
+    column [] <|
         List.indexedMap (viewUsualTag ctx) iconizedTags
 
 
-viewUsualTag : Context msg -> Int -> ( String, String ) -> Html msg
+viewUsualTag : Context msg -> Int -> ( String, String ) -> Element msg
 viewUsualTag ctx idx ( tagName, iconName ) =
     let
         selected =
             List.member tagName ctx.model.tags.chips
     in
-    Opts.div [ cs UsualTagContainer ]
-        [ Button.render ctx.liftMaterial
-            [ ids.usualTags, idx ]
-            ctx.mdl
-            [ Button.fab
-            , Button.minifab
-            , Button.colored |> Opts.when selected
-            , Button.ripple
-            , cs UsualTag
-            , Opts.onClick (ctx.lift <| ToggleTag tagName)
-            ]
-            [ Icon.i iconName ]
-        ]
+    Element.el
+        [ Bg.color (rgb255 0 0 255) |> attrWhen selected ]
+        (Input.button []
+            { onPress = Just (ctx.lift <| ToggleTag tagName)
+            , label = text iconName
+            }
+        )
 
 
-viewSave : Context msg -> Html msg
+viewSave : Context msg -> Element msg
 viewSave ctx =
     let
         {- TODO: transfer/shared payment/payment -}
         btnText =
             "Add transaction"
     in
-    Opts.div [ cs BtnSaveContainer ]
-        [ Button.render ctx.liftMaterial
-            [ ids.btnAdd ]
-            ctx.mdl
-            [ Button.raised
-            , Button.colored
-            , Button.ripple
-            , Button.disabled |> Opts.when ((not <| isFormFilled ctx.model) || isFormDisabled ctx.model)
-            , Opts.onClick (ctx.lift SaveTransaction)
-            ]
-            [ text btnText ]
+    row [ padding 15 ]
+        [ Input.button []
+            { onPress =
+                (isFormFilled ctx.model
+                    && (not <| isFormDisabled ctx.model)
+                )
+                    |> either
+                        (Just <| ctx.lift SaveTransaction)
+                        Nothing
+            , label = text btnText
+            }
         ]
 
 
-viewSaveResult : Context msg -> Html msg
+viewSaveResult : Context msg -> Element msg
 viewSaveResult ctx =
     let
         { model } =
             ctx
     in
-    Opts.div
-        [ cs SaveInfo
-        , cs WithMargin |> Opts.when (model.saveState /= Saving)
+    row
+        [ paddingXY 20 39 |> attrWhen (model.saveState /= Saving)
         ]
         [ case model.saveState of
             Composing ->
                 text ""
 
             Saving ->
-                Loading.indeterminate
+                paragraph [] [ text "Saving..." ]
 
             SaveError ->
-                Opts.styled Html.p
-                    [ cs SaveErrorText, Color.text (Color.color Color.Red Color.S600) ]
+                paragraph
+                    [ Font.bold, Font.color (rgb255 229 57 53) ]
                     [ text "Some error occured, please try again or contact Administrator." ]
 
             Saved result ->
-                Button.render ctx.liftMaterial
-                    [ ids.btnOpenSavedPayment ]
-                    ctx.mdl
-                    [ Button.raised
-                    , Button.colored
-                    , Button.ripple
-                    , Opts.onClick (ctx.lift OpenSavedTransaction)
-                    ]
-                    [ span [] [ text "Open Payment" ] ]
+                Input.button []
+                    { onPress = Just <| ctx.lift OpenSavedTransaction
+                    , label = text "Open Payment"
+                    }
         ]

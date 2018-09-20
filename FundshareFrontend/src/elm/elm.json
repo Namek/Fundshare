@@ -19,6 +19,8 @@
             "elm-community/list-extra": "8.0.0",
             "elm-community/maybe-extra": "5.0.0",
             "jamesmacaulay/elm-graphql": "2.0.0",
+            "jweir/elm-iso8601": "5.0.0",
+            "mdgriffith/elm-ui": "1.0.0",
             "truqu/elm-md5": "1.0.1"
         },
         "indirect": {

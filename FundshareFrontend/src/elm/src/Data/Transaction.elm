@@ -1,7 +1,7 @@
 module Data.Transaction exposing (Transaction, TransactionId)
 
 import Data.Person exposing (PersonId)
-import Date exposing (Date)
+import Time exposing (Posix)
 
 
 type alias Transaction =
@@ -11,7 +11,7 @@ type alias Transaction =
     , tags : List String
     , payorId : PersonId
     , payeeIds : List PersonId
-    , paidAt : Date
+    , paidAt : Posix
     }
 
 

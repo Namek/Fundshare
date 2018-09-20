@@ -1,12 +1,13 @@
 module Request.Common exposing (DateTimeType(..), Error, date, makeRequestOpts, sendMutationRequest, sendQueryRequest)
 
 import Data.Session exposing (Session)
-import Date exposing (Date)
 import GraphQL.Client.Http as GraphQLClient exposing (RequestOptions)
 import GraphQL.Request.Builder exposing (..)
 import Http
+import ISO8601
 import Json.Decode as Decode
 import Task exposing (Task)
+import Time exposing (Posix)
 
 
 type alias Error =
@@ -37,14 +38,14 @@ type DateTimeType
     = DateTimeType
 
 
-date : ValueSpec NonNull DateTimeType Date vars
+date : ValueSpec NonNull DateTimeType Posix vars
 date =
     Decode.string
         |> Decode.andThen
             (\str ->
-                case Date.fromString str of
+                case ISO8601.fromString str of
                     Ok time ->
-                        Decode.succeed time
+                        Decode.succeed (ISO8601.toPosix time)
 
                     Err errorMessage ->
                         Decode.fail errorMessage

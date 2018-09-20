@@ -3,21 +3,15 @@ module Page.Login exposing (Model, Msg, initialModel, update, view)
 import Cmd.Extra
 import Data.Context exposing (ContextData, GlobalMsg(..))
 import Data.Session exposing (Session, SessionState(..))
+import Element exposing (Element, column, padding, paragraph, row, text)
+import Element.Font as Font
+import Element.Input as Input
 import GraphQL.Client.Http
-import Html exposing (Html, div, p, text)
-import Html.Events
 import Json.Decode as Json
-import Material.Button as Button
-import Material.Elevation as Elevation
-import Material.Options as Options exposing (css, when)
-import Material.Progress as Loading
-import Material.Textfield as Textfield
-import Material.Typography as Typo
-import Misc exposing ((=>), emailRegex, match, viewIf)
+import Misc exposing (emailRegex, match, viewIf)
 import Request.Common exposing (..)
 import Request.Session exposing (..)
 import Route
-import Styles.Login exposing (LoginStyleClass(..), cs, loginStylesheet)
 import Task
 
 
@@ -60,27 +54,27 @@ update ctx msg =
     in
     case msg of
         SetEmail email ->
-            { model | email = email } => Cmd.none => Cmd.none
+            ( ( { model | email = email }, Cmd.none ), Cmd.none )
 
         SetPassword password ->
-            { model | password = password } => Cmd.none => Cmd.none
+            ( ( { model | password = password }, Cmd.none ), Cmd.none )
 
         OnFieldFocused field ->
-            { model | focusedField = field } => Cmd.none => Cmd.none
+            ( ( { model | focusedField = field }, Cmd.none ), Cmd.none )
 
         OnFieldBlurred ->
-            { model | focusedField = None } => Cmd.none => Cmd.none
+            ( ( { model | focusedField = None }, Cmd.none ), Cmd.none )
 
         OnInFormKeyDown keyCode ->
             let
-                msg =
+                cmd =
                     if keyCode == 13 && isLoginFilled model then
                         Cmd.Extra.perform SignIn
 
                     else
                         Cmd.none
             in
-            model => msg => Cmd.none
+            ( ( model, cmd ), Cmd.none )
 
         SignIn ->
             let
@@ -89,21 +83,21 @@ update ctx msg =
                         |> sendMutationRequest
                         |> Task.attempt SignInResponse
             in
-            { model | isLoading = True }
-                => cmd
-                => Cmd.none
+            ( ( { model | isLoading = True }, cmd ), Cmd.none )
 
         SignInResponse res ->
             case res of
                 Err error ->
-                    { model | isLoading = False } => Cmd.none => Cmd.none
+                    ( ( { model | isLoading = False }, Cmd.none ), Cmd.none )
 
                 Ok user ->
-                    model
-                        => Cmd.batch
-                            [ Route.modifyUrl Route.Balances ]
-                        => Cmd.batch
-                            [ SetSession (Just { user = user }) |> Cmd.Extra.perform ]
+                    ( ( model, Cmd.none )
+                    , Cmd.batch <|
+                        List.map Cmd.Extra.perform
+                            [ SetSession (Just { user = user })
+                            , Navigate Route.Balances
+                            ]
+                    )
 
 
 ids =
@@ -113,10 +107,10 @@ ids =
     }
 
 
-view : Context msg -> Html msg
+view : Context msg -> Element msg
 view ctx =
     let
-        { lift, liftMaterial, mdl, model } =
+        { lift, model } =
             ctx
 
         isPasswordTooShort =
@@ -139,62 +133,55 @@ view ctx =
         formDisabled =
             model.isLoading
     in
-    Options.div
-        [ Elevation.e4
-        , cs Form
+    column
+        [ padding 25
+        , Element.inFront <|
+            viewIf model.isLoading (paragraph [] [ text "Signing in..." ])
         ]
-        [ Options.stylesheet loginStylesheet
-        , Options.styled p
-            [ Typo.display2 ]
+        [ {- Options.stylesheet loginStylesheet
+             ,
+          -}
+          paragraph
+            [ Font.size 18 ]
             [ text "Hi." ]
-        , div []
-            [ Textfield.render liftMaterial
-                (ctx.matId [ ids.username ])
-                mdl
-                [ Textfield.label "E-mail"
-                , Textfield.floatingLabel
-                , Textfield.email
-                , Options.onFocus (lift <| OnFieldFocused Email)
-                , Options.onBlur (lift <| OnFieldBlurred)
-                , Options.onInput (lift << SetEmail)
-                , Options.on "keydown" (Json.map (ctx.lift << OnInFormKeyDown) Html.Events.keyCode)
-                , Textfield.disabled |> when formDisabled
-                , Textfield.value model.email
-                , Textfield.error "Is not e-mail"
-                    |> when shouldErrorEmail
-                ]
+        , column []
+            [ Input.email
                 []
+                { onChange = lift << SetEmail
+                , text = model.email
+                , placeholder = Nothing
+                , label = Input.labelAbove [] (Element.text "E-mail")
+                }
+
+            -- , Options.onFocus (lift <| OnFieldFocused Email)
+            -- , Options.onBlur (lift <| OnFieldBlurred)
+            -- , Options.on "keydown" (Json.map (ctx.lift << OnInFormKeyDown) Html.Events.keyCode)
+            -- , Textfield.disabled |> when formDisabled
+            -- , Textfield.error "Is not e-mail"   |> when shouldErrorEmail
             ]
-        , div []
-            [ Textfield.render liftMaterial
-                (ctx.matId [ ids.password ])
-                mdl
-                [ Textfield.label "Password"
-                , Textfield.floatingLabel
-                , Textfield.password
-                , Options.onFocus (lift <| OnFieldFocused Password)
-                , Options.onBlur (lift <| OnFieldBlurred)
-                , Options.onInput (lift << SetPassword)
-                , Options.on "keydown" (Json.map (ctx.lift << OnInFormKeyDown) Html.Events.keyCode)
-                , Textfield.disabled |> when formDisabled
-                , Textfield.value model.password
-                , Textfield.error ("Minimum " ++ String.fromInt minPasswordLength ++ " characters")
-                    |> when shouldErrorPassword
+        , row []
+            [ Input.currentPassword
+                [--  Options.onFocus (lift <| OnFieldFocused Password)
+                 -- , Options.onBlur (lift <| OnFieldBlurred)
+                 -- , Options.on "keydown" (Json.map (ctx.lift << OnInFormKeyDown) Html.Events.keyCode)
+                 -- , Textfield.disabled |> when formDisabled
+                 -- , Textfield.error ("Minimum " ++ String.fromInt minPasswordLength ++ " characters")  |> when shouldErrorPassword
                 ]
-                []
+                { onChange = lift << SetPassword
+                , text = model.password
+                , placeholder = Nothing
+                , label = Input.labelAbove [] (text "Password")
+                , show = False
+                }
             ]
-        , Button.render liftMaterial
-            (ctx.matId [ ids.loginButton ])
-            mdl
-            [ cs BtnLogin
-            , Button.disabled |> when ((not <| isLoginFilled model) || formDisabled)
-            , Button.raised
-            , Button.colored |> when (isLoginFilled model)
-            , Button.ripple
-            , Options.onClick (lift <| SignIn)
+        , Input.button
+            [--Button.disabled |> when ((not <| isLoginFilled model) || formDisabled)
+             --, Button.raised
+             --, Button.colored |> when (isLoginFilled model)
             ]
-            [ text "Sign In" ]
-        , viewIf model.isLoading Loading.indeterminate
+            { onPress = Just (lift <| SignIn)
+            , label = text "Sign In"
+            }
         ]
 
 

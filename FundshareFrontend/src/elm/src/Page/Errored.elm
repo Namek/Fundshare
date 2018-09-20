@@ -1,9 +1,7 @@
 module Page.Errored exposing (PageLoadError, pageLoadError, view)
 
 import Data.Session exposing (SessionState)
-import Html exposing (Html, div, h1, img, main_, p, text)
-import Html.Attributes exposing (alt, class, id, tabindex)
-import Views.Page as Page exposing (ActivePage)
+import Element exposing (Element, paragraph, row, text)
 
 
 
@@ -15,24 +13,22 @@ type PageLoadError
 
 
 type alias Model =
-    { activePage : ActivePage
-    , errorMessage : String
+    { errorMessage : String
     }
 
 
-pageLoadError : ActivePage -> String -> PageLoadError
-pageLoadError activePage errorMessage =
-    PageLoadError { activePage = activePage, errorMessage = errorMessage }
+pageLoadError : String -> PageLoadError
+pageLoadError errorMessage =
+    PageLoadError { errorMessage = errorMessage }
 
 
 
 -- VIEW --
 
 
-view : SessionState -> PageLoadError -> Html msg
+view : SessionState -> PageLoadError -> Element msg
 view session (PageLoadError model) =
-    main_ [ id "content", class "container", tabindex -1 ]
-        [ h1 [] [ text "Error Loading Page" ]
-        , div [ class "row" ]
-            [ p [] [ text model.errorMessage ] ]
+    row []
+        [ row [] [ paragraph [] [ text "Error Loading Page " ] ]
+        , row [] [ paragraph [] [ text model.errorMessage ] ]
         ]

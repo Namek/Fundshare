@@ -69,12 +69,16 @@ void onFileChanged(WatcherChangeTypes evt, FileSystemEventArgs args)
         if (!lastUpdates.TryGetValue(args.FullPath, out var lastUpdate))
             shouldInvoke = true;
         else
-            shouldInvoke = (DateTime.Now.ToFileTimeUtc() - lastUpdate) > 5000;
+            shouldInvoke = (DateTime.Now.ToFileTimeUtc() - lastUpdate) > 50/*ms*/ * 10000;
 
         //log((DateTime.Now.ToFileTimeUtc() - lastUpdate).ToString());
 
         if (shouldInvoke) {
-            _onFileChanged(evt, args);
+            Task.Run(async () => {
+                await Task.Delay(30);
+                _onFileChanged(evt, args);
+            });
+            
             lastUpdates.Remove(args.FullPath);
             lastUpdates.Add(args.FullPath, DateTime.Now.ToFileTimeUtc());
         }
@@ -86,7 +90,7 @@ void _onFileChanged(WatcherChangeTypes evt, FileSystemEventArgs args)
     var srcSubfolder = Path.GetDirectoryName(path)
         .Replace('\\', '/').Split('/').Last();
 
-    log($"  changed: {path}");
+    log($"Changed: {path}");
 
     bool notifyBrowser = true;
 
@@ -112,7 +116,8 @@ void buildElm()
     var input = Path.Combine(srcDir, "elm", "src", "Main.elm");
     var output = Path.Combine(outputDir, "js", "elm.js");
     var workDir = Path.Combine(currentDir, "src", "elm");
-    exec(workDir, "elm", $@"make {input} --output={output}");
+    exec(workDir, "elm", $@"make {input} --output={output} --debug");
+    touchFile(output);
 }
 
 void buildScss()
@@ -145,6 +150,7 @@ void copyStatic(string filePath, string logPrefix = "Copying ")
         Directory.CreateDirectory(finalPathDir);
 
     File.Copy(filePath, finalPath, true);
+    touchFile(finalPath);
 }
 
 
@@ -161,6 +167,14 @@ void exec(String workDir, String cmd, String args = "")
 
     var proc = Process.Start(procInfo);
     proc.WaitForExit();
+}
+
+void touchFile(string path)
+{
+    var now = DateTime.Now;
+    File.SetCreationTime(path, now);
+    File.SetLastWriteTime(path, now);
+    File.SetLastAccessTime(path, now);
 }
 
 void log(string text)

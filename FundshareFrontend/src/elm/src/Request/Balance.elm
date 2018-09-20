@@ -1,9 +1,9 @@
 module Request.Balance exposing (getBalances)
 
 import Data.Balance exposing (Balance)
-import Date exposing (Date)
 import GraphQL.Request.Builder exposing (..)
 import Request.Common exposing (date)
+import Time exposing (Posix)
 
 
 {-| The exact call is:
@@ -67,7 +67,7 @@ type alias QBalance =
     , sharedPaymentCount : Int
     , transferCount : Int
     , unseenUpdateCount : Int
-    , lastUpdateAt : Maybe Date
+    , lastUpdateAt : Maybe Posix
     }
 
 

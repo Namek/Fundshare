@@ -12,7 +12,6 @@ import Material.Options as Options exposing (css, when)
 import Material.Progress as Loading
 import Material.Textfield as Textfield
 import Material.Typography as Typo
-import Misc exposing ((=>))
 import Request.Common exposing (..)
 
 
@@ -26,7 +25,7 @@ type alias Model =
 
 init : Session -> ( Model, Cmd Msg )
 init session =
-    {} => Cmd.none
+    ( {}, Cmd.none )
 
 
 type alias Context msg =
@@ -37,9 +36,9 @@ type alias Context msg =
 -- VIEW --
 
 
-view : Context msg -> Html msg
+view : Context msg -> Element msg
 view { model } =
-    div [] [ text "balances" ]
+    row [] [ text "balances" ]
 
 
 
@@ -52,6 +51,4 @@ type Msg
 
 update : Context msg -> Msg -> ( ( Model, Cmd Msg ), Cmd GlobalMsg )
 update { model } msg =
-    model
-        => Cmd.none
-        => Cmd.none
+    ( ( model, Cmd.none ), Cmd.none )

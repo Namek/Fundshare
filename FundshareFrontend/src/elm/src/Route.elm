@@ -1,10 +1,11 @@
-module Route exposing (Route(..), fromLocation, href, modifyUrl, routeToString)
+module Route exposing (Route(..), fromUrl, href, modifyUrl, routeToString)
 
+import Browser.Navigation as Nav
 import Data.Transaction exposing (TransactionId)
 import Html exposing (Attribute)
 import Html.Attributes as Attr
-import Navigation exposing (Location)
-import UrlParser as Url exposing ((</>), Parser, oneOf, parseHash, s, string)
+import Url exposing (Url)
+import Url.Parser as UrlParser exposing ((</>), Parser, int, map, oneOf, s)
 
 
 
@@ -22,18 +23,18 @@ type Route
     | TransactionList
 
 
-route : Parser (Route -> a) a
-route =
+parseRoute : Parser (Route -> a) a
+parseRoute =
     oneOf
-        [ Url.map Login (s "login")
-        , Url.map Logout (s "logout")
+        [ map Login (s "login")
+        , map Logout (s "logout")
 
         -- , Url.map Register (s "register")
         -- , Url.map Profile (s "profile" </> User.usernameParser)
-        , Url.map NewTransaction (s "pay")
-        , Url.map Balances (s "balances")
-        , Url.map Transaction (s "transaction" </> Url.int)
-        , Url.map TransactionList (s "history")
+        , map NewTransaction (s "pay")
+        , map Balances (s "balances")
+        , map Transaction (s "transaction" </> int)
+        , map TransactionList (s "history")
         ]
 
 
@@ -80,15 +81,12 @@ href route =
     Attr.href (routeToString route)
 
 
-modifyUrl : Route -> Cmd msg
-modifyUrl =
-    routeToString >> Navigation.modifyUrl
+modifyUrl : { a | navKey : Nav.Key } -> Route -> Cmd msg
+modifyUrl state route =
+    routeToString route |> Nav.pushUrl state.navKey
 
 
-fromLocation : Location -> Maybe Route
-fromLocation location =
-    if String.isEmpty location.hash then
-        Just NewTransaction
-
-    else
-        parseHash route location
+fromUrl : Url -> Maybe Route
+fromUrl url =
+    { url | path = Maybe.withDefault "" url.fragment, fragment = Nothing }
+        |> UrlParser.parse parseRoute

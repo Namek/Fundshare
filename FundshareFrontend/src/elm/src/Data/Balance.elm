@@ -1,7 +1,7 @@
 module Data.Balance exposing (Balance)
 
 import Data.Person exposing (PersonId)
-import Date exposing (Date)
+import Time exposing (Posix)
 
 
 type alias Balance =
@@ -12,5 +12,5 @@ type alias Balance =
     , sharedPaymentCount : Int
     , transferCount : Int
     , unseenUpdateCount : Int
-    , lastUpdateAt : Maybe Date
+    , lastUpdateAt : Maybe Posix
     }

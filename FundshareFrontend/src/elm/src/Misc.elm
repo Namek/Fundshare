@@ -1,48 +1,44 @@
-module Misc exposing (delay, either, emailRegex, match, moneyRegex, viewIf)
+module Misc exposing (attrWhen, delay, edges, either, emailRegex, match, moneyRegex, noCmd, toggle, viewIf)
 
-import Html exposing (Html, text)
+import Element exposing (Element)
+import Html
+import Html.Attributes
 import Process
-import Regex exposing (Regex, regex)
+import Regex exposing (Regex)
+import Set exposing (Set)
 import Task
-import Time exposing (Time)
+import Time exposing (Posix)
 
 
-(=>) : a -> b -> ( a, b )
-(=>) =
-    \a b -> ( a, b )
+match : Maybe Regex -> String -> Bool
+match maybeRegex str =
+    maybeRegex
+        |> Maybe.andThen
+            (\regex ->
+                Regex.find regex str
+                    |> List.any (.match >> (==) str)
+                    |> Just
+            )
+        |> Maybe.withDefault False
 
 
-{-| infixl 0 means the (=>) operator has the same precedence as (<|) and (|>),
-meaning you can use it at the end of a pipeline and have the precedence work out.
--}
-
-
-infixl 0 =>
-
-
-match : Regex -> String -> Bool
-match rx str =
-    Regex.find Regex.All rx str
-        |> List.any (.match >> (==) str)
-
-
-moneyRegex : Regex
+moneyRegex : Maybe Regex
 moneyRegex =
-    regex "[0-9]+([,.]?[0-9]?[0-9]?)?"
+    Regex.fromString "[0-9]+([,.]?[0-9]?[0-9]?)?"
 
 
-emailRegex : Regex
+emailRegex : Maybe Regex
 emailRegex =
-    regex ".{3,}@.{2,}"
+    Regex.fromString ".{3,}@.{2,}"
 
 
-viewIf : Bool -> Html msg -> Html msg
+viewIf : Bool -> Element msg -> Element msg
 viewIf cond el =
     if cond then
         el
 
     else
-        text ""
+        Element.none
 
 
 either : a -> a -> Bool -> a
@@ -54,18 +50,17 @@ either a1 a2 cond =
         a2
 
 
-delay : Time.Time -> msg -> Cmd msg
-delay time msg =
-    Process.sleep time
-        |> Task.andThen (always <| Task.succeed msg)
-        |> Task.perform
+delay : Float -> msg -> Cmd msg
+delay milliseconds msg =
+    Process.sleep milliseconds
+        |> Task.perform (always msg)
 
 
 {-| If the set does not contain the element, add it. If it does contain the element, remove it.
 
-    Set.Extra.toggle 1 (Set.fromList [1,2,3])
+    toggle 1 (Set.fromList [1,2,3])
     --> Set.fromList [2, 3]
-    Set.Extra.toggle 1 (Set.fromList [2,3])
+    toggle 1 (Set.fromList [2,3])
     --> Set.fromList [1, 2, 3]
 
 -}
@@ -76,3 +71,25 @@ toggle elem set =
 
     else
         Set.insert elem set
+
+
+edges =
+    { top = 0
+    , right = 0
+    , bottom = 0
+    , left = 0
+    }
+
+
+noCmd : model -> ( model, Cmd msg )
+noCmd model =
+    ( model, Cmd.none )
+
+
+attrWhen : Bool -> Element.Attribute msg -> Element.Attribute msg
+attrWhen condition attr =
+    if condition then
+        attr
+
+    else
+        Element.htmlAttribute (Html.Attributes.attribute "empty-attr" "")

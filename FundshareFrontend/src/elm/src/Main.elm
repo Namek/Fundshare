@@ -1,16 +1,17 @@
-module Main exposing (init, subscriptions, update)
+module Main exposing (main)
 
+import Browser exposing (Document)
+import Browser.Navigation as Nav
 import Cmd.Extra
 import Data.Context exposing (GlobalMsg(..))
 import Data.Session as Session exposing (Session, SessionState(..))
 import Data.Transaction exposing (TransactionId)
 import Data.User exposing (User, UserId(..))
+import Element exposing (Element, paragraph, text)
 import GraphQL.Client.Http
-import Html exposing (..)
+import Html exposing (Html)
 import Json.Decode as Decode exposing (Value)
-import Material exposing (subscriptions)
-import Misc exposing ((=>))
-import Navigation exposing (Location)
+import Misc exposing (noCmd)
 import Page.Balances as Balances
 import Page.Errored as Errored exposing (PageLoadError(..))
 import Page.Login as Login
@@ -22,7 +23,8 @@ import Request.Common exposing (sendMutationRequest)
 import Request.Session exposing (SignInResult, checkSession)
 import Route exposing (Route, modifyUrl)
 import Task
-import Views.Page as Page exposing (ActivePage(..), frame)
+import Url exposing (Url)
+import Views.Page as Page exposing (Page(..), PageState(..), frame)
 
 
 
@@ -31,11 +33,13 @@ import Views.Page as Page exposing (ActivePage(..), frame)
 
 main : Program Value Model Msg
 main =
-    Navigation.programWithFlags SetLocation
+    Browser.application
         { init = init
         , view = view
         , subscriptions = subscriptions
         , update = update
+        , onUrlRequest = UrlRequested
+        , onUrlChange = UrlChanged
         }
 
 
@@ -44,25 +48,25 @@ main =
 
 
 type alias Model =
-    { pageState : PageState
-    , lastLocation : Navigation.Location
+    { navKey : Nav.Key
+    , pageState : PageState
+    , lastLocation : Url
     , session : SessionState
-    , mdl : Material.Model
     }
 
 
-init : Value -> Location -> ( Model, Cmd Msg )
-init json location =
+init : Value -> Url -> Nav.Key -> ( Model, Cmd Msg )
+init json url navKey =
     {- check authorization before setting location from URL -}
     let
         model =
-            { pageState = Loaded initialPage
-            , lastLocation = location
+            { navKey = navKey
+            , pageState = Loaded initialPage
+            , lastLocation = url
             , session = GuestSession
-            , mdl = Material.model
             }
     in
-    model => Cmd.Extra.perform CheckAuthSession
+    ( model, Cmd.Extra.perform CheckAuthSession )
 
 
 initialPage : Page
@@ -74,50 +78,29 @@ initialPage =
 -- VIEW --
 
 
-view : Model -> Html Msg
+view : Model -> Document Msg
 view model =
-    let
-        context =
-            { mdl = model.mdl
-            , liftMaterial = MaterialMsg
-            , model = ()
-            , lift = ()
-            , session = model.session
-            }
-    in
-    case model.pageState of
-        Loaded page ->
-            viewPage model False page
+    { title = "Fundshare"
+    , body =
+        [ Element.layout [] <|
+            case model.pageState of
+                Loaded page ->
+                    viewPage model False page
 
-        TransitioningFrom page ->
-            viewPage model True page
+                TransitioningFrom page ->
+                    viewPage model True page
+        ]
+    }
 
 
-viewPage : Model -> Bool -> Page -> Html Msg
+viewPage : Model -> Bool -> Page -> Element Msg
 viewPage model isLoading page =
     let
-        context =
-            { mdl = model.mdl
-            , liftMaterial = MaterialMsg
-            , model = ()
-            , lift = ()
-            , matId = List.append [ 0 ]
-            , session = model.session
-            }
-
-        guestContext =
-            { mdl = model.mdl
-            , liftMaterial = MaterialMsg
-            , model = ()
-            , lift = ()
-            , matId = List.append [ 0 ]
-            }
-
         isLoggedIn =
             model.session /= GuestSession
 
         frame =
-            Page.frame HandleGlobalMsg context.mdl context.liftMaterial isLoading isLoggedIn model.session
+            Page.frame HandleGlobalMsg isLoading isLoggedIn model.session
 
         getAuthorizedSession =
             \() ->
@@ -126,59 +109,56 @@ viewPage model isLoading page =
                         session
 
                     _ ->
-                        Debug.crash "you have to be authorized!"
+                        Debug.todo "you have to be authorized!"
     in
     case page of
         Blank ->
-            frame Page.Other (Html.text "")
+            paragraph [] [ text "" ]
+                |> frame
 
         NotFound ->
             NotFound.view model.session
-                |> frame Page.Other
+                |> frame
 
         Errored subModel ->
             Errored.view model.session subModel
-                |> frame Page.Other
+                |> frame
 
         Login subModel ->
-            Login.view { guestContext | model = subModel, lift = LoginMsg }
-                |> frame Page.Login
+            Login.view { model = subModel, lift = LoginMsg }
+                |> frame
 
         NewTransaction subModel ->
             NewTransaction.view
-                { context
-                    | model = subModel
-                    , lift = NewTransactionMsg
-                    , session = getAuthorizedSession ()
+                { model = subModel
+                , lift = NewTransactionMsg
+                , session = getAuthorizedSession ()
                 }
-                |> frame Page.NewTransaction
+                |> frame
 
         Balances subModel ->
             Balances.view
-                { context
-                    | model = subModel
-                    , lift = BalancesMsg
-                    , session = getAuthorizedSession ()
+                { model = subModel
+                , lift = BalancesMsg
+                , session = getAuthorizedSession ()
                 }
-                |> frame Page.Balances
+                |> frame
 
         Transaction paymentId subModel ->
             Transaction.view
-                { context
-                    | model = subModel
-                    , lift = TransactionMsg
-                    , session = getAuthorizedSession ()
+                { model = subModel
+                , lift = TransactionMsg
+                , session = getAuthorizedSession ()
                 }
-                |> frame (Page.Transaction paymentId)
+                |> frame
 
         TransactionList subModel ->
             TransactionList.view
-                { context
-                    | model = subModel
-                    , lift = TransactionListMsg
-                    , session = getAuthorizedSession ()
+                { model = subModel
+                , lift = TransactionListMsg
+                , session = getAuthorizedSession ()
                 }
-                |> frame Page.TransactionList
+                |> frame
 
 
 
@@ -195,29 +175,13 @@ subscriptions model =
 -- UPDATE --
 
 
-type Page
-    = Blank
-    | NotFound
-    | Errored PageLoadError
-    | Login Login.Model
-    | NewTransaction NewTransaction.Model
-    | Balances Balances.Model
-    | Transaction TransactionId Transaction.Model
-    | TransactionList TransactionList.Model
-
-
-type PageState
-    = Loaded Page
-    | TransitioningFrom Page
-
-
 type Msg
     = HandleGlobalMsg GlobalMsg
-    | SetLocation Navigation.Location
+    | UrlChanged Url.Url
+    | UrlRequested Browser.UrlRequest
     | SetRoute (Maybe Route)
     | CheckAuthSession
     | CheckAuthSessionResponse (Result GraphQL.Client.Http.Error (Maybe SignInResult))
-    | MaterialMsg (Material.Msg Msg)
     | LoginLoaded (Result PageLoadError Login.Model)
     | LoginMsg Login.Msg
     | NewPaymentLoaded (Result PageLoadError NewTransaction.Model)
@@ -228,11 +192,11 @@ type Msg
     | TransactionListMsg TransactionList.Msg
 
 
-pageErrored : Model -> ActivePage -> String -> ( Model, Cmd msg )
-pageErrored model activePage errorMessage =
+pageErrored : Model -> String -> ( Model, Cmd msg )
+pageErrored model errorMessage =
     let
         error =
-            Errored.pageLoadError activePage errorMessage
+            Errored.pageLoadError errorMessage
     in
     ( { model | pageState = Loaded (Errored error) }
     , Cmd.none
@@ -245,17 +209,28 @@ update msg model =
         HandleGlobalMsg globalMsg ->
             case globalMsg of
                 Navigate route ->
-                    model => Route.modifyUrl route
+                    ( model, Route.modifyUrl model route )
 
                 SetSession (Just session) ->
-                    { model | session = LoggedSession session } => Cmd.none
+                    ( { model | session = LoggedSession session }, Cmd.none )
 
                 SetSession Nothing ->
-                    { model | session = GuestSession } => Cmd.none
+                    ( { model | session = GuestSession }, Cmd.none )
 
-        SetLocation location ->
-            { model | lastLocation = location }
-                => Cmd.Extra.perform (Route.fromLocation location |> SetRoute)
+        UrlChanged url ->
+            ( { model | lastLocation = url }
+            , Cmd.Extra.perform (Route.fromUrl (Debug.log "urlchanged" url) |> SetRoute)
+            )
+
+        UrlRequested req ->
+            case req of
+                Browser.Internal url ->
+                    ( model
+                    , Cmd.Extra.perform (Route.fromUrl url |> SetRoute)
+                    )
+
+                Browser.External href ->
+                    ( model, Nav.load href )
 
         SetRoute route ->
             setRoute route model
@@ -267,7 +242,7 @@ update msg model =
                         |> sendMutationRequest
                         |> Task.attempt CheckAuthSessionResponse
             in
-            model => cmd
+            ( model, cmd )
 
         {- first thing that comes from this app to backend - decide whether user is still logged in -}
         CheckAuthSessionResponse response ->
@@ -281,8 +256,9 @@ update msg model =
             case maybeUser of
                 {- no valid token, guest session -}
                 Nothing ->
-                    { model | session = GuestSession }
-                        => Route.modifyUrl Route.Logout
+                    ( { model | session = GuestSession }
+                    , Route.modifyUrl model Route.Login
+                    )
 
                 Just user ->
                     let
@@ -290,13 +266,9 @@ update msg model =
                             { model | session = LoggedSession { user = user } }
 
                         ( newModel, rerouteCmd ) =
-                            setRoute (Route.fromLocation model.lastLocation) modelWithSession
+                            setRoute (Route.fromUrl model.lastLocation) modelWithSession
                     in
-                    newModel
-                        => rerouteCmd
-
-        MaterialMsg msg ->
-            Material.update MaterialMsg msg model
+                    ( newModel, rerouteCmd )
 
         _ ->
             updatePage (getPage model.pageState) msg model
@@ -305,26 +277,6 @@ update msg model =
 updatePage : Page -> Msg -> Model -> ( Model, Cmd Msg )
 updatePage page msg model =
     let
-        session =
-            model.session
-
-        context =
-            { mdl = model.mdl
-            , liftMaterial = MaterialMsg
-            , model = ()
-            , lift = ()
-            , matId = List.append [ 0 ]
-            , session = model.session
-            }
-
-        guestContext =
-            { mdl = model.mdl
-            , liftMaterial = MaterialMsg
-            , model = ()
-            , lift = ()
-            , matId = List.append [ 0 ]
-            }
-
         toPage toModel toMsg subUpdate subMsg =
             let
                 ( newModel, newCmd ) =
@@ -336,12 +288,14 @@ updatePage page msg model =
             let
                 ( ( pageModel, cmd ), globalMsg ) =
                     subUpdate subMsg
+
+                cmds =
+                    Cmd.batch
+                        [ Cmd.map toMsg cmd
+                        , Cmd.map HandleGlobalMsg globalMsg
+                        ]
             in
-            { model | pageState = Loaded (toModel pageModel) }
-                => Cmd.batch
-                    [ Cmd.map toMsg cmd
-                    , Cmd.map HandleGlobalMsg globalMsg
-                    ]
+            ( { model | pageState = Loaded (toModel pageModel) }, cmds )
 
         getSession =
             \() ->
@@ -350,31 +304,32 @@ updatePage page msg model =
                         session
 
                     _ ->
-                        Debug.crash "you are not authorized!"
+                        Debug.todo "you are not authorized!"
 
         errored =
             pageErrored model
     in
     case ( msg, page ) of
         ( LoginLoaded (Ok subModel), _ ) ->
-            { model | pageState = Loaded (Login subModel) } => Cmd.none
+            ( { model | pageState = Loaded (Login subModel) }, Cmd.none )
 
         ( LoginMsg subMsg, Login subModel ) ->
             let
                 ctx =
-                    { guestContext
-                        | model = subModel
-                        , lift = LoginMsg
+                    { model = subModel
+                    , lift = LoginMsg
                     }
 
                 ( ( pageModel, cmd ), globalMsg ) =
                     Login.update ctx subMsg
+
+                cmds =
+                    Cmd.batch
+                        [ Cmd.map LoginMsg cmd
+                        , Cmd.map HandleGlobalMsg globalMsg
+                        ]
             in
-            { model | pageState = Loaded (Login pageModel) }
-                => Cmd.batch
-                    [ Cmd.map LoginMsg cmd
-                    , Cmd.map HandleGlobalMsg globalMsg
-                    ]
+            ( { model | pageState = Loaded (Login pageModel) }, cmds )
 
         ( NewPaymentLoaded (Ok subModel), _ ) ->
             ( { model | pageState = Loaded (NewTransaction subModel) }
@@ -384,20 +339,21 @@ updatePage page msg model =
         ( NewTransactionMsg subMsg, NewTransaction subModel ) ->
             let
                 ctx =
-                    { context
-                        | model = subModel
-                        , lift = NewTransactionMsg
-                        , session = getSession ()
+                    { model = subModel
+                    , lift = NewTransactionMsg
+                    , session = getSession ()
                     }
 
                 ( ( pageModel, cmd ), globalMsg ) =
                     NewTransaction.update ctx subMsg
+
+                cmds =
+                    Cmd.batch
+                        [ Cmd.map NewTransactionMsg cmd
+                        , Cmd.map HandleGlobalMsg globalMsg
+                        ]
             in
-            { model | pageState = Loaded (NewTransaction pageModel) }
-                => Cmd.batch
-                    [ Cmd.map NewTransactionMsg cmd
-                    , Cmd.map HandleGlobalMsg globalMsg
-                    ]
+            ( { model | pageState = Loaded (NewTransaction pageModel) }, cmds )
 
         ( BalancesLoaded (Ok subModel), _ ) ->
             ( { model | pageState = Loaded (Balances subModel) }
@@ -407,10 +363,9 @@ updatePage page msg model =
         ( BalancesMsg subMsg, Balances subModel ) ->
             let
                 ctx =
-                    { context
-                        | model = subModel
-                        , lift = BalancesMsg
-                        , session = getSession ()
+                    { model = subModel
+                    , lift = BalancesMsg
+                    , session = getSession ()
                     }
             in
             toPage Balances BalancesMsg (Balances.update ctx) subMsg
@@ -418,10 +373,9 @@ updatePage page msg model =
         ( TransactionMsg subMsg, Transaction paymentId subModel ) ->
             let
                 ctx =
-                    { context
-                        | model = subModel
-                        , lift = TransactionMsg
-                        , session = getSession ()
+                    { model = subModel
+                    , lift = TransactionMsg
+                    , session = getSession ()
                     }
             in
             toPageWithGlobalMsgs (Transaction paymentId) TransactionMsg (Transaction.update ctx) subMsg
@@ -429,10 +383,9 @@ updatePage page msg model =
         ( TransactionListMsg subMsg, TransactionList subModel ) ->
             let
                 ctx =
-                    { context
-                        | model = subModel
-                        , lift = TransactionListMsg
-                        , session = getSession ()
+                    { model = subModel
+                    , lift = TransactionListMsg
+                    , session = getSession ()
                     }
             in
             toPageWithGlobalMsgs TransactionList TransactionListMsg (TransactionList.update ctx) subMsg
@@ -487,9 +440,7 @@ setRoute maybeRoute model =
 
         Just Route.Logout ->
             ( { model | session = GuestSession }
-            , Cmd.batch
-                [ Route.modifyUrl Route.Login
-                ]
+            , Route.modifyUrl model Route.Login
             )
 
         -- Just Route.Register ->

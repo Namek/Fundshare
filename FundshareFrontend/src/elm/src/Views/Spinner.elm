@@ -1,12 +1,9 @@
 module Views.Spinner exposing (spinner)
 
-import Html exposing (Attribute, Html, div, text)
-import Html.Attributes exposing (style)
-import Material.Progress as Loading
+import Element exposing (Element, paragraph, row, text)
 
 
-spinner : Html msg
+spinner : Element msg
 spinner =
-    div [ style "transform" "scale(5)" ]
-        [ Loading.indeterminate
-        ]
+    row []
+        [ paragraph [] [ text "Loading..." ] ]

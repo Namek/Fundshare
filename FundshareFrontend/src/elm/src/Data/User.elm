@@ -1,7 +1,7 @@
 module Data.User exposing (User, UserId(..), decoder, encode, userIdToString)
 
 import Json.Decode as Decode exposing (Decoder)
-import Json.Decode.Pipeline as Pipeline exposing (decode, required)
+import Json.Decode.Pipeline as Pipeline exposing (required)
 import Json.Encode as Encode exposing (Value)
 
 
@@ -23,7 +23,7 @@ userIdToString (UserId userId) =
 
 decoder : Decoder User
 decoder =
-    decode User
+    Decode.succeed User
         |> required "id" Decode.int
         |> required "email" Decode.string
         |> required "name" Decode.string

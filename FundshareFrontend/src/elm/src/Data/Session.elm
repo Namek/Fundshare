@@ -2,7 +2,7 @@ module Data.Session exposing (Session, SessionState(..), decodeFromJson, decoder
 
 import Data.User as User exposing (User)
 import Json.Decode as Decode exposing (Decoder)
-import Json.Decode.Pipeline as Pipeline exposing (decode, required)
+import Json.Decode.Pipeline as Pipeline exposing (required)
 import Json.Encode as Encode exposing (Value)
 
 
@@ -20,7 +20,7 @@ type SessionState
 
 decoder : Decoder Session
 decoder =
-    decode Session
+    Decode.succeed Session
         |> required "user" User.decoder
 
 

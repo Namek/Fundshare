@@ -4,20 +4,12 @@ import Cmd.Extra
 import Data.Context exposing (ContextData, GlobalMsg, Logged)
 import Data.Session exposing (Session)
 import Data.Transaction exposing (Transaction)
-import Date exposing (Date, now)
-import Html exposing (Html, div, p, text)
-import Html.Events
+import Element exposing (Element, row)
 import Json.Decode as Json
-import Material.Button as Button
-import Material.Elevation as Elevation
-import Material.Options as Options exposing (css, when)
-import Material.Progress as Loading
-import Material.Textfield as Textfield
-import Material.Typography as Typo
-import Misc exposing ((=>))
 import Request.Common exposing (..)
 import Request.Transactions exposing (requestUserTransactions)
 import Task
+import Time exposing (Posix, now)
 
 
 
@@ -30,11 +22,12 @@ type alias Model =
 
 init : Session -> ( Model, Cmd Msg )
 init session =
-    {}
-        => Cmd.batch
-            [ Cmd.Extra.perform RefreshTransactions
-            , Task.attempt SetDate Date.now
-            ]
+    ( {}
+    , Cmd.batch
+        [ Cmd.Extra.perform RefreshTransactions
+        , Task.attempt SetDate Time.now
+        ]
+    )
 
 
 type alias Context msg =
@@ -45,16 +38,14 @@ type alias Context msg =
 -- VIEW --
 
 
-view : Context msg -> Html msg
+view : Context msg -> Element msg
 view { model } =
-    div []
-        [ viewHeader "Inbox"
-        ]
+    row [] [ viewHeader "Inbox" ]
 
 
-viewHeader : String -> Html msg
+viewHeader : String -> Element msg
 viewHeader str =
-    Options.styled p [ Typo.headline ] [ text str ]
+    Element.paragraph [] [ Element.text str ]
 
 
 
@@ -64,7 +55,7 @@ viewHeader str =
 type Msg
     = RefreshTransactions
     | RefreshTransactionsResponse (Result Error (List Transaction))
-    | SetDate (Result String Date)
+    | SetDate (Result String Posix)
 
 
 update : Context msg -> Msg -> ( ( Model, Cmd Msg ), Cmd GlobalMsg )
@@ -77,10 +68,10 @@ update { model, session } msg =
                         |> sendQueryRequest
                         |> Task.attempt RefreshTransactionsResponse
             in
-            model => cmd => Cmd.none
+            ( ( model, cmd ), Cmd.none )
 
         RefreshTransactionsResponse err ->
-            model => Cmd.none => Cmd.none
+            ( ( model, Cmd.none ), Cmd.none )
 
         SetDate dateStringResult ->
-            model => Cmd.none => Cmd.none
+            ( ( model, Cmd.none ), Cmd.none )

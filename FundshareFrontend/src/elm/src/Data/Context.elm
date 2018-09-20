@@ -1,16 +1,12 @@
-module Data.Context exposing (ContextData, GlobalMsg(..), Logged, matId, passContext, passContextWithoutSession)
+module Data.Context exposing (ContextData, GlobalMsg(..), Logged, passContext, passContextWithoutSession)
 
 import Data.Session exposing (..)
-import Material
 import Route exposing (Route)
 
 
 type alias ContextData model localMsg rootMsg =
     { model : model
-    , mdl : Material.Model
     , lift : localMsg -> rootMsg
-    , liftMaterial : Material.Msg rootMsg -> rootMsg
-    , matId : List Int -> List Int
     }
 
 
@@ -27,20 +23,12 @@ passContext ctx modelGetter lift =
 
 {-| Supposed to use with `Logged ctx`
 -}
-passContextWithoutSession ctx modelGetter lift subMatId =
+passContextWithoutSession ctx modelGetter lift =
     { model = modelGetter ctx.model
-    , mdl = ctx.mdl
     , lift = lift
-    , liftMaterial = ctx.liftMaterial
-    , matId = ctx.matId subMatId |> List.append
     }
 
 
 type GlobalMsg
     = Navigate Route
     | SetSession (Maybe Session)
-
-
-matId : List Int -> List Int -> List Int
-matId rootId subId =
-    List.append rootId subId

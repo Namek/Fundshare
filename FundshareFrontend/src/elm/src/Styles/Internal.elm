@@ -12,22 +12,34 @@ p2k =
         >> String.join "--"
 
 
-( c, cc ) =
-    ( \str -> "." ++ p2k str
-    , \cls cls2 -> c cls ++ c cls2
-    )
+c str =
+    "." ++ p2k str
+
+
+cc =
+    \cls cls2 -> c cls ++ c cls2
+
+
+maybePascalRegex : Maybe Regex
+maybePascalRegex =
+    Regex.fromString "([a-z])([A-Z])"
 
 
 pascalToKebabCase : String -> String
-pascalToKebabCase =
-    Regex.replace Regex.All
-        (Regex.regex "([a-z])([A-Z])")
-        (\{ submatches } ->
-            case submatches of
-                [ Just a, Just b ] ->
-                    a ++ "-" ++ b
+pascalToKebabCase str =
+    maybePascalRegex
+        |> Maybe.andThen
+            (\pascalRegex ->
+                Regex.replace pascalRegex
+                    (\{ submatches } ->
+                        case submatches of
+                            [ Just a, Just b ] ->
+                                a ++ "-" ++ String.toLower b
 
-                _ ->
-                    Debug.crash "other case with this regex should never happen"
-        )
-        >> String.toLower
+                            _ ->
+                                Debug.todo "other case with this regex should never happen"
+                    )
+                    str
+                    |> Just
+            )
+        |> Maybe.withDefault ""

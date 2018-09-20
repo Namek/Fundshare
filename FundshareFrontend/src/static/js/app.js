@@ -1,1 +1,1 @@
-const app = Elm.Main.embed(document.getElementById("elm-main"), localStorage.sessionToken || null);
+const app = Elm.Main.init(document.getElementById("elm-main"), null);

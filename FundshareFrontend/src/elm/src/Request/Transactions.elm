@@ -1,7 +1,6 @@
 module Request.Transactions exposing (requestUserTransactions)
 
 import Data.Transaction exposing (Transaction, TransactionId)
-import Date exposing (Date)
 import GraphQL.Request.Builder exposing (..)
 import Json.Decode
 import Request.Common exposing (date)
