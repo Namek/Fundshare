@@ -22,7 +22,8 @@ module Misc exposing
     , white
     )
 
-import Element exposing (Element, centerX, centerY, column, el, fill, focused, height, mouseDown, padding, px, rgb, rgb255, rgba, row, shrink, spaceEvenly, text, width)
+import Bitwise exposing (and, shiftLeftBy, shiftRightBy)
+import Element exposing (Element, centerX, centerY, column, el, fill, focused, height, mouseDown, padding, px, rgb, rgb255, rgba, rgba255, row, shrink, spaceEvenly, text, width)
 import Element.Background as Bg
 import Element.Border as Border
 import Element.Font as Font
@@ -126,24 +127,39 @@ attrWhen condition otherAttr =
         attr "empty-attr" ""
 
 
+rgbHex hex =
+    rgb255
+        (hex |> shiftRightBy 16 |> and 0xFF)
+        (hex |> shiftRightBy 8 |> and 0xFF)
+        (hex |> and 0xFF)
+
+
+rgbaHex hex alpha =
+    rgba255
+        (hex |> shiftRightBy 16 |> and 0xFF)
+        (hex |> shiftRightBy 8 |> and 0xFF)
+        (hex |> and 0xFF)
+        alpha
+
+
 teal500 =
-    rgb255 0x00 0x91 0x83
+    rgbHex 0x9183
 
 
 teal700 =
-    rgb255 0x00 0x79 0x6B
+    rgbHex 0x796B
 
 
 teal100 =
-    rgb255 0xB2 0xDF 0xDB
+    rgbHex 0x00B2DFDB
 
 
 white =
-    rgb255 0xFF 0xFF 0xFF
+    rgbHex 0x00FFFFFF
 
 
 grayed =
-    rgb255 0xB2 0xDE 0xDA
+    rgbHex 0x00B2DEDA
 
 
 noShadow =
