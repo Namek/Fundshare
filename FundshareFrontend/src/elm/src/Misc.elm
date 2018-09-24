@@ -1,5 +1,6 @@
 module Misc exposing
     ( attrWhen
+    , black
     , css
     , delay
     , edges
@@ -158,6 +159,10 @@ white =
     rgbHex 0x00FFFFFF
 
 
+black =
+    rgbHex 0x00
+
+
 grayed =
     rgbHex 0x00B2DEDA
 
@@ -166,14 +171,14 @@ noShadow =
     Border.shadow { offset = ( 0, 0 ), size = 0, blur = 0, color = rgba 0 0 0 0 }
 
 
-viewIcon name attrs =
+viewIcon attrs name =
     el
         (List.append [ attr "class" ("icon-" ++ name) ] attrs)
         (Element.text "")
 
 
-viewIconButton : String -> msg -> List (Element.Attribute msg) -> Element msg
-viewIconButton iconName clickMsg attrs =
+viewIconButton : List (Element.Attribute msg) -> String -> msg -> Element msg
+viewIconButton attrs iconName clickMsg =
     Input.button
         [ Font.color white
         , mouseDown [ noShadow, Font.color teal100 ]
@@ -187,7 +192,7 @@ viewIconButton iconName clickMsg attrs =
                 [ el [] (text "")
                 , row [ width fill, spaceEvenly ]
                     [ el [] (text "")
-                    , viewIcon iconName [ width fill, height shrink ]
+                    , viewIcon [ width fill, height shrink ] iconName
                     , el [] (text "")
                     ]
                 , el [] (text "")

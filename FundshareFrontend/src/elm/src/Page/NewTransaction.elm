@@ -6,7 +6,7 @@ import Data.Context exposing (..)
 import Data.Person exposing (Person, PersonId)
 import Data.Session exposing (Session)
 import Data.Transaction exposing (TransactionId)
-import Element exposing (Element, alignRight, centerX, centerY, column, el, explain, fill, height, padding, paddingXY, paragraph, px, rgb255, row, spaceEvenly, spacing, text, width, wrappedRow)
+import Element exposing (Element, alignLeft, alignRight, centerX, centerY, column, el, explain, fill, height, padding, paddingXY, paragraph, px, rgb255, row, spaceEvenly, spacing, text, width, wrappedRow)
 import Element.Background as Bg
 import Element.Border as Border
 import Element.Font as Font
@@ -19,7 +19,7 @@ import Json.Encode
 import List
 import List.Extra
 import Maybe.Extra exposing (isJust, isNothing)
-import Misc exposing (attrWhen, either, match, moneyRegex, noCmd, teal100, teal500, toggle, userSelectNone, viewIcon, viewIconButton, viewIf)
+import Misc exposing (attrWhen, black, either, match, moneyRegex, noCmd, teal100, teal500, toggle, userSelectNone, viewIcon, viewIconButton, viewIf)
 import Regex
 import Request.AddTransaction exposing (..)
 import Request.Common exposing (..)
@@ -375,7 +375,7 @@ viewAmount ctx =
         { onChange = ctx.lift << SetAmount
         , label = Input.labelAbove [] Element.none
         , text = model.amount
-        , placeholder = Nothing
+        , placeholder = Just (Input.placeholder [] <| text "Money amount (PLN)")
         }
 
 
@@ -461,8 +461,8 @@ payeeSelection ctx =
             Input.checkbox []
                 { onChange = ctx.lift << TogglePayee person.id
                 , checked = isSelected
-                , icon = always (text "")
-                , label = Input.labelAbove [] <| text person.name
+                , icon = either "check" "check-empty" >> viewIcon []
+                , label = Input.labelRight [] <| text person.name
                 }
     in
     row []
@@ -560,14 +560,15 @@ viewUsualTag ctx idx ( tagName, iconName ) =
         selected =
             List.member tagName ctx.model.tags.chips
     in
-    viewIconButton iconName
-        (ctx.lift <| ToggleTag tagName)
+    viewIconButton
         [ width (px 34)
         , height (px 34)
         , Border.rounded 100
         , Bg.color teal100
         , Bg.color teal500 |> attrWhen selected
         ]
+        iconName
+        (ctx.lift <| ToggleTag tagName)
 
 
 viewSave : Context msg -> Element msg

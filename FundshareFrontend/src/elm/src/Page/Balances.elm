@@ -280,16 +280,17 @@ viewBalanceCard ctx cardData =
                 ]
                 (text lastChangeDatetime)
             , row [ alignRight, spacing 5 ]
-                [ viewIconButton "plus"
+                [ viewIconButton []
+                    "plus"
                     (ctx.lift <| NewTransaction cardData.interactMsg)
-                    []
-                , viewIconButton "calendar"
-                    (ctx.lift <| SeeEvents cardData.interactMsg)
+                , viewIconButton
                     [ attrWhen (cardData.unseenUpdateCount > 0) <|
                         inFront <|
                             el [ paddingEach { edges | left = 15 }, moveUp 8 ] <|
                                 (viewBadge <| String.fromInt <| cardData.unseenUpdateCount)
                     ]
+                    "calendar"
+                    (ctx.lift <| SeeEvents cardData.interactMsg)
                 ]
             ]
         ]
