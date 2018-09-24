@@ -5,7 +5,7 @@ import Data.Balance exposing (Balance)
 import Data.Context exposing (..)
 import Data.Person exposing (Person, PersonId)
 import Data.Session exposing (Session)
-import Element exposing (Element, FocusStyle, above, alignBottom, alignLeft, alignRight, alignTop, centerY, column, el, explain, fill, focused, height, inFront, maximum, mouseDown, padding, paddingEach, paragraph, px, rgb, rgb255, rgba, row, spaceEvenly, spacing, text, width, wrappedRow)
+import Element exposing (Element, FocusStyle, above, alignBottom, alignLeft, alignRight, alignTop, centerY, column, el, explain, fill, focused, height, inFront, maximum, mouseDown, moveDown, moveUp, padding, paddingEach, paragraph, px, rgb, rgb255, rgba, row, spaceEvenly, spacing, text, width, wrappedRow)
 import Element.Background as Bg
 import Element.Border as Border
 import Element.Font as Font
@@ -15,7 +15,7 @@ import Html.Attributes
 import Json.Decode as Json
 import List.Extra
 import Maybe.Extra
-import Misc exposing (attrWhen, css, edges, either, grayed, noShadow, teal100, teal500, teal700, userSelectNone, viewBadge, viewIcon, viewIf, white)
+import Misc exposing (attrWhen, css, edges, either, grayed, noShadow, teal100, teal500, teal700, userSelectNone, viewBadge, viewIcon, viewIconButton, viewIf, white)
 import Misc.Time exposing (timeDistanceInWords)
 import Request.Balance exposing (getBalances)
 import Request.Common exposing (..)
@@ -257,7 +257,7 @@ viewBalanceCard ctx cardData =
                         [ text (valueSign ++ " ") ]
                     )
                 , paragraph
-                    [ Font.color white, Font.size 36, alignBottom, css "margin-bottom" "-2px" ]
+                    [ Font.color white, Font.size 36, alignBottom, moveDown 2 ]
                     [ text <| String.fromFloat <| abs cardData.totalBalance ]
                 , paragraph
                     [ Font.color grayed, Font.size 18, alignBottom ]
@@ -287,24 +287,9 @@ viewBalanceCard ctx cardData =
                     (ctx.lift <| SeeEvents cardData.interactMsg)
                     [ attrWhen (cardData.unseenUpdateCount > 0) <|
                         inFront <|
-                            el [ paddingEach { edges | left = 15 }, css "top" "-8px" ] <|
+                            el [ paddingEach { edges | left = 15 }, moveUp 8 ] <|
                                 (viewBadge <| String.fromInt <| cardData.unseenUpdateCount)
                     ]
                 ]
             ]
         ]
-
-
-viewIconButton : String -> msg -> List (Element.Attribute msg) -> Element msg
-viewIconButton name clickMsg attrs =
-    Input.button
-        [ Font.color white
-        , mouseDown [ noShadow, Font.color teal100 ]
-        , focused [ noShadow ]
-        ]
-        { onPress = Just clickMsg
-        , label =
-            el
-                attrs
-                (viewIcon name)
-        }

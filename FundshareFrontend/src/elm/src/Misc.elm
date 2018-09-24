@@ -17,14 +17,16 @@ module Misc exposing
     , userSelectNone
     , viewBadge
     , viewIcon
+    , viewIconButton
     , viewIf
     , white
     )
 
-import Element exposing (Element, centerX, centerY, fill, height, padding, px, rgb, rgb255, rgba, shrink, width)
+import Element exposing (Element, centerX, centerY, column, el, fill, focused, height, mouseDown, padding, px, rgb, rgb255, rgba, row, shrink, spaceEvenly, text, width)
 import Element.Background as Bg
 import Element.Border as Border
 import Element.Font as Font
+import Element.Input as Input
 import Html
 import Html.Attributes
 import Process
@@ -34,26 +36,22 @@ import Task
 import Time exposing (Posix)
 
 
-match : Maybe Regex -> String -> Bool
-match maybeRegex str =
-    maybeRegex
-        |> Maybe.andThen
-            (\regex ->
-                Regex.find regex str
-                    |> List.any (.match >> (==) str)
-                    |> Just
-            )
-        |> Maybe.withDefault False
+match : Regex -> String -> Bool
+match regex str =
+    Regex.find regex str
+        |> List.any (.match >> (==) str)
 
 
-moneyRegex : Maybe Regex
+moneyRegex : Regex
 moneyRegex =
     Regex.fromString "[0-9]+([,.]?[0-9]?[0-9]?)?"
+        |> Maybe.withDefault Regex.never
 
 
-emailRegex : Maybe Regex
+emailRegex : Regex
 emailRegex =
     Regex.fromString ".{3,}@.{2,}"
+        |> Maybe.withDefault Regex.never
 
 
 viewIf : Bool -> Element msg -> Element msg
@@ -114,13 +112,18 @@ css property value =
     Element.htmlAttribute (Html.Attributes.style property value)
 
 
+attr : String -> String -> Element.Attribute msg
+attr name value =
+    Element.htmlAttribute (Html.Attributes.attribute name value)
+
+
 attrWhen : Bool -> Element.Attribute msg -> Element.Attribute msg
-attrWhen condition attr =
+attrWhen condition otherAttr =
     if condition then
-        attr
+        otherAttr
 
     else
-        Element.htmlAttribute (Html.Attributes.attribute "empty-attr" "")
+        attr "empty-attr" ""
 
 
 teal500 =
@@ -147,9 +150,33 @@ noShadow =
     Border.shadow { offset = ( 0, 0 ), size = 0, blur = 0, color = rgba 0 0 0 0 }
 
 
-viewIcon name =
-    Element.html <|
-        Html.i [ Html.Attributes.class ("icon-" ++ name) ] [ Html.text "" ]
+viewIcon name attrs =
+    el
+        (List.append [ attr "class" ("icon-" ++ name) ] attrs)
+        (Element.text "")
+
+
+viewIconButton : String -> msg -> List (Element.Attribute msg) -> Element msg
+viewIconButton iconName clickMsg attrs =
+    Input.button
+        [ Font.color white
+        , mouseDown [ noShadow, Font.color teal100 ]
+        , focused [ noShadow ]
+        ]
+        { onPress = Just clickMsg
+        , label =
+            column
+                (List.append [ spaceEvenly ] attrs)
+                {- some workarounds to center the <i> icon -}
+                [ el [] (text "")
+                , row [ width fill, spaceEvenly ]
+                    [ el [] (text "")
+                    , viewIcon iconName [ width fill, height shrink ]
+                    , el [] (text "")
+                    ]
+                , el [] (text "")
+                ]
+        }
 
 
 viewBadge aText =

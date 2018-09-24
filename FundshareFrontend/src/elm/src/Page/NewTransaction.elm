@@ -6,8 +6,9 @@ import Data.Context exposing (..)
 import Data.Person exposing (Person, PersonId)
 import Data.Session exposing (Session)
 import Data.Transaction exposing (TransactionId)
-import Element exposing (Element, centerY, column, el, fill, padding, paddingXY, paragraph, rgb255, row, spaceEvenly, text, width, wrappedRow)
+import Element exposing (Element, alignRight, centerX, centerY, column, el, explain, fill, height, padding, paddingXY, paragraph, px, rgb255, row, spaceEvenly, spacing, text, width, wrappedRow)
 import Element.Background as Bg
+import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
 import GraphQL.Client.Http
@@ -18,7 +19,8 @@ import Json.Encode
 import List
 import List.Extra
 import Maybe.Extra exposing (isJust, isNothing)
-import Misc exposing (attrWhen, either, match, moneyRegex, noCmd, toggle, viewIf)
+import Misc exposing (attrWhen, either, match, moneyRegex, noCmd, teal100, teal500, toggle, userSelectNone, viewIcon, viewIconButton, viewIf)
+import Regex
 import Request.AddTransaction exposing (..)
 import Request.Common exposing (..)
 import Request.People exposing (..)
@@ -32,7 +34,7 @@ import Views.ChipsTextfield as ChipsTextfield
 
 type alias Model =
     { paymentDescription : String
-    , amount : Float
+    , amount : String
     , payor : Maybe PersonId
     , payees : Set PersonId
     , people : List Person
@@ -57,7 +59,7 @@ init session =
     let
         model =
             { paymentDescription = ""
-            , amount = 0
+            , amount = ""
             , payor = Just session.user.id
             , payees = Set.empty
             , people = []
@@ -73,7 +75,7 @@ type Msg
     | RefreshPeopleListResponse (Result GraphQL.Client.Http.Error (List Person))
     | SelectPayor PersonId
     | TogglePayee PersonId Bool
-    | SetAmount Float
+    | SetAmount String
     | SetPaymentDescription String
     | ElementFocused (Result Dom.Error ())
     | OnPaymentAmountKeyDown Int
@@ -130,10 +132,21 @@ update ctx msg =
                 |> noCmd
                 |> noCmd
 
-        SetAmount amount ->
-            { model | amount = amount }
-                |> noCmd
-                |> noCmd
+        SetAmount amountStr ->
+            let
+                newModel =
+                    case amountStrToInt amountStr of
+                        0 ->
+                            if amountStr == "" then
+                                { model | amount = "" }
+
+                            else
+                                model
+
+                        newAmount ->
+                            { model | amount = amountStr }
+            in
+            newModel |> noCmd |> noCmd
 
         SetPaymentDescription str ->
             { model | paymentDescription = str } |> noCmd |> noCmd
@@ -192,9 +205,12 @@ update ctx msg =
 
         SaveTransaction ->
             let
+                amountAsNum =
+                    amountStrToInt model.amount
+
                 newTransaction : Maybe NewTransaction
                 newTransaction =
-                    case ( model.payor, floor (model.amount * 100) ) of
+                    case ( model.payor, amountAsNum ) of
                         ( _, 0 ) ->
                             Nothing
 
@@ -275,9 +291,25 @@ idsStr =
 --     }
 
 
+amountStrToInt : String -> Int
+amountStrToInt str =
+    case Regex.find moneyRegex str of
+        [ m ] ->
+            if m.index == 0 && String.length m.match == String.length str then
+                String.toFloat m.match
+                    |> Maybe.andThen (\a -> Just <| floor (a * 100.0))
+                    |> Maybe.withDefault 0
+
+            else
+                0
+
+        _ ->
+            0
+
+
 isFormFilled : Model -> Bool
 isFormFilled model =
-    model.amount /= 0
+    amountStrToInt model.amount /= 0
 
 
 isFormDisabled : Model -> Bool
@@ -314,25 +346,22 @@ view ctx =
         formDisabled =
             isFormDisabled model
     in
-    row
+    column
         [ width fill
-        , Element.htmlAttribute (Attr.style "user-select" "none")
+        , userSelectNone
         ]
-        [ row
-            []
-            [ paragraph [] [ text "New transaction" ]
-            , row []
-                [ row [ paddingXY 10 15 ]
-                    [ viewAmount ctx
-                    , viewMoneyDirection ctx
-                    , row [] [ viewDescription ctx ]
-                    , viewTags ctx
-                    ]
-                , viewUsualTags ctx
+        [ paragraph [] [ text "New transaction" ]
+        , row [ width fill, spacing 30 ]
+            [ column [ paddingXY 10 15, spacing 30, width fill ]
+                [ viewAmount ctx
+                , viewMoneyDirection ctx
+                , viewDescription ctx
+                , viewTags ctx
                 ]
-            , viewSave ctx
-            , viewSaveResult ctx |> viewIf (model.saveState /= Composing)
+            , el [ alignRight ] <| viewUsualTags ctx
             ]
+        , viewSave ctx
+        , viewSaveResult ctx |> viewIf (model.saveState /= Composing)
         ]
 
 
@@ -342,14 +371,11 @@ viewAmount ctx =
         { model } =
             ctx
     in
-    Input.slider []
+    Input.text []
         { onChange = ctx.lift << SetAmount
         , label = Input.labelAbove [] Element.none
-        , min = 0
-        , max = 99999
-        , value = model.amount
-        , thumb = Input.defaultThumb
-        , step = Just 0.01
+        , text = model.amount
+        , placeholder = Nothing
         }
 
 
@@ -416,7 +442,7 @@ payorSelection ctx =
         -- , text person.name
         -- ]
     in
-    row []
+    column [ spacing 15 ]
         (ctx.model.people |> List.indexedMap viewEl)
 
 
@@ -455,7 +481,7 @@ viewMoneyDirection ctx =
         { model } =
             ctx
     in
-    row [ spaceEvenly ]
+    row [ width fill, spaceEvenly ]
         [ payorSelection ctx
         , Element.el
             [ centerY ]
@@ -517,14 +543,14 @@ viewUsualTags : Context msg -> Element msg
 viewUsualTags ctx =
     let
         iconizedTags =
-            [ ( "journey", "local_airport" )
-            , ( "tool", "build" )
-            , ( "car", "directions_car" )
-            , ( "cash", "attach_money" )
-            , ( "food", "restaurant" )
+            [ ( "journey", "flight" )
+            , ( "tool", "wrench" )
+            , ( "car", "cab" )
+            , ( "cash", "wallet" )
+            , ( "food", "food" )
             ]
     in
-    column [] <|
+    column [ spacing 15 ] <|
         List.indexedMap (viewUsualTag ctx) iconizedTags
 
 
@@ -534,21 +560,22 @@ viewUsualTag ctx idx ( tagName, iconName ) =
         selected =
             List.member tagName ctx.model.tags.chips
     in
-    Element.el
-        [ Bg.color (rgb255 0 0 255) |> attrWhen selected ]
-        (Input.button []
-            { onPress = Just (ctx.lift <| ToggleTag tagName)
-            , label = text iconName
-            }
-        )
+    viewIconButton iconName
+        (ctx.lift <| ToggleTag tagName)
+        [ width (px 34)
+        , height (px 34)
+        , Border.rounded 100
+        , Bg.color teal100
+        , Bg.color teal500 |> attrWhen selected
+        ]
 
 
 viewSave : Context msg -> Element msg
 viewSave ctx =
     let
-        {- TODO: transfer/shared payment/payment -}
+        {- TODO: Save transfer/shared payment -}
         btnText =
-            "Add transaction"
+            "Save"
     in
     row [ padding 15 ]
         [ Input.button []
