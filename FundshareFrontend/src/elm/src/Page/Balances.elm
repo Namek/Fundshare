@@ -3,15 +3,19 @@ module Page.Balances exposing (Model, Msg, init, update, view)
 import Cmd.Extra
 import Data.Balance exposing (Balance)
 import Data.Context exposing (..)
-import Data.Person exposing (Person)
+import Data.Person exposing (Person, PersonId)
 import Data.Session exposing (Session)
-import Element exposing (Element, alignRight, alignTop, centerY, column, el, fill, maximum, padding, px, rgb, rgb255, row, spaceEvenly, text, width, wrappedRow)
+import Element exposing (Element, FocusStyle, above, alignBottom, alignLeft, alignRight, alignTop, centerY, column, el, explain, fill, focused, height, inFront, maximum, mouseDown, padding, paddingEach, paragraph, px, rgb, rgb255, rgba, row, spaceEvenly, spacing, text, width, wrappedRow)
 import Element.Background as Bg
+import Element.Border as Border
 import Element.Font as Font
+import Element.Input as Input
+import Html
+import Html.Attributes
 import Json.Decode as Json
 import List.Extra
 import Maybe.Extra
-import Misc exposing (either, viewIf)
+import Misc exposing (attrWhen, css, edges, either, grayed, noShadow, teal100, teal500, teal700, userSelectNone, viewBadge, viewIcon, viewIf, white)
 import Misc.Time exposing (timeDistanceInWords)
 import Request.Balance exposing (getBalances)
 import Request.Common exposing (..)
@@ -27,6 +31,25 @@ type alias Model =
     { balances : List Balance
     , dateTimeNow : Maybe Posix
     }
+
+
+type alias BalanceCard =
+    { title : String
+    , preTitle : String
+    , totalBalance : Float
+    , sharedPaymentCount : Int
+    , transferCount : Int
+    , unseenUpdateCount : Int
+    , lastUpdateAt : Maybe Posix
+    , dateTimeNow : Maybe Posix
+    , backgroundColor : Element.Color
+    , interactMsg : InteractedBalanceCard
+    }
+
+
+type InteractedBalanceCard
+    = InteractedTotalCard
+    | InteractedPersonCard PersonId
 
 
 init : Session -> ( Model, Cmd Msg )
@@ -53,6 +76,8 @@ type Msg
     = RefreshBalances
     | RefreshBalancesResponse (Result Error (List Balance))
     | SetDate (Result String Posix)
+    | NewTransaction InteractedBalanceCard
+    | SeeEvents InteractedBalanceCard
 
 
 update : Context msg -> Msg -> ( Model, Cmd Msg )
@@ -81,6 +106,14 @@ update { model, session } msg =
             , Cmd.none
             )
 
+        NewTransaction card ->
+            -- TODO navigate
+            ( model, Cmd.none )
+
+        SeeEvents card ->
+            -- TODO navigate
+            ( model, Cmd.none )
+
 
 
 -- VIEW --
@@ -91,11 +124,27 @@ view ctx =
     let
         balances =
             ctx.model.balances
+
+        extractCardData : Balance -> BalanceCard
+        extractCardData balance =
+            { title = balance.name
+            , preTitle = "with"
+            , totalBalance = balance.value
+            , sharedPaymentCount = balance.sharedPaymentCount
+            , transferCount = balance.transferCount
+            , unseenUpdateCount = balance.unseenUpdateCount
+            , lastUpdateAt = balance.lastUpdateAt
+            , dateTimeNow = ctx.model.dateTimeNow
+            , backgroundColor = teal700
+            , interactMsg = InteractedPersonCard balance.personId
+            }
     in
     wrappedRow
-        [ centerY ]
+        []
         ((viewBalanceSummaryCard ctx
-            :: List.indexedMap (viewBalanceCard ctx) balances
+            :: (balances
+                    |> List.map (extractCardData >> viewBalanceCard ctx)
+               )
          )
             |> List.map (Element.el [ padding 6 ])
         )
@@ -119,22 +168,6 @@ viewBalanceSummaryCard ctx =
                 |> toFloat
                 |> (\a -> (/) a 100)
 
-        iHaveMore =
-            totalBalance > 0
-
-        valueSign =
-            iHaveMore |> either "+" "-"
-
-        comparedColor =
-            if totalBalance == 0 then
-                Font.color (rgb255 255 255 255)
-
-            else
-                iHaveMore
-                    |> either
-                        (Font.color (rgb255 255 255 255))
-                        (Font.color (rgb255 255 245 157))
-
         sharedPaymentCount =
             balances |> List.map .sharedPaymentCount |> List.sum
 
@@ -144,134 +177,38 @@ viewBalanceSummaryCard ctx =
         unseenUpdateCount =
             balances |> List.map .unseenUpdateCount |> List.sum
 
-        lastChangeDatetime =
-            let
-                lastUpdateAt =
-                    balances
-                        |> List.filterMap .lastUpdateAt
-                        |> List.Extra.maximumBy Time.posixToMillis
-            in
-            case ( lastUpdateAt, ctx.model.dateTimeNow ) of
-                ( Just last, Just now ) ->
-                    timeDistanceInWords True last now ++ " ago"
+        lastUpdateAt =
+            balances
+                |> List.filterMap .lastUpdateAt
+                |> List.Extra.maximumBy Time.posixToMillis
 
-                _ ->
-                    "no changes yet"
+        cardData =
+            { title = "Total"
+            , preTitle = ""
+            , totalBalance = totalBalance
+            , sharedPaymentCount = sharedPaymentCount
+            , transferCount = transferCount
+            , unseenUpdateCount = unseenUpdateCount
+            , lastUpdateAt = lastUpdateAt
+            , dateTimeNow = ctx.model.dateTimeNow
+            , backgroundColor = teal500
+            , interactMsg = InteractedTotalCard
+            }
     in
-    row
-        [ width (fill |> maximum 350)
-        , Bg.color (rgb255 0 0x96 0x88)
-        ]
-        [ row [ spaceEvenly, alignTop ]
-            [ el [] <| text "Total"
-            , el [ alignRight ] <| text "asd"
-            ]
-        ]
+    viewBalanceCard ctx cardData
 
 
-
--- Card.view
---     [ css "max-width" "350px"
---     , Color.background (Color.color Color.Teal Color.S500)
---     , Elevation.e4
---     ]
---     [ Card.title
---         [ css "align-content" "flex-start"
---         , css "flex-direction" "row"
---         , css "align-items" "flex-start"
---         , css "justify-content" "space-between"
---         ]
---         [ Options.div
---             []
---             [ Card.head
---                 [ white, css "align-items" "baseline" ]
---                 [ Options.span [] [ text "Total" ]
---                 ]
---             , Card.subhead [ white ]
---                 [ Options.styled p
---                     [ css "opacity" "0.7"
---                     , css "margin-top" "4pt"
---                     , css "margin-bottom" "0"
---                     ]
---                     [ text (String.fromInt sharedPaymentCount ++ " shared payments")
---                     , Html.br [] []
---                     , text (String.fromInt transferCount ++ " transfers")
---                     ]
---                 ]
---             ]
---         , Options.div
---             [ css "align-self" "flex-end"
---             , css "margin-bottom" "-2pt"
---             ]
---             [ viewIf (totalBalance /= 0)
---                 (Options.span
---                     [ Typo.display1
---                     , Color.text comparedColor
---                     ]
---                     [ text (valueSign ++ " ") ]
---                 )
---             , Options.span
---                 [ css "opacity" "1"
---                 , Typo.display2
---                 , Color.text comparedColor
---                 ]
---                 [ text (totalBalance |> abs |> String.fromFloat) ]
---             , Options.span
---                 [ Typo.subhead, white ]
---                 [ text " zł" ]
---             ]
---         ]
---     , Card.actions
---         [ Card.border
---         , css "display" "flex"
---         , css "justify-content" "space-between"
---         , css "align-items" "center"
---         , css "padding" "8px 16px 8px 16px"
---         , white
---         ]
---         [ Options.span
---             [ Typo.caption
---             , Color.text Color.white
---             , css "display" "inline-flex"
---             , css "align-items" "center"
---             ]
---             [ Options.span
---                 [ css "margin-right" "4px" ]
---                 [ Icon.i "update" ]
---             , text lastChangeDatetime
---             ]
---         , Options.span []
---             [ Button.render ctx.liftMaterial
---                 (ctx.matId [ 1, 0, 0 ])
---                 ctx.mdl
---                 [ Button.icon, Button.ripple, white ]
---                 [ Icon.i "add" ]
---             , Button.render ctx.liftMaterial
---                 (ctx.matId [ 1, 0, 1 ])
---                 ctx.mdl
---                 [ Button.icon, Button.ripple, white, css "margin-left" "4pt" ]
---                 [ Icon.view "event" [] ]
---             , viewIf (unseenUpdateCount > 0) <|
---                 Options.span [ Badge.add (String.fromInt unseenUpdateCount), Badge.overlap ] []
---             ]
---         ]
---     ]
-
-
-viewBalanceCard : Context msg -> Int -> Balance -> Element msg
-viewBalanceCard ctx index balance =
+viewBalanceCard : Context msg -> BalanceCard -> Element msg
+viewBalanceCard ctx cardData =
     let
-        value =
-            balance.value
-
         iHaveMore =
-            balance.iHaveMore
+            cardData.totalBalance > 0
 
         valueSign =
             iHaveMore |> either "+" "-"
 
         comparedColor =
-            if value == 0 then
+            if cardData.totalBalance == 0 then
                 Font.color (rgb255 255 255 255)
 
             else
@@ -280,122 +217,94 @@ viewBalanceCard ctx index balance =
                         (Font.color (rgb255 255 255 255))
                         (Font.color (rgb255 255 245 157))
 
-        -- textSize =
-        --     if value == 0 then
-        --         { sign = css "opacity" "0"
-        --         , value = Typo.display2
-        --         }
-        --
-        --     else if value >= 1000 then
-        --         { sign = Typo.display1
-        --         , value = Typo.display2
-        --         }
-        --
-        --     else
-        --         { sign = Typo.display1
-        --         , value = Typo.display2
-        --         }
         lastChangeDatetime =
-            case ( balance.lastUpdateAt, ctx.model.dateTimeNow ) of
+            case ( cardData.lastUpdateAt, cardData.dateTimeNow ) of
                 ( Just last, Just now ) ->
-                    Misc.Time.timeDistanceInWords True last now ++ " ago"
+                    timeDistanceInWords True last now ++ " ago"
 
                 _ ->
                     "no changes yet"
     in
-    row [] []
+    column
+        [ width (px 340)
+        , Bg.color cardData.backgroundColor
+        , Border.shadow { offset = ( 3, 3 ), size = 1, blur = 20, color = rgba 0 0 0 0.2 }
+        , Border.rounded 2
+        , userSelectNone
+        ]
+        [ row [ width fill, spaceEvenly, padding 15 ]
+            [ column [ spacing 15, paddingEach { edges | bottom = 4 } ]
+                [ row
+                    [ Font.color white
+                    , Font.size 22
+                    , css "align-items" "baseline"
+                    , spacing 5
+                    ]
+                    [ el [ css "opacity" "0.8", css "font-size" "0.8em" ] <|
+                        text cardData.preTitle
+                    , el [] <| text cardData.title
+                    ]
+                , column [ Font.color grayed, Font.size 14, spacing 6 ]
+                    [ el [] <| text (String.fromInt cardData.sharedPaymentCount ++ " shared payments")
+                    , el [] <| text (String.fromInt cardData.transferCount ++ " transfers")
+                    ]
+                ]
+            , row
+                [ alignRight, alignBottom, spacing 4 ]
+                [ viewIf (cardData.totalBalance /= 0)
+                    (paragraph
+                        [ comparedColor, centerY, Font.size 22 ]
+                        [ text (valueSign ++ " ") ]
+                    )
+                , paragraph
+                    [ Font.color white, Font.size 36, alignBottom, css "margin-bottom" "-2px" ]
+                    [ text <| String.fromFloat <| abs cardData.totalBalance ]
+                , paragraph
+                    [ Font.color grayed, Font.size 18, alignBottom ]
+                    [ text "zł" ]
+                ]
+            ]
+
+        {- horizontal line -}
+        , el [ width fill, height (px 1), Bg.color (rgb255 0x00 0x82 0x76) ] Element.none
+        , row
+            [ width fill
+            , spaceEvenly
+            , centerY
+            , padding 15
+            ]
+            [ el
+                [ Font.size 12
+                , Font.color (rgb255 0x89 0xCC 0xC6)
+                , alignLeft
+                ]
+                (text lastChangeDatetime)
+            , row [ alignRight, spacing 5 ]
+                [ viewIconButton "plus"
+                    (ctx.lift <| NewTransaction cardData.interactMsg)
+                    []
+                , viewIconButton "calendar"
+                    (ctx.lift <| SeeEvents cardData.interactMsg)
+                    [ attrWhen (cardData.unseenUpdateCount > 0) <|
+                        inFront <|
+                            el [ paddingEach { edges | left = 15 }, css "top" "-8px" ] <|
+                                (viewBadge <| String.fromInt <| cardData.unseenUpdateCount)
+                    ]
+                ]
+            ]
+        ]
 
 
-
--- Card.view
---     [ css "max-width" "350px"
---     , Color.background (Color.color Color.Teal Color.S700)
---     , Elevation.e4
---     ]
---     [ Card.title
---         [ css "align-content" "flex-start"
---         , css "flex-direction" "row"
---         , css "align-items" "flex-start"
---         , css "justify-content" "space-between"
---         ]
---         [ Options.div
---             []
---             [ Card.head
---                 [ white, css "align-items" "baseline" ]
---                 [ Options.span
---                     [ css "opacity" "0.8"
---                     , css "font-size" "0.8em"
---                     ]
---                     [ text "with" ]
---                 , Options.span
---                     [ css "margin-left" "5px" ]
---                     [ text balance.name ]
---                 ]
---             , Card.subhead [ white ]
---                 [ Options.styled p
---                     [ css "opacity" "0.7"
---                     , css "margin-top" "4pt"
---                     , css "margin-bottom" "0"
---                     ]
---                     [ text (String.fromInt balance.sharedPaymentCount ++ " shared payments")
---                     , Html.br [] []
---                     , text (String.fromInt balance.transferCount ++ " transfers")
---                     ]
---                 ]
---             ]
---         , Options.div
---             [ css "align-self" "flex-end"
---             , css "margin-bottom" "-2pt"
---             ]
---             [ Options.span
---                 [ textSize.sign, Color.text comparedColor ]
---                 [ text (valueSign ++ " ") ]
---             , Options.span
---                 [ css "opacity" "1"
---                 , textSize.value
---                 , Color.text comparedColor
---                 ]
---                 [ text (String.fromFloat value) ]
---             , Options.span
---                 [ Typo.subhead, white ]
---                 [ text " zł" ]
---             ]
---         ]
---     , Card.actions
---         [ Card.border
---         , css "display" "flex"
---         , css "justify-content" "space-between"
---         , css "align-items" "center"
---         , css "padding" "8px 16px 8px 16px"
---         , white
---         ]
---         [ Options.span
---             [ Typo.caption
---             , Color.text Color.white
---             , css "display" "inline-flex"
---             , css "align-items" "center"
---             ]
---             [ Options.span
---                 [ css "margin-right" "4px" ]
---                 [ Icon.i "update" ]
---             , text lastChangeDatetime
---             ]
---         , Options.span []
---             [ Button.render ctx.liftMaterial
---                 (ctx.matId [ 0, index, 0 ])
---                 ctx.mdl
---                 [ Button.icon, Button.ripple, white ]
---                 [ Icon.i "add" ]
---             , Button.render ctx.liftMaterial
---                 (ctx.matId [ 0, index, 1 ])
---                 ctx.mdl
---                 [ Button.icon, Button.ripple, white, css "margin-left" "4pt" ]
---                 [ Icon.view "event" [] ]
---             , viewIf (balance.unseenUpdateCount > 0) <|
---                 Options.span [ Badge.add (String.fromInt balance.unseenUpdateCount), Badge.overlap ] []
---             ]
---         ]
---     ]
--- white : Options.Property c m
--- white =
---     Color.text Color.white
+viewIconButton : String -> msg -> List (Element.Attribute msg) -> Element msg
+viewIconButton name clickMsg attrs =
+    Input.button
+        [ Font.color white
+        , mouseDown [ noShadow, Font.color teal100 ]
+        , focused [ noShadow ]
+        ]
+        { onPress = Just clickMsg
+        , label =
+            el
+                attrs
+                (viewIcon name)
+        }

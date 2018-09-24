@@ -4,7 +4,7 @@ import Data.Context exposing (GlobalMsg(..))
 import Data.Session exposing (SessionState(..))
 import Data.Transaction exposing (TransactionId)
 import Data.User exposing (..)
-import Element exposing (Element, centerX, centerY, column, el, fill, padding, paddingEach, row, width, wrappedRow)
+import Element exposing (Element, centerX, centerY, column, el, fill, padding, paddingEach, row, shrink, width, wrappedRow)
 import Element.Lazy
 import Html exposing (Html)
 import List.Extra
@@ -65,17 +65,11 @@ in the header. (This comes up during slow page transitions.)
 -}
 frame : (GlobalMsg -> msg) -> Bool -> Bool -> SessionState -> Element msg -> Element msg
 frame lift isLoading isLoggedIn session content =
-    let
-        contentRenderer =
-            row [ width fill ]
-                [ isLoading |> either spinner content ]
-    in
     Element.el
         [ paddingEach { edges | top = 10, left = 5, right = 5 }
         , centerX
-        , centerY
         ]
-        contentRenderer
+        (isLoading |> either spinner content)
 
 
 
