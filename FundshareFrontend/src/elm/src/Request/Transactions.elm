@@ -15,8 +15,8 @@ import Request.Common exposing (date)
           description
           tags
           paidAt
-          payeeIds
-          payees {
+          beneficientIds
+          beneficients {
             userId
           }
         }
@@ -40,7 +40,7 @@ requestUserTransactions =
                             |> with (field "tags" [] (list string))
                             |> with (field "payorId" [] int)
                             |> with
-                                (field "payees"
+                                (field "beneficients"
                                     []
                                     (list
                                         (extract (field "id" [] int))

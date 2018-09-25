@@ -43,7 +43,7 @@ type BalanceCorrection =
 type Transaction =
  private
   { payorId : int 
-    payeeIds : int list
+    beneficientIds : int list
     amount : int
     updatedAt : DateTime }
 
@@ -51,13 +51,13 @@ type Transaction =
 
 // paying for self only - no money flow
 let isPayingForSelfOnly transaction =
-  List.length transaction.payeeIds = 1 && (List.first transaction.payeeIds) = Some transaction.payorId
+  List.length transaction.beneficientIds = 1 && (List.first transaction.beneficientIds) = Some transaction.payorId
   
 let isSharedPayment transaction =
-  List.length transaction.payeeIds > 1
+  List.length transaction.beneficientIds > 1
 
 let isMoneyTransfer transaction =
-  List.length transaction.payeeIds = 1 && not <| isPayingForSelfOnly transaction
+  List.length transaction.beneficientIds = 1 && not <| isPayingForSelfOnly transaction
 
 // greatest common denominator
 let rec gcd (a : int) (b : int) : int =
@@ -76,11 +76,11 @@ let lcm (a : int) (b : int) : int =
 // e.g. if num/den > 0 then user2 (right) is in debt to user1 (left)
 let calcTransactionBalanceCorrections transaction : BalanceCorrection list =
   let peopleCount =
-    transaction.payorId :: transaction.payeeIds
+    transaction.payorId :: transaction.beneficientIds
     |> List.distinct
     |> List.length
   
-  transaction.payeeIds
+  transaction.beneficientIds
     |> List.filter (fun id -> id <> transaction.payorId)
     |> List.map (fun id ->
       let b =
@@ -99,20 +99,20 @@ let calcTransactionBalanceCorrections transaction : BalanceCorrection list =
 let calculateBalanceFor2Users (user1Id : int) (user2Id : int) : BalanceDao =
   let transactions : Transaction list  =
     Sql.executeQuery (TableQuery (
-      "SELECT payor_id, payee_ids, amount, updated_at FROM public.transactions
-       WHERE payor_id = @u1 OR payor_id = @u2 OR @u1 = any(payee_ids) OR @u2 = any(payee_ids)",
+      "SELECT payor_id, beneficient_ids, amount, updated_at FROM public.transactions
+       WHERE payor_id = @u1 OR payor_id = @u2 OR @u1 = any(beneficient_ids) OR @u2 = any(beneficient_ids)",
       [ "u1", Int user1Id; "u2", Int user2Id ] )) (connect())
     |> function
       | Ok (TableResult rows) -> rows
       | _ -> failwith "---"
     |> Sql.mapEachRow (function
       | [ "payor_id", Int payorId
-          "payee_ids", IntArray payeeIds
+          "beneficient_ids", IntArray beneficientIds
           "amount", Int amount
           "updated_at", Date updatedAt
         ] -> Some <|
           { payorId = payorId
-            payeeIds = payeeIds
+            beneficientIds = beneficientIds
             amount = amount
             updatedAt = updatedAt }
       | _ -> failwith "couldnt get transactions for 2 users")
@@ -257,10 +257,10 @@ let addTransaction (args : Input_AddTransaction) : UserTransaction option =
   connect()
   |> Sql.executeQueries
     [ ScalarQuery (
-        "INSERT INTO \"public.users\" (payor_id, payee_ids, tags, description, inserted_at, updated_at)
+        "INSERT INTO \"public.users\" (payor_id, beneficient_ids, tags, description, inserted_at, updated_at)
          VALUES (@tt, @pid, @pids, @tags, @descr, @timeNow, @timeNow) RETURNING id",
         [ "pid", Int args.payorId
-          "pidds", IntArray args.payeeIds
+          "pidds", IntArray args.beneficientIds
           "tags", StringArray args.tags
           "descr", Option.map String args.description |> Option.defaultWith (fun () -> Null)
           "timeNow", Date <| now ])
@@ -273,7 +273,7 @@ let addTransaction (args : Input_AddTransaction) : UserTransaction option =
         { id = transactionId
           amount = args.amount
           payorId = args.payorId
-          payeeIds = args.payeeIds
+          beneficientIds = args.beneficientIds
           tags = args.tags
           description = args.description
           insertedAt = now } |> Some   
@@ -320,15 +320,15 @@ let addUser (email : string) (passwordHash : string) (name : String) : int optio
 let getUserTransactions (userId : int) : UserTransaction list =
   connect()
   |> Sql.executeQueryAndGetRows (TableQuery (
-    "SELECT id, payor_id, payee_ids, amount, description, tags, inserted_at FROM public.transactions
-     WHERE payor_id = @uid OR @uid IN payee_ids",
+    "SELECT id, payor_id, beneficient_ids, amount, description, tags, inserted_at FROM public.transactions
+     WHERE payor_id = @uid OR @uid IN beneficient_ids",
     ["uid", Int userId] ))
   |> (Option.map << Sql.mapEachRow) (
         function
         | [
           "id", Int tid
           "payor_id", Int pid
-          "payee_ids", IntArray pids
+          "beneficient_ids", IntArray pids
           "amount", Int amount
           "description", maybeDescr
           "tags", StringArray tags
@@ -342,7 +342,7 @@ let getUserTransactions (userId : int) : UserTransaction list =
           Some <|
           { id = tid
             payorId = pid
-            payeeIds = pids
+            beneficientIds = pids
             amount = amount
             description = descr
             tags = tags

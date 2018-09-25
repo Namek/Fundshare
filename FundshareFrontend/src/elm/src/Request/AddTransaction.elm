@@ -16,8 +16,8 @@ addTransaction newTransaction =
         payorIdVar =
             Var.required "payorId" .payorId Var.int
 
-        payeeIdsVar =
-            Var.required "payeeIds" .payeeIds (Var.list Var.int)
+        beneficientIdsVar =
+            Var.required "beneficientIds" .beneficientIds (Var.list Var.int)
 
         paidAtVar =
             Var.optional "paidAt" .paidAt Var.string ""
@@ -32,7 +32,7 @@ addTransaction newTransaction =
         (field "addTransaction"
             [ ( "amount", Arg.variable amountVar )
             , ( "payorId", Arg.variable payorIdVar )
-            , ( "payeeIds", Arg.variable payeeIdsVar )
+            , ( "beneficientIds", Arg.variable beneficientIdsVar )
 
             -- , ( "paidAt", Arg.variable paidAtVar )
             , ( "description", Arg.variable descriptionVar )
@@ -47,7 +47,7 @@ addTransaction newTransaction =
 type alias NewTransaction =
     { amount : Int
     , payorId : PersonId
-    , payeeIds : List PersonId
+    , beneficientIds : List PersonId
     , description : Maybe String
     , tags : Maybe (List String)
     }

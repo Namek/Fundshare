@@ -74,11 +74,11 @@ let rec User = Define.Object<User>("User", fieldsFn = fun () -> [
 and UserTransaction = Define.Object<UserTransaction>("UserTransaction", [
   Define.AutoField("id", Int)
   Define.AutoField("payorId", Int)
-  Define.AutoField("payeeIds", ListOf Int)
+  Define.AutoField("beneficientIds", ListOf Int)
   Define.AutoField("amount", Int)
   Define.AutoField("tags", ListOf String)
   Define.AutoField("description", Nullable String)
-  Define.Field("payees", ListOf User, fun ctx session -> [])
+  Define.Field("beneficients", ListOf User, fun ctx session -> [])
 ])
 and SignInResult = Define.Object<SignInResult>("SignInResult", [
   Define.AutoField("id", Int)
@@ -156,16 +156,16 @@ let Query = Define.Object<Ref<Session>>("query", [
   
 let Mutation = Define.Object<Ref<Session>>("mutation", [
   Define.Field("addTransaction", Nullable UserTransaction,
-    "Remember transaction between payor and payees, then update balance between them", [
+    "Remember transaction between payor and beneficients, then update balance between them", [
       Define.Input("payorId", Int)
-      Define.Input("payeeIds", ListOf Int)
+      Define.Input("beneficientIds", ListOf Int)
       Define.Input("amount", Int)
       Define.Input("tags", ListOf String)
       Define.Input("description", Nullable String)
     ], fun ctx session ->
     let args : Input_AddTransaction = {
       payorId = ctx.Arg "payorId"
-      payeeIds = ctx.Arg "payeeIds"
+      beneficientIds = ctx.Arg "beneficientIds"
       amount = ctx.Arg "amount"
       tags = ctx.Arg "tags"
       description = ctx.TryArg "description"

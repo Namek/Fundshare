@@ -37,7 +37,7 @@ type alias Model =
     { paymentDescription : String
     , amount : String
     , payor : Maybe PersonId
-    , payees : Set PersonId
+    , beneficients : Set PersonId
     , people : List Person
     , tags : ChipsTextfield.Model
     , saveState : SaveState
@@ -62,7 +62,7 @@ init session =
             { paymentDescription = ""
             , amount = ""
             , payor = Just session.user.id
-            , payees = Set.empty
+            , beneficients = Set.empty
             , people = []
             , tags = ChipsTextfield.init
             , saveState = Composing
@@ -75,7 +75,7 @@ type Msg
     = RefreshPeopleList
     | RefreshPeopleListResponse (Result GraphQL.Client.Http.Error (List Person))
     | SelectPayor PersonId
-    | TogglePayee PersonId Bool
+    | ToggleBeneficient PersonId Bool
     | SetAmount String
     | SetPaymentDescription String
     | ElementFocused (Result Dom.Error ())
@@ -119,16 +119,16 @@ update ctx msg =
                 |> noCmd
 
         SelectPayor personId ->
-            { model | payor = Just personId, payees = Set.empty } |> noCmd |> noCmd
+            { model | payor = Just personId, beneficients = Set.empty } |> noCmd |> noCmd
 
-        TogglePayee personId isSelected ->
+        ToggleBeneficient personId isSelected ->
             { model
-                | payees =
+                | beneficients =
                     if isSelected then
-                        Set.insert personId model.payees
+                        Set.insert personId model.beneficients
 
                     else
-                        Set.remove personId model.payees
+                        Set.remove personId model.beneficients
             }
                 |> noCmd
                 |> noCmd
@@ -224,7 +224,7 @@ update ctx msg =
 
                             -- , paidAt = Nothing
                             , payorId = payorId
-                            , payeeIds = Set.toList model.payees
+                            , beneficientIds = Set.toList model.beneficients
                             , tags = Just model.tags.chips
                             }
                                 |> Just
@@ -285,7 +285,7 @@ idsStr =
 --     , btnAdd = 2
 --     , catSel = 3
 --     , payorSelection = 4
---     , payeeSelection = 5
+--     , beneficientSelection = 5
 --     , tags = 6
 --     , usualTags = 7
 --     , btnOpenSavedPayment = 8
@@ -418,8 +418,8 @@ payorSelection ctx =
         ]
 
 
-payeeSelection : Context msg -> Element msg
-payeeSelection ctx =
+beneficientSelection : Context msg -> Element msg
+beneficientSelection ctx =
     let
         { model } =
             ctx
@@ -428,10 +428,10 @@ payeeSelection ctx =
         viewEl idx person =
             let
                 isSelected =
-                    model.payees |> Set.member person.id
+                    model.beneficients |> Set.member person.id
             in
             Input.checkbox []
-                { onChange = ctx.lift << TogglePayee person.id
+                { onChange = ctx.lift << ToggleBeneficient person.id
                 , checked = isSelected
                 , icon = either "check" "check-empty" >> viewIcon []
                 , label = Input.labelRight [] <| text person.name
@@ -456,7 +456,7 @@ viewMoneyDirection ctx =
     row [ width fill ]
         [ Element.el [ width <| fillPortion 1 ] <| payorSelection ctx
         , Element.el [ width <| fillPortion 1, Font.center ] (text "⇢")
-        , Element.el [ width <| fillPortion 1 ] <| payeeSelection ctx
+        , Element.el [ width <| fillPortion 1 ] <| beneficientSelection ctx
         ]
 
 

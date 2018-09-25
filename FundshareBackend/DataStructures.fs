@@ -13,7 +13,7 @@ type User = {
 and Transaction = {
   id : int
   payorId : int
-  payeeIds : int list
+  beneficientIds : int list
   amount : float
   description : string option
   tags : string list
@@ -21,7 +21,7 @@ and Transaction = {
 and UserTransaction = {
   id : int
   payorId : int
-  payeeIds : int list
+  beneficientIds : int list
   amount : int
   description : string option
   tags : string list
@@ -29,7 +29,7 @@ and UserTransaction = {
 }
 and Input_AddTransaction = {
   payorId : int
-  payeeIds : int list
+  beneficientIds : int list
   amount : int
   tags : string list
   description : string option

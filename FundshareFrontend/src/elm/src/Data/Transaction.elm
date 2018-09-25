@@ -10,7 +10,7 @@ type alias Transaction =
     , description : Maybe String
     , tags : List String
     , payorId : PersonId
-    , payeeIds : List PersonId
+    , beneficientIds : List PersonId
     , paidAt : Posix
     }
 
