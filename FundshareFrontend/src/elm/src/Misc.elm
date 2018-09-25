@@ -1,26 +1,21 @@
 module Misc exposing
-    ( attrWhen
-    , black
+    ( attr
+    , attrWhen
     , css
     , delay
     , edges
     , either
     , emailRegex
-    , grayed
     , match
     , moneyRegex
     , noCmd
     , noShadow
-    , teal100
-    , teal500
-    , teal700
     , toggle
     , userSelectNone
     , viewBadge
     , viewIcon
     , viewIconButton
     , viewIf
-    , white
     )
 
 import Bitwise exposing (and, shiftLeftBy, shiftRightBy)
@@ -31,6 +26,7 @@ import Element.Font as Font
 import Element.Input as Input
 import Html
 import Html.Attributes
+import Misc.Colors exposing (teal100, white)
 import Process
 import Regex exposing (Regex)
 import Set exposing (Set)
@@ -126,45 +122,6 @@ attrWhen condition otherAttr =
 
     else
         attr "empty-attr" ""
-
-
-rgbHex hex =
-    rgb255
-        (hex |> shiftRightBy 16 |> and 0xFF)
-        (hex |> shiftRightBy 8 |> and 0xFF)
-        (hex |> and 0xFF)
-
-
-rgbaHex hex alpha =
-    rgba255
-        (hex |> shiftRightBy 16 |> and 0xFF)
-        (hex |> shiftRightBy 8 |> and 0xFF)
-        (hex |> and 0xFF)
-        alpha
-
-
-teal500 =
-    rgbHex 0x9183
-
-
-teal700 =
-    rgbHex 0x796B
-
-
-teal100 =
-    rgbHex 0x00B2DFDB
-
-
-white =
-    rgbHex 0x00FFFFFF
-
-
-black =
-    rgbHex 0x00
-
-
-grayed =
-    rgbHex 0x00B2DEDA
 
 
 noShadow =

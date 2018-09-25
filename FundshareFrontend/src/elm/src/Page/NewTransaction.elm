@@ -6,11 +6,11 @@ import Data.Context exposing (..)
 import Data.Person exposing (Person, PersonId)
 import Data.Session exposing (Session)
 import Data.Transaction exposing (TransactionId)
-import Element exposing (Element, alignLeft, alignRight, centerX, centerY, column, el, explain, fill, height, padding, paddingXY, paragraph, px, rgb255, row, spaceEvenly, spacing, text, width, wrappedRow)
+import Element exposing (Element, alignLeft, alignRight, centerX, centerY, column, el, explain, fill, fillPortion, height, padding, paddingXY, paragraph, px, rgb255, rgba255, row, spaceEvenly, spacing, text, width, wrappedRow)
 import Element.Background as Bg
 import Element.Border as Border
 import Element.Font as Font
-import Element.Input as Input
+import Element.Input as Input exposing (labelRight)
 import GraphQL.Client.Http
 import Html.Attributes as Attr
 import Html.Events exposing (keyCode)
@@ -19,7 +19,8 @@ import Json.Encode
 import List
 import List.Extra
 import Maybe.Extra exposing (isJust, isNothing)
-import Misc exposing (attrWhen, black, either, match, moneyRegex, noCmd, teal100, teal500, toggle, userSelectNone, viewIcon, viewIconButton, viewIf)
+import Misc exposing (attr, attrWhen, either, match, moneyRegex, noCmd, toggle, userSelectNone, viewIcon, viewIconButton, viewIf)
+import Misc.Colors exposing (blue500, rgbHex, teal100, teal500, teal700, white)
 import Regex
 import Request.AddTransaction exposing (..)
 import Request.Common exposing (..)
@@ -349,9 +350,23 @@ view ctx =
     column
         [ width fill
         , userSelectNone
+        , Border.rounded 2
+        , Border.color <| teal700
+        , Border.solid
+        , Border.width 1
         ]
-        [ paragraph [] [ text "New transaction" ]
-        , row [ width fill, spacing 30 ]
+        [ paragraph
+            [ Bg.color teal500
+            , Font.color white
+            , Border.shadow { offset = ( 0, 2 ), size = 0, blur = 10, color = rgba255 0 0 0 0.4 }
+            , paddingXY 22 18
+            ]
+            [ text "New transaction" ]
+        , row
+            [ width fill
+            , spacing 30
+            , padding 10
+            ]
             [ column [ paddingXY 10 15, spacing 30, width fill ]
                 [ viewAmount ctx
                 , viewMoneyDirection ctx
@@ -371,7 +386,10 @@ viewAmount ctx =
         { model } =
             ctx
     in
-    Input.text []
+    Input.text
+        [ Element.htmlAttribute <| Html.Events.on "keydown" (Json.map (ctx.lift << OnPaymentAmountKeyDown) Html.Events.keyCode)
+        , attr "id" idsStr.paymentAmount
+        ]
         { onChange = ctx.lift << SetAmount
         , label = Input.labelAbove [] Element.none
         , text = model.amount
@@ -379,71 +397,25 @@ viewAmount ctx =
         }
 
 
-
--- [ Attr.type_ "number"
--- , Attr.property "pattern" (Json.Encode.string "[0-9]*([,.][0-9]{2})?")
--- , Attr.value <| Maybe.withDefault "" model.amount
--- , Attr.id idsStr.paymentAmount
--- , Attr.class <| cls Amount
--- , Attr.placeholder "PLN"
--- , Html.Events.onInput (ctx.lift << SetAmount)
--- , Html.Events.on "keydown" (Json.map (ctx.lift << OnPaymentAmountKeyDown) Html.Events.keyCode)
--- ]
--- []
-{- Textfield.render ctx.liftMaterial
-   [ ids.amount ]
-   ctx.mdl
-   [ Textfield.label "Amount"
-   , Textfield.floatingLabel
-   , Opts.onInput (ctx.lift << SetAmount)
-   , Opts.on "keydown" (Json.map (ctx.lift << OnPaymentAmountKeyDown) Html.Events.keyCode)
-   , Textfield.disabled |> Opts.when (isFormDisabled model)
-   , Textfield.value (Maybe.withDefault "" model.amount)
-   , Textfield.error "Not numeric!"
-       |> Opts.when
-           (Maybe.Extra.unwrap False
-               (not << match moneyRegex)
-               model.amount
-           )
-   , Opts.id idsStr.paymentAmount
-   , cs Amount
-   ]
-   []
--}
-
-
 payorSelection : Context msg -> Element msg
 payorSelection ctx =
     let
         { model } =
             ctx
-
-        viewEl : Int -> Person -> Element msg
-        viewEl idx person =
-            let
-                isSelected =
-                    model.payor
-                        |> Maybe.Extra.unwrap False (\pid -> pid == person.id)
-            in
-            row
-                [-- Opts.onClick (ctx.lift <| SelectPayor person.id) |> Opts.when (isFormEnabled model)
-                 -- , csg "interactive" |> Opts.cs |> Opts.when (isFormEnabled model)
-                ]
-                [ paragraph [] [ Element.el [] (text person.name) ] ]
-
-        -- [ Input.radioRow  { onChange : option -> msg, options : List.List (Element.Input.Option option msg), selected : Maybe.Maybe option, label : Element.Input.Label msg }
-        --         [ Toggles.value isSelected
-        --         , Toggles.group "payorSelection"
-        --         , Opts.onToggle (ctx.lift <| SelectPayor person.id) |> Opts.when (isFormEnabled model)
-        --         , Toggles.ripple |> Opts.when (isFormEnabled model)
-        --         ]
-        --         []
-        --     ]
-        -- , text person.name
-        -- ]
     in
     column [ spacing 15 ]
-        (ctx.model.people |> List.indexedMap viewEl)
+        [ Input.radio []
+            { label = Input.labelAbove [] <| Element.none
+            , onChange = ctx.lift << SelectPayor
+            , options =
+                model.people
+                    |> List.map
+                        (\person ->
+                            Input.option person.id (el [ paddingXY 0 5 ] <| text person.name)
+                        )
+            , selected = model.payor
+            }
+        ]
 
 
 payeeSelection : Context msg -> Element msg
@@ -481,12 +453,10 @@ viewMoneyDirection ctx =
         { model } =
             ctx
     in
-    row [ width fill, spaceEvenly ]
-        [ payorSelection ctx
-        , Element.el
-            [ centerY ]
-            (text "⇢")
-        , payeeSelection ctx
+    row [ width fill ]
+        [ Element.el [ width <| fillPortion 1 ] <| payorSelection ctx
+        , Element.el [ width <| fillPortion 1, Font.center ] (text "⇢")
+        , Element.el [ width <| fillPortion 1 ] <| payeeSelection ctx
         ]
 
 
@@ -498,8 +468,8 @@ viewDescription ctx =
     in
     Input.text
         [ width fill
-
-        -- Opts.on "keydown" (Json.map (ctx.lift << OnPaymentDescriptionKeyDown) Html.Events.keyCode)
+        , attr "id" idsStr.paymentDescription
+        , Element.htmlAttribute <| Html.Events.on "keydown" (Json.map (ctx.lift << OnPaymentDescriptionKeyDown) Html.Events.keyCode)
         ]
         { onChange = ctx.lift << SetPaymentDescription
         , placeholder = Nothing
@@ -578,8 +548,13 @@ viewSave ctx =
         btnText =
             "Save"
     in
-    row [ padding 15 ]
-        [ Input.button []
+    row [ padding 20 ]
+        [ Input.button
+            [ Bg.color blue500
+            , Font.color white
+            , Border.rounded 2
+            , paddingXY 12 8
+            ]
             { onPress =
                 (isFormFilled ctx.model
                     && (not <| isFormDisabled ctx.model)

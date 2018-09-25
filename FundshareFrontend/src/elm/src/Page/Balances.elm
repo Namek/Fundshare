@@ -15,7 +15,8 @@ import Html.Attributes
 import Json.Decode as Json
 import List.Extra
 import Maybe.Extra
-import Misc exposing (attrWhen, css, edges, either, grayed, noShadow, teal100, teal500, teal700, userSelectNone, viewBadge, viewIcon, viewIconButton, viewIf, white)
+import Misc exposing (attrWhen, css, edges, either, noShadow, userSelectNone, viewBadge, viewIcon, viewIconButton, viewIf)
+import Misc.Colors exposing (grayed, teal500, teal700, white)
 import Misc.Time exposing (timeDistanceInWords)
 import Request.Balance exposing (getBalances)
 import Request.Common exposing (..)
