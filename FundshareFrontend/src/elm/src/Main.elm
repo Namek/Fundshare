@@ -11,6 +11,7 @@ import Element exposing (Element, paragraph, text)
 import GraphQL.Client.Http
 import Html exposing (Html)
 import Json.Decode as Decode exposing (Value)
+import Maybe.Extra
 import Misc exposing (noCmd)
 import Page.Balances as Balances
 import Page.Errored as Errored exposing (PageLoadError(..))
@@ -265,8 +266,12 @@ update msg model =
                         modelWithSession =
                             { model | session = LoggedSession { user = user } }
 
+                        newRoute =
+                            Route.fromUrl model.lastLocation
+                                |> Maybe.Extra.or (Just Route.Login)
+
                         ( newModel, rerouteCmd ) =
-                            setRoute (Route.fromUrl model.lastLocation) modelWithSession
+                            setRoute newRoute modelWithSession
                     in
                     ( newModel, rerouteCmd )
 
