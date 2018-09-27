@@ -7,6 +7,7 @@ import Element exposing (Element, column, padding, paragraph, row, text)
 import Element.Font as Font
 import Element.Input as Input
 import GraphQL.Client.Http
+import Html.Events
 import Json.Decode as Json
 import Misc exposing (emailRegex, match, viewIf)
 import Request.Common exposing (..)
@@ -161,11 +162,12 @@ view ctx =
             ]
         , row []
             [ Input.currentPassword
-                [--  Options.onFocus (lift <| OnFieldFocused Password)
-                 -- , Options.onBlur (lift <| OnFieldBlurred)
-                 -- , Options.on "keydown" (Json.map (ctx.lift << OnInFormKeyDown) Html.Events.keyCode)
-                 -- , Textfield.disabled |> when formDisabled
-                 -- , Textfield.error ("Minimum " ++ String.fromInt minPasswordLength ++ " characters")  |> when shouldErrorPassword
+                [ --  Options.onFocus (lift <| OnFieldFocused Password)
+                  -- , Options.onBlur (lift <| OnFieldBlurred)
+                  -- , Options.on "keydown" (Json.map (ctx.lift << OnInFormKeyDown) Html.Events.keyCode)
+                  -- , Textfield.disabled |> when formDisabled
+                  -- , Textfield.error ("Minimum " ++ String.fromInt minPasswordLength ++ " characters")  |> when shouldErrorPassword
+                  Element.htmlAttribute <| Html.Events.on "keydown" (Json.map (ctx.lift << OnInFormKeyDown) Html.Events.keyCode)
                 ]
                 { onChange = lift << SetPassword
                 , text = model.password
