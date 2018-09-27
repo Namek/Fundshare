@@ -31,6 +31,10 @@ type BalanceDao =
     den : int
     sharedPaymentCount : int
     moneyTransferCount : int
+    authoredByUser1Count : int
+    authoredByUser2Count : int
+    unseenForUser1Count : int
+    unseenForUser2Count : int
     lastUpdateAt : DateTime option }
 
 type BalanceCorrection =
@@ -42,8 +46,10 @@ type BalanceCorrection =
   
 type Transaction =
  private
-  { payorId : int 
+  { authorId : int
+    payorId : int 
     beneficientIds : int list
+    acceptanceIds : int list
     amount : int
     updatedAt : DateTime }
 
@@ -58,6 +64,10 @@ let isSharedPayment transaction =
 
 let isMoneyTransfer transaction =
   List.length transaction.beneficientIds = 1 && not <| isPayingForSelfOnly transaction
+  
+let isUnseenForUser userId (transaction : Transaction) : bool =
+  not <| List.contains userId (transaction.authorId :: transaction.acceptanceIds)
+
 
 // greatest common denominator
 let rec gcd (a : int) (b : int) : int =
@@ -99,31 +109,40 @@ let calcTransactionBalanceCorrections transaction : BalanceCorrection list =
 let calculateBalanceFor2Users (user1Id : int) (user2Id : int) : BalanceDao =
   let transactions : Transaction list  =
     Sql.executeQuery (TableQuery (
-      "SELECT payor_id, beneficient_ids, amount, updated_at FROM public.transactions
+      "SELECT author_id, payor_id, beneficient_ids, acceptance_ids, amount, updated_at
+       FROM public.transactions
        WHERE payor_id = @u1 OR payor_id = @u2 OR @u1 = any(beneficient_ids) OR @u2 = any(beneficient_ids)",
       [ "u1", Int user1Id; "u2", Int user2Id ] )) (connect())
     |> function
       | Ok (TableResult rows) -> rows
       | _ -> failwith "---"
     |> Sql.mapEachRow (function
-      | [ "payor_id", Int payorId
+      | [ "author_id", Int authorId
+          "payor_id", Int payorId
           "beneficient_ids", IntArray beneficientIds
+          "acceptance_ids", IntArray acceptanceIds
           "amount", Int amount
           "updated_at", Date updatedAt
         ] -> Some <|
-          { payorId = payorId
+          { authorId = authorId
+            payorId = payorId
             beneficientIds = beneficientIds
+            acceptanceIds = acceptanceIds
             amount = amount
             updatedAt = updatedAt }
       | _ -> failwith "couldnt get transactions for 2 users")
       
-  let mutable stats = (0, 0, (if transactions.IsEmpty then None else Some transactions.Head.updatedAt))
+  let mutable stats = (0, 0, 0, 0, 0, 0, (if transactions.IsEmpty then None else Some transactions.Head.updatedAt))
   
   stats <- transactions
     |> List.fold (fun acc_stats trans ->
         let (
           _isSharedPayment,
           _isMoneyTransfer,
+          _authoredByUser1,
+          _authoredByUser2,
+          _isUnseenForUser1,
+          _isUnseenForUser2,
           _lastUpdateAt
           ) = acc_stats
     
@@ -136,6 +155,10 @@ let calculateBalanceFor2Users (user1Id : int) (user2Id : int) : BalanceDao =
         let newStats = 
           (_isSharedPayment + (if isSharedPayment trans then 1 else 0),
            _isMoneyTransfer + (if isMoneyTransfer trans then 1 else 0),
+           _authoredByUser1 + (if trans.authorId = user1Id then 1 else 0),
+           _authoredByUser2 + (if trans.authorId = user2Id then 1 else 0),
+           _isUnseenForUser1 + (if isUnseenForUser user1Id trans then 1 else 0),
+           _isUnseenForUser2 + (if isUnseenForUser user2Id trans then 1 else 0),
            lastUpdatedAt)
   
         newStats
@@ -161,7 +184,7 @@ let calculateBalanceFor2Users (user1Id : int) (user2Id : int) : BalanceDao =
       )
       {num = 0; den = 1})
       
-  let (s1, s2, d) = stats
+  let (s1, s2, s3, s4, s5, s6, d) = stats
 
   { num = totalBalance.num
     den = totalBalance.den
@@ -169,11 +192,16 @@ let calculateBalanceFor2Users (user1Id : int) (user2Id : int) : BalanceDao =
     user2Id = expectedUser2Id
     sharedPaymentCount = s1
     moneyTransferCount = s2
+    authoredByUser1Count = s3
+    authoredByUser2Count = s4
+    unseenForUser1Count = s5
+    unseenForUser2Count = s6
     lastUpdateAt = d   
   }
   
 
 let calculateBalanceForUsers (userIds : int list) =
+  let ids = List.distinct userIds
   let idPairs = [
     for i in userIds do
       for j in userIds do
@@ -200,15 +228,18 @@ let updateBalances (balances : BalanceDao seq) =
     balances
     |> Seq.map (fun b ->
       NonQuery ("
-        INSERT INTO
-          public.balances
-            (user1_id, user2_id, balance_num, balance_den, user1_has_more, shared_payment_count,
-             transfer_count, unseen_update_count, last_update_at, inserted_at, updated_at)
-          VALUES
-            (@user1Id, @user2Id, @num, @den, @user1HasMore, @spc, @tc, 0, @lastUpdate, @timeNow, @timeNow)
+        INSERT INTO public.balances
+         (user1_id, user2_id, balance_num, balance_den, user1_has_more, shared_payment_count,
+          transfer_count, authored_by_user1_count, authored_by_user2_count,
+          unseen_for_user1_count, unseen_for_user2_count, last_update_at, inserted_at, updated_at)
+        
+        VALUES
+         (@user1Id, @user2Id, @num, @den, @user1HasMore, @spc, @tc, @au1c, @au2c, @uu1c, @uu2c, @lastUpdate, @timeNow, @timeNow)
+        
         ON CONFLICT (user1_id, user2_id) DO UPDATE SET
           balance_num=@num, balance_den=@den, user1_has_more=@user1HasMore, shared_payment_count = @spc,
-          transfer_count=@tc, last_update_at=@lastUpdate, updated_at=@timeNow;
+          transfer_count=@tc, authored_by_user1_count=@au1c, authored_by_user2_count=@au2c,
+          unseen_for_user1_count=@uu1c, unseen_for_user2_count=@uu2c, last_update_at=@lastUpdate, updated_at=@timeNow;
         ",
         [ "user1Id", Int b.user1Id
           "user2Id", Int b.user2Id
@@ -217,6 +248,10 @@ let updateBalances (balances : BalanceDao seq) =
           "user1HasMore", Bool (b.num > 0)
           "spc", Int b.sharedPaymentCount
           "tc", Int b.moneyTransferCount
+          "au1c", Int b.authoredByUser1Count
+          "au2c", Int b.authoredByUser2Count
+          "uu1c", Int b.unseenForUser1Count
+          "uu2c", Int b.unseenForUser2Count
           "lastUpdate", if b.lastUpdateAt.IsSome then Date b.lastUpdateAt.Value else Null
           "timeNow", Date DateTime.Now
         ] ))
@@ -254,13 +289,16 @@ let getAllUsers() : User list =
       
 let addTransaction (args : Input_AddTransaction) : UserTransaction option =
   let now = DateTime.Now
+  let acceptanceIds = [args.authorId]
   connect()
   |> Sql.executeQueries
     [ ScalarQuery (
-        "INSERT INTO \"public.users\" (payor_id, beneficient_ids, tags, description, inserted_at, updated_at)
-         VALUES (@tt, @pid, @pids, @tags, @descr, @timeNow, @timeNow) RETURNING id",
-        [ "pid", Int args.payorId
-          "pidds", IntArray args.beneficientIds
+        "INSERT INTO \"public.users\" (author_id, payor_id, beneficient_ids, acceptance_ids, tags, description, inserted_at, updated_at)
+         VALUES (@aid, @tt, @pid, @bids, @aids, @tags, @descr, @timeNow, @timeNow) RETURNING id",
+        [ "aid", Int args.authorId
+          "pid", Int args.payorId
+          "bids", IntArray args.beneficientIds
+          "aids", IntArray acceptanceIds
           "tags", StringArray args.tags
           "descr", Option.map String args.description |> Option.defaultWith (fun () -> Null)
           "timeNow", Date <| now ])
@@ -271,9 +309,11 @@ let addTransaction (args : Input_AddTransaction) : UserTransaction option =
   |> function
     | Ok [ScalarResult (Int transactionId); NonQueryResult q2] ->
         { id = transactionId
+          authorId = args.authorId
           amount = args.amount
           payorId = args.payorId
           beneficientIds = args.beneficientIds
+          acceptanceIds = acceptanceIds
           tags = args.tags
           description = args.description
           insertedAt = now } |> Some   
@@ -315,20 +355,21 @@ let addUser (email : string) (passwordHash : string) (name : String) : int optio
         Some id
     | _ -> None
     
-// TODO map graphql selectionSet to list of fields
-    
 let getUserTransactions (userId : int) : UserTransaction list =
   connect()
   |> Sql.executeQueryAndGetRows (TableQuery (
-    "SELECT id, payor_id, beneficient_ids, amount, description, tags, inserted_at FROM public.transactions
+    "SELECT id, author_id, payor_id, beneficient_ids, amount, description, tags, inserted_at
+     FROM public.transactions
      WHERE payor_id = @uid OR @uid IN beneficient_ids",
     ["uid", Int userId] ))
   |> (Option.map << Sql.mapEachRow) (
         function
         | [
           "id", Int tid
+          "author_id", Int authorId
           "payor_id", Int pid
           "beneficient_ids", IntArray pids
+          "acceptance_ids", IntArray aids
           "amount", Int amount
           "description", maybeDescr
           "tags", StringArray tags
@@ -338,11 +379,12 @@ let getUserTransactions (userId : int) : UserTransaction list =
           | String descrStr -> Some descrStr
           | _ -> None
 
-          
           Some <|
           { id = tid
+            authorId = authorId
             payorId = pid
             beneficientIds = pids
+            acceptanceIds = aids
             amount = amount
             description = descr
             tags = tags
@@ -354,12 +396,18 @@ let getUserBalances userId : BalanceToOtherUser list =
   connect()
   |> Sql.executeQueryAndGetRows (TableQuery (
     "(SELECT user2_id as other_user_id, balance_num, balance_den, user1_has_more as sign, shared_payment_count,
-     	transfer_count, unseen_update_count, last_update_at
+     	transfer_count, last_update_at,
+     	authored_by_user1_count as authored_by_me_count,
+     	(shared_payment_count + transfer_count - authored_by_user1_count) as authored_by_other_user_count,
+     	unseen_for_user1_count as unseen_for_me_count, unseen_for_user2_count as unseen_for_other_user_count
      FROM public.balances
      WHERE user1_id = @uid)
      UNION
      (SELECT user1_id as other_user_id, balance_num, balance_den, (not user1_has_more) as sign, shared_payment_count,
-     	transfer_count, unseen_update_count, last_update_at
+     	transfer_count, last_update_at,
+     	(shared_payment_count + transfer_count - authored_by_user1_count) as authored_by_me_count,
+     	authored_by_user1_count as authored_by_other_user_count,
+     	unseen_for_user2_count as unseen_for_me_count, unseen_for_user1_count as unseen_for_other_user_count
      FROM public.balances
      WHERE user2_id = @uid)", ["uid", Int userId]))
   |> (Option.map << Sql.mapEachRow) (
@@ -370,8 +418,11 @@ let getUserBalances userId : BalanceToOtherUser list =
         "sign", Bool signBool
         "shared_payment_count", Int sharedPaymentCount
         "transfer_count", Int transferCount
-        "unseen_update_count", Int unseenUpdateCount
         "last_update_at", Date lastUpdateAt
+        "authored_by_me_count", Int authoredByMeCount
+        "authored_by_other_user_count", Int authoredByOtherUserCount
+        "unseen_for_me_count", Int unseenForMeCount
+        "unseen_for_other_user_count", Int unseenForOtherUsercount
       ] ->
         let sign = if signBool then 1 else -1
         Some <|
@@ -380,10 +431,13 @@ let getUserBalances userId : BalanceToOtherUser list =
             iHaveMore = signBool
             sharedPaymentCount = sharedPaymentCount
             transferCount = transferCount
-            unseenUpdateCount = unseenUpdateCount
+            authoredByMeCount = authoredByMeCount
+            authoredByOtherUserCount = authoredByOtherUserCount
+            unseenForMeCount = unseenForMeCount
+            unseenForOtherUserCount = unseenForOtherUsercount
             lastUpdateAt = lastUpdateAt
             otherUser = None
           }
-    | _ -> None
+    | _ -> failwith "no match for this list"
   )
   |> Option.orDefault (fun () -> [])

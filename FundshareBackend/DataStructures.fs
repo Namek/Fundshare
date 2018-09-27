@@ -12,22 +12,27 @@ type User = {
 }
 and Transaction = {
   id : int
+  authorId : int
   payorId : int
   beneficientIds : int list
+  acceptanceIds : int list
   amount : float
   description : string option
   tags : string list
 }
 and UserTransaction = {
   id : int
+  authorId : int
   payorId : int
   beneficientIds : int list
+  acceptanceIds : int list
   amount : int
   description : string option
   tags : string list
   insertedAt : DateTime
 }
 and Input_AddTransaction = {
+  authorId : int
   payorId : int
   beneficientIds : int list
   amount : int
@@ -42,7 +47,10 @@ and Balance = {
   user1HasMore : bool
   sharedPaymentCount : int
   transferCount : int
-  unseenUpdateCount : int
+  authoredByUser1Count : int
+  authoredByUser2Count : int
+  unseenForMeCount : int
+  unseenForOtherUserCount : int
   lastUpdateAt : DateTime
 }
 and BalanceToOtherUser = {
@@ -51,7 +59,10 @@ and BalanceToOtherUser = {
   iHaveMore : bool
   sharedPaymentCount : int
   transferCount : int
-  unseenUpdateCount : int
+  authoredByMeCount : int
+  authoredByOtherUserCount : int
+  unseenForMeCount : int
+  unseenForOtherUserCount : int
   lastUpdateAt : DateTime
   otherUser : User option
 }

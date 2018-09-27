@@ -75,6 +75,7 @@ and UserTransaction = Define.Object<UserTransaction>("UserTransaction", [
   Define.AutoField("id", Int)
   Define.AutoField("payorId", Int)
   Define.AutoField("beneficientIds", ListOf Int)
+  Define.AutoField("acceptanceIds", ListOf Int)
   Define.AutoField("amount", Int)
   Define.AutoField("tags", ListOf String)
   Define.AutoField("description", Nullable String)
@@ -102,7 +103,10 @@ and BalanceToOtherUser = Define.Object<BalanceToOtherUser>("BalanceToOtherUser",
   Define.AutoField("iHaveMore", Boolean)
   Define.AutoField("sharedPaymentCount", Int)
   Define.AutoField("transferCount", Int)
-  Define.AutoField("unseenUpdateCount", Int)
+  Define.AutoField("authoredByMeCount", Int)
+  Define.AutoField("authoredByOtherUserCount", Int)
+  Define.AutoField("unseenForMeCount", Int)
+  Define.AutoField("unseenForOtherUserCount", Int)
   Define.AutoField("lastUpdateAt", Date)
   Define.Field("otherUser", User, fun ctx balance -> (Repo.getUserById balance.otherUserId).Value)
 ])
@@ -164,6 +168,7 @@ let Mutation = Define.Object<Ref<Session>>("mutation", [
       Define.Input("description", Nullable String)
     ], fun ctx session ->
     let args : Input_AddTransaction = {
+      authorId = (!session).authorizedUserId |> Option.defaultValue 0
       payorId = ctx.Arg "payorId"
       beneficientIds = ctx.Arg "beneficientIds"
       amount = ctx.Arg "amount"
@@ -171,7 +176,10 @@ let Mutation = Define.Object<Ref<Session>>("mutation", [
       description = ctx.TryArg "description"
     }
     
-    Repo.addTransaction args
+    let transaction = Repo.addTransaction args
+    do Repo.updateBalanceForUsers (args.payorId :: args.authorId :: args.beneficientIds) |> ignore
+    
+    transaction
   )
   
   Define.Field("registerUser", Nullable RegisterUserResult, "Register a new user", [

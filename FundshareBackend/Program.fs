@@ -55,8 +55,8 @@ type GraphQLServerReturn = { data : obj; errors: Error list }
 
 [<EntryPoint>]
 let main argv =
-//  do Repo.updateBalanceForAllUsers () |> ignore
-//  printfn "Balances recalculated and updated."
+  do Repo.updateBalanceForAllUsers () |> ignore
+  printfn "Balances recalculated and updated."
 
   let settings = JsonSerializerSettings()
   settings.Converters <- [| OptionConverter() :> JsonConverter |]
