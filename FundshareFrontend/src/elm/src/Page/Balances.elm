@@ -15,11 +15,12 @@ import Html.Attributes
 import Json.Decode as Json
 import List.Extra
 import Maybe.Extra
-import Misc exposing (attrWhen, css, edges, either, noShadow, userSelectNone, viewBadge, viewIcon, viewIconButton, viewIf)
+import Misc exposing (attrWhen, css, edges, either, noCmd, noShadow, userSelectNone, viewBadge, viewIcon, viewIconButton, viewIf)
 import Misc.Colors exposing (grayed, teal500, teal700, white)
 import Misc.Time exposing (timeDistanceInWords)
 import Request.Balance exposing (getBalances)
 import Request.Common exposing (..)
+import Route
 import Task
 import Time exposing (Posix, now)
 
@@ -81,8 +82,12 @@ type Msg
     | SeeEvents InteractedBalanceCard
 
 
-update : Context msg -> Msg -> ( Model, Cmd Msg )
-update { model, session } msg =
+update : Context msg -> Msg -> ( ( Model, Cmd Msg ), Cmd GlobalMsg )
+update ctx msg =
+    let
+        { model, session } =
+            ctx
+    in
     case msg of
         RefreshBalances ->
             let
@@ -91,7 +96,7 @@ update { model, session } msg =
                         |> sendQueryRequest
                         |> Task.attempt RefreshBalancesResponse
             in
-            ( model, cmd )
+            ( model, cmd ) |> noCmd
 
         SetDate date ->
             ( date
@@ -99,6 +104,7 @@ update { model, session } msg =
                 |> Result.withDefault model
             , Cmd.none
             )
+                |> noCmd
 
         RefreshBalancesResponse result ->
             ( result
@@ -106,14 +112,29 @@ update { model, session } msg =
                 |> Result.withDefault model
             , Cmd.none
             )
+                |> noCmd
 
         NewTransaction card ->
-            -- TODO navigate
-            ( model, Cmd.none )
+            case card of
+                InteractedTotalCard ->
+                    ( model |> noCmd
+                    , Cmd.Extra.perform (Navigate <| Route.NewTransaction)
+                    )
+
+                InteractedPersonCard pid ->
+                    -- TODO
+                    model |> noCmd |> noCmd
 
         SeeEvents card ->
-            -- TODO navigate
-            ( model, Cmd.none )
+            case card of
+                InteractedTotalCard ->
+                    ( model |> noCmd
+                    , Cmd.Extra.perform (Navigate <| Route.TransactionList)
+                    )
+
+                InteractedPersonCard pid ->
+                    -- TODO
+                    model |> noCmd |> noCmd
 
 
 
@@ -133,7 +154,7 @@ view ctx =
             , totalBalance = balance.value
             , sharedPaymentCount = balance.sharedPaymentCount
             , transferCount = balance.transferCount
-            , unseenUpdateCount = balance.unseenUpdateCount
+            , unseenUpdateCount = balance.unseenForMeCount
             , lastUpdateAt = balance.lastUpdateAt
             , dateTimeNow = ctx.model.dateTimeNow
             , backgroundColor = teal700
@@ -176,7 +197,7 @@ viewBalanceSummaryCard ctx =
             balances |> List.map .transferCount |> List.sum
 
         unseenUpdateCount =
-            balances |> List.map .unseenUpdateCount |> List.sum
+            balances |> List.map .unseenForMeCount |> List.sum
 
         lastUpdateAt =
             balances
@@ -248,6 +269,7 @@ viewBalanceCard ctx cardData =
                 , column [ Font.color grayed, Font.size 14, spacing 6 ]
                     [ el [] <| text (String.fromInt cardData.sharedPaymentCount ++ " shared payments")
                     , el [] <| text (String.fromInt cardData.transferCount ++ " transfers")
+                    , el [] <| text (String.fromInt cardData.unseenUpdateCount ++ " new transactions")
                     ]
                 ]
             , row

@@ -267,8 +267,8 @@ update msg model =
                             { model | session = LoggedSession { user = user } }
 
                         newRoute =
-                            Route.fromUrl model.lastLocation
-                                |> Maybe.Extra.or (Just Route.Login)
+                            Just Route.Login
+                                |> Maybe.Extra.or (Route.fromUrl model.lastLocation)
 
                         ( newModel, rerouteCmd ) =
                             setRoute newRoute modelWithSession
@@ -373,7 +373,7 @@ updatePage page msg model =
                     , session = getSession ()
                     }
             in
-            toPage Balances BalancesMsg (Balances.update ctx) subMsg
+            toPageWithGlobalMsgs Balances BalancesMsg (Balances.update ctx) subMsg
 
         ( TransactionMsg subMsg, Transaction paymentId subModel ) ->
             let

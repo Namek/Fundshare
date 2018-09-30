@@ -11,6 +11,6 @@ type alias Balance =
     , iHaveMore : Bool
     , sharedPaymentCount : Int
     , transferCount : Int
-    , unseenUpdateCount : Int
+    , unseenForMeCount : Int
     , lastUpdateAt : Maybe Posix
     }

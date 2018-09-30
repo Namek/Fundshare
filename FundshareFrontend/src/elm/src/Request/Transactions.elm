@@ -14,11 +14,11 @@ import Request.Common exposing (date)
           amount
           description
           tags
-          paidAt
-          beneficientIds
           beneficients {
             userId
           }
+          acceptanceIds
+          insertedAt
         }
       }
     }
@@ -35,7 +35,7 @@ requestUserTransactions =
                     (list <|
                         (object Transaction
                             |> with (field "id" [] int)
-                            |> with (field "amount" [] float)
+                            |> with (field "amount" [] int)
                             |> with (field "description" [] (nullable string))
                             |> with (field "tags" [] (list string))
                             |> with (field "payorId" [] int)
@@ -46,7 +46,8 @@ requestUserTransactions =
                                         (extract (field "id" [] int))
                                     )
                                 )
-                            |> with (field "paidAt" [] date)
+                            |> with (field "acceptanceIds" [] (list int))
+                            |> with (field "insertedAt" [] date)
                         )
                     )
                 )

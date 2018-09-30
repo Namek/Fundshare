@@ -222,7 +222,7 @@ update ctx msg =
                             { amount = amount
                             , description = Just model.paymentDescription
 
-                            -- , paidAt = Nothing
+                            -- , insertedAt = Nothing
                             , payorId = payorId
                             , beneficientIds = Set.toList model.beneficients
                             , tags = Just model.tags.chips

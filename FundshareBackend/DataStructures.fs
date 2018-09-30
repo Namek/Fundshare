@@ -30,6 +30,7 @@ and UserTransaction = {
   description : string option
   tags : string list
   insertedAt : DateTime
+  beneficients : (User list) option
 }
 and Input_AddTransaction = {
   authorId : int

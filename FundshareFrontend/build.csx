@@ -75,10 +75,10 @@ void onFileChanged(WatcherChangeTypes evt, FileSystemEventArgs args)
 
         if (shouldInvoke) {
             Task.Run(async () => {
-                await Task.Delay(30);
+                await Task.Delay(300);
                 _onFileChanged(evt, args);
             });
-            
+
             lastUpdates.Remove(args.FullPath);
             lastUpdates.Add(args.FullPath, DateTime.Now.ToFileTimeUtc());
         }
@@ -150,7 +150,7 @@ void copyStatic(string filePath, string logPrefix = "Copying ")
         Directory.CreateDirectory(finalPathDir);
 
     File.Copy(filePath, finalPath, true);
-    touchFile(finalPath);
+    //touchFile(finalPath);
 }
 
 

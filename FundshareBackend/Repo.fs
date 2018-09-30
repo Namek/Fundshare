@@ -316,7 +316,8 @@ let addTransaction (args : Input_AddTransaction) : UserTransaction option =
           acceptanceIds = acceptanceIds
           tags = args.tags
           description = args.description
-          insertedAt = now } |> Some   
+          insertedAt = now
+          beneficients = None } |> Some   
         
     | _ -> None
 
@@ -358,9 +359,9 @@ let addUser (email : string) (passwordHash : string) (name : String) : int optio
 let getUserTransactions (userId : int) : UserTransaction list =
   connect()
   |> Sql.executeQueryAndGetRows (TableQuery (
-    "SELECT id, author_id, payor_id, beneficient_ids, amount, description, tags, inserted_at
+    "SELECT id, author_id, payor_id, beneficient_ids, acceptance_ids, amount, description, tags, inserted_at
      FROM public.transactions
-     WHERE payor_id = @uid OR @uid IN beneficient_ids",
+     WHERE payor_id = @uid OR @uid = any(beneficient_ids)",
     ["uid", Int userId] ))
   |> (Option.map << Sql.mapEachRow) (
         function
@@ -388,7 +389,10 @@ let getUserTransactions (userId : int) : UserTransaction list =
             amount = amount
             description = descr
             tags = tags
-            insertedAt = insertedAt }
+            insertedAt = insertedAt
+            beneficients = None}
+        
+        | _ -> failwith "user transactions not read from DB properly"
     )
   |> Option.defaultValue []
   

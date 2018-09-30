@@ -19,8 +19,8 @@ addTransaction newTransaction =
         beneficientIdsVar =
             Var.required "beneficientIds" .beneficientIds (Var.list Var.int)
 
-        paidAtVar =
-            Var.optional "paidAt" .paidAt Var.string ""
+        insertedAtVar =
+            Var.optional "insertedAt" .insertedAt Var.string ""
 
         descriptionVar =
             Var.optional "description" .description Var.string ""
@@ -34,7 +34,7 @@ addTransaction newTransaction =
             , ( "payorId", Arg.variable payorIdVar )
             , ( "beneficientIds", Arg.variable beneficientIdsVar )
 
-            -- , ( "paidAt", Arg.variable paidAtVar )
+            -- , ( "insertedAt", Arg.variable insertedAtVar )
             , ( "description", Arg.variable descriptionVar )
             , ( "tags", Arg.variable tagsVar )
             ]

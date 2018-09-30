@@ -71,7 +71,7 @@ let rec User = Define.Object<User>("User", fieldsFn = fun () -> [
   Define.Field("transactions", ListOf UserTransaction, fun ctx user -> Repo.getUserTransactions user.id)
 ])
   
-and UserTransaction = Define.Object<UserTransaction>("UserTransaction", [
+and UserTransaction = Define.Object<UserTransaction>("UserTransaction", fieldsFn = fun () -> [
   Define.AutoField("id", Int)
   Define.AutoField("payorId", Int)
   Define.AutoField("beneficientIds", ListOf Int)
@@ -79,7 +79,9 @@ and UserTransaction = Define.Object<UserTransaction>("UserTransaction", [
   Define.AutoField("amount", Int)
   Define.AutoField("tags", ListOf String)
   Define.AutoField("description", Nullable String)
-  Define.Field("beneficients", ListOf User, fun ctx session -> [])
+  Define.AutoField("insertedAt", Date)
+  Define.Field("beneficients", ListOf User, fun ctx transaction ->
+    transaction.beneficientIds |> List.map Repo.getUserById |> List.choose id )
 ])
 and SignInResult = Define.Object<SignInResult>("SignInResult", [
   Define.AutoField("id", Int)
