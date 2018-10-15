@@ -4,6 +4,9 @@ open Fundshare
 open System
 open Fundshare.DataStructures
 open Utils.Sql
+open SqlFrags.SqlGen.Frags
+open SqlFrags.SqlGen
+
 
   
 let defaultConnection : string =
@@ -14,9 +17,23 @@ let defaultConnection : string =
   |> Sql.database AppConfig.DB.database
 //    |> Sql.config "SslMode=Require;"
   |> Sql.str
-    
+
 let connect = fun () -> defaultConnection |> Sql.connect
+
+let executeNonQuery (query : string) : Result<int, string> =
+  connect()
+  |> Sql.executeQuery (NonQuery (query, []))
+  |> function
+    | Ok (NonQueryResult affectedRows) -> Ok affectedRows
+    | Error err -> Error <| "query error: " + err
+    | _ -> Error <| "general error for query: " + query
     
+let emitSql (parts : Frag list) =
+  parts |> Frags.Emit SqlSyntax.Any
+    
+let transformOrEmpty (transform : string -> string) (arg : string option) : string =
+  (Option.defaultValue "" (arg |> Option.bind (fun q -> Some <| transform q)))
+
     
 type Fraction =
  private 
@@ -112,17 +129,17 @@ let calculateBalanceFor2Users (user1Id : int) (user2Id : int) : BalanceDao =
       "SELECT author_id, payor_id, beneficient_ids, acceptance_ids, amount, updated_at
        FROM public.transactions
        WHERE payor_id = @u1 OR payor_id = @u2 OR @u1 = any(beneficient_ids) OR @u2 = any(beneficient_ids)",
-      [ "u1", Int user1Id; "u2", Int user2Id ] )) (connect())
+      [ "u1", QInt user1Id; "u2", QInt user2Id ] )) (connect())
     |> function
       | Ok (TableResult rows) -> rows
       | _ -> failwith "---"
     |> Sql.mapEachRow (function
-      | [ "author_id", Int authorId
-          "payor_id", Int payorId
-          "beneficient_ids", IntArray beneficientIds
-          "acceptance_ids", IntArray acceptanceIds
-          "amount", Int amount
-          "updated_at", Date updatedAt
+      | [ "author_id", QInt authorId
+          "payor_id", QInt payorId
+          "beneficient_ids", QIntArray beneficientIds
+          "acceptance_ids", QIntArray acceptanceIds
+          "amount", QInt amount
+          "updated_at", QDate updatedAt
         ] -> Some <|
           { authorId = authorId
             payorId = payorId
@@ -241,19 +258,19 @@ let updateBalances (balances : BalanceDao seq) =
           transfer_count=@tc, authored_by_user1_count=@au1c, authored_by_user2_count=@au2c,
           unseen_for_user1_count=@uu1c, unseen_for_user2_count=@uu2c, last_update_at=@lastUpdate, updated_at=@timeNow;
         ",
-        [ "user1Id", Int b.user1Id
-          "user2Id", Int b.user2Id
-          "num", Int (abs b.num)
-          "den", Int b.den
-          "user1HasMore", Bool (b.num > 0)
-          "spc", Int b.sharedPaymentCount
-          "tc", Int b.moneyTransferCount
-          "au1c", Int b.authoredByUser1Count
-          "au2c", Int b.authoredByUser2Count
-          "uu1c", Int b.unseenForUser1Count
-          "uu2c", Int b.unseenForUser2Count
-          "lastUpdate", if b.lastUpdateAt.IsSome then Date b.lastUpdateAt.Value else Null
-          "timeNow", Date DateTime.Now
+        [ "user1Id", QInt b.user1Id
+          "user2Id", QInt b.user2Id
+          "num", QInt (abs b.num)
+          "den", QInt b.den
+          "user1HasMore", QBool (b.num > 0)
+          "spc", QInt b.sharedPaymentCount
+          "tc", QInt b.moneyTransferCount
+          "au1c", QInt b.authoredByUser1Count
+          "au2c", QInt b.authoredByUser2Count
+          "uu1c", QInt b.unseenForUser1Count
+          "uu2c", QInt b.unseenForUser2Count
+          "lastUpdate", if b.lastUpdateAt.IsSome then QDate b.lastUpdateAt.Value else QNull
+          "timeNow", QDate DateTime.Now
         ] ))
       |> Seq.toList
 
@@ -276,9 +293,9 @@ let getAllUsers() : User list =
     | Ok (TableResult (rows)) -> rows
     | _ -> []
   |> Sql.mapEachRow (function
-      | [ "id", Int id
-          "email", String email
-          "name", String name
+      | [ "id", QInt id
+          "email", QString email
+          "name", QString name
         ] ->
           { id = id
             email = email
@@ -295,19 +312,19 @@ let addTransaction (args : Input_AddTransaction) : UserTransaction option =
     [ ScalarQuery (
         "INSERT INTO \"public.users\" (author_id, payor_id, beneficient_ids, acceptance_ids, tags, description, inserted_at, updated_at)
          VALUES (@aid, @tt, @pid, @bids, @aids, @tags, @descr, @timeNow, @timeNow) RETURNING id",
-        [ "aid", Int args.authorId
-          "pid", Int args.payorId
-          "bids", IntArray args.beneficientIds
-          "aids", IntArray acceptanceIds
-          "tags", StringArray args.tags
-          "descr", Option.map String args.description |> Option.defaultWith (fun () -> Null)
-          "timeNow", Date <| now ])
+        [ "aid", QInt args.authorId
+          "pid", QInt args.payorId
+          "bids", QIntArray args.beneficientIds
+          "aids", QIntArray acceptanceIds
+          "tags", QStringArray args.tags
+          "descr", Option.map QString args.description |> Option.defaultWith (fun () -> QNull)
+          "timeNow", QDate <| now ])
 
         // TODO !
       NonQuery ("UPDATE balance", [])
     ]
   |> function
-    | Ok [ScalarResult (Int transactionId); NonQueryResult q2] ->
+    | Ok [ScalarResult (QInt transactionId); NonQueryResult q2] ->
         { id = transactionId
           authorId = args.authorId
           amount = args.amount
@@ -326,9 +343,9 @@ let getUserById (id : int) : User option =
   connect()
   |> Sql.executeQueryAndGetRow
     (TableQuery ("SELECT email, name FROM public.users WHERE id=@userId LIMIT 1",
-                 ["userId", Int id]))
+                 ["userId", QInt id]))
   |> function
-    | Some [ "email", String email; "name", String name ] ->
+    | Some [ "email", QString email; "name", QString name ] ->
       Some { email = email; name = name; id = id; balances = None; transactions = None } 
     | _ -> None
     
@@ -336,9 +353,9 @@ let validateUserCredentials (email : string) (passwordSalted : String) : User op
   connect()
   |> Sql.executeQueryAndGetRow
     (TableQuery ("SELECT id, name FROM public.users WHERE email=@email AND password_hash=@password LIMIT 1;",
-                 ["email", String email; "password", String (String.toLowerInvariant passwordSalted)]))
+                 ["email", QString email; "password", QString (String.toLowerInvariant passwordSalted)]))
   |> function
-    | (Some [ "id", Int id; "name", String name ]) ->
+    | (Some [ "id", QInt id; "name", QString name ]) ->
       Some { id = id; name = name; email = email; balances = None; transactions = None }
     | _ -> None
 
@@ -349,37 +366,39 @@ let addUser (email : string) (passwordHash : string) (name : String) : int optio
     ScalarQuery (
       "INSERT INTO public.users (email, name, password_hash, inserted_at, updated_at)
        VALUES (@email, @name, @passwordHash, @now) RETURNING id",
-      ["email", String email; "name", String name; "passwordHash", String passwordHash; "now", Date now]
+      ["email", QString email; "name", QString name; "passwordHash", QString passwordHash; "now", QDate now]
     ))
   |> function 
-    | Some [ "id", Int id ] ->
+    | Some [ "id", QInt id ] ->
         Some id
     | _ -> None
     
-let getUserTransactions (userId : int) : UserTransaction list =
-  connect()
-  |> Sql.executeQueryAndGetRows (TableQuery (
+    
+let getTransactions (where : string option) : UserTransaction list =
+  let baseQuery =
     "SELECT id, author_id, payor_id, beneficient_ids, acceptance_ids, amount, description, tags, inserted_at
-     FROM public.transactions
-     WHERE payor_id = @uid OR @uid = any(beneficient_ids)",
-    ["uid", Int userId] ))
-  |> (Option.map << Sql.mapEachRow) (
-        function
-        | [
-          "id", Int tid
-          "author_id", Int authorId
-          "payor_id", Int pid
-          "beneficient_ids", IntArray pids
-          "acceptance_ids", IntArray aids
-          "amount", Int amount
+     FROM public.transactions"
+     
+  let finalQuery = baseQuery + (where |> transformOrEmpty (fun q -> " WHERE " + q))
+  
+  connect()
+    |> Sql.executeQueryAndGetRows (TableQuery (finalQuery, []))
+    |> (Option.map << Sql.mapEachRow) (
+      function
+      | [ "id", QInt tid
+          "author_id", QInt authorId
+          "payor_id", QInt pid
+          "beneficient_ids", QIntArray pids
+          "acceptance_ids", QIntArray aids
+          "amount", QInt amount
           "description", maybeDescr
-          "tags", StringArray tags
-          "inserted_at", Date insertedAt ] ->
-            
+          "tags", QStringArray tags
+          "inserted_at", QDate insertedAt
+        ] ->        
           let descr : string option = match maybeDescr with
-          | String descrStr -> Some descrStr
+          | QString descrStr -> Some descrStr
           | _ -> None
-
+    
           Some <|
           { id = tid
             authorId = authorId
@@ -391,10 +410,46 @@ let getUserTransactions (userId : int) : UserTransaction list =
             tags = tags
             insertedAt = insertedAt
             beneficients = None}
-        
-        | _ -> failwith "user transactions not read from DB properly"
+            
+      | _ -> failwith "user transactions not read from DB properly"
     )
+    |> Option.defaultValue []
+    
+    
+let getUserTransactions (userId : int) (where : String option) : UserTransaction list =
+  let uid = userId.ToString()
+  let qwhere =
+    "(payor_id = " + uid + " OR " + uid + " = any(beneficient_ids))"
+    + (where |> transformOrEmpty (fun w -> " AND " + w))
+
+  getTransactions (Some qwhere)
+ 
+// returns IDs of updated transactions
+let acceptTransactions (userId : int) (transactionIds : int list) : int list =
+  let uid = userId.ToString()
+  let tids = System.String.Join(",", transactionIds)
+  let query =
+    "UPDATE transactions" +
+    " SET acceptance_ids = acceptance_ids || " + uid + ", updated_at = NOW()" +
+    " WHERE" +
+    " id = any('{" + tids + "}'::int[])" +
+    " AND (" + uid + " = any(beneficient_ids) OR " + uid + " = payor_id)" + 
+    " AND " + uid + " != all(acceptance_ids)" +
+    " RETURNING id"
+
+  connect()
+  |> Sql.executeQueryAndGetRows (TableQuery (query, []))
+  |> Option.map (Sql.mapEachRow (function | ["id", QInt id] -> Some id))
   |> Option.defaultValue []
+  
+let update (table : string) (where : string option) (values : (string * string) list) =
+  [
+    (Table table).Update values
+    WhereS (where |> Option.defaultValue "")
+  ]
+  |> emitSql
+  |> executeNonQuery
+  
   
 let getUserBalances userId : BalanceToOtherUser list =
   connect()
@@ -413,20 +468,20 @@ let getUserBalances userId : BalanceToOtherUser list =
      	authored_by_user1_count as authored_by_other_user_count,
      	unseen_for_user2_count as unseen_for_me_count, unseen_for_user1_count as unseen_for_other_user_count
      FROM public.balances
-     WHERE user2_id = @uid)", ["uid", Int userId]))
+     WHERE user2_id = @uid)", ["uid", QInt userId]))
   |> (Option.map << Sql.mapEachRow) (
     function
-    | [ "other_user_id", Int otherUserId
-        "balance_num", Int num
-        "balance_den", Int den
-        "sign", Bool signBool
-        "shared_payment_count", Int sharedPaymentCount
-        "transfer_count", Int transferCount
-        "last_update_at", Date lastUpdateAt
-        "authored_by_me_count", Int authoredByMeCount
-        "authored_by_other_user_count", Int authoredByOtherUserCount
-        "unseen_for_me_count", Int unseenForMeCount
-        "unseen_for_other_user_count", Int unseenForOtherUsercount
+    | [ "other_user_id", QInt otherUserId
+        "balance_num", QInt num
+        "balance_den", QInt den
+        "sign", QBool signBool
+        "shared_payment_count", QInt sharedPaymentCount
+        "transfer_count", QInt transferCount
+        "last_update_at", QDate lastUpdateAt
+        "authored_by_me_count", QInt authoredByMeCount
+        "authored_by_other_user_count", QInt authoredByOtherUserCount
+        "unseen_for_me_count", QInt unseenForMeCount
+        "unseen_for_other_user_count", QInt unseenForOtherUsercount
       ] ->
         let sign = if signBool then 1 else -1
         Some <|
@@ -444,4 +499,4 @@ let getUserBalances userId : BalanceToOtherUser list =
           }
     | _ -> failwith "no match for this list"
   )
-  |> Option.orDefault (fun () -> [])
+  |> Option.defaultValue []

@@ -13,9 +13,9 @@
     <DefineConstants>TRACE;RELEASE;NETCOREAPP;NETCOREAPP2_1</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Utils\Md5.fs" />
     <Content Include="Config.yaml" />
     <Compile Include="AppConfig.fs" />
+    <Compile Include="Utils\Md5.fs" />
     <Compile Include="Utils\Sql.fs" />
     <Compile Include="DataStructures.fs" />
     <Compile Include="Repo.fs" />
@@ -29,6 +29,7 @@
     <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
     <PackageReference Include="Npgsql" Version="4.0.0" />
     <PackageReference Include="Paseto" Version="1.1.2" />
+    <PackageReference Include="SqlFrags" Version="3.0.0" />
     <PackageReference Include="suave" Version="2.4.0" />
   </ItemGroup>
 </Project>

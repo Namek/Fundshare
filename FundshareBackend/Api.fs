@@ -1,16 +1,18 @@
 module Fundshare.Api
 
 open System
-open System.Text
 open FSharp.Data.GraphQL
 open FSharp.Data.GraphQL.Parser
 open FSharp.Data.GraphQL.Types
 open FSharp.Data.GraphQL.Execution
 open FSharp.Data.GraphQL.Linq
+open Fundshare
+
 open Paseto.Authentication
 open Fundshare.DataStructures
 open FundshareBackend.Utils
 open YoLo
+
 
 type SignInResult =
   { id : int
@@ -68,7 +70,7 @@ let rec User = Define.Object<User>("User", fieldsFn = fun () -> [
   Define.AutoField("email", String)
   Define.AutoField("name", String)
   Define.Field("balances", ListOf BalanceToOtherUser, fun ctx user -> Repo.getUserBalances user.id )
-  Define.Field("transactions", ListOf UserTransaction, fun ctx user -> Repo.getUserTransactions user.id)
+  Define.Field("transactions", ListOf UserTransaction, fun ctx user -> Repo.getUserTransactions user.id None)
 ])
   
 and UserTransaction = Define.Object<UserTransaction>("UserTransaction", fieldsFn = fun () -> [
@@ -112,6 +114,10 @@ and BalanceToOtherUser = Define.Object<BalanceToOtherUser>("BalanceToOtherUser",
   Define.AutoField("lastUpdateAt", Date)
   Define.Field("otherUser", User, fun ctx balance -> (Repo.getUserById balance.otherUserId).Value)
 ])
+and AcceptTransactionsResult = Define.Object<AcceptTransactionsResult>("AcceptTransactionsResult", [
+  Define.AutoField("acceptedIds", ListOf Int)
+  Define.AutoField("failedIds", ListOf Int)
+])
 and AllGraphqlTypes : NamedDef list =
   [ User
     UserTransaction
@@ -121,6 +127,7 @@ and AllGraphqlTypes : NamedDef list =
     RegisterUserResult
     //Balance
     BalanceToOtherUser
+    AcceptTransactionsResult
   ]
 
 //////////////////////
@@ -151,7 +158,7 @@ let Query = Define.Object<Ref<Session>>("query", [
       user |> Option.map (fun user ->
         let transactions = 
           tryFindField "transactions" ctx
-          |> Option.map (fun _ -> Repo.getUserTransactions user.id )
+          |> Option.map (fun _ -> Repo.getUserTransactions user.id None)
 
         { user with transactions = transactions }
       )
@@ -228,5 +235,21 @@ let Mutation = Define.Object<Ref<Session>>("mutation", [
     |> Option.flatten
     |> Option.map (fun user ->
       { id = user.id; name = user.name; email = user.email } )
+  )
+  
+  Define.Field("acceptTransactions", Nullable AcceptTransactionsResult, "Accept transactions added by someone else", [
+    Define.Input("transactionIds", ListOf Int)
+  ], fun ctx session ->
+    match (!session).authorizedUserId with
+    | Some userId ->
+      let tids : int list = ctx.Arg "transactionIds"
+      let updatedIds = Repo.acceptTransactions userId tids      
+      let failedIds = Set.toList <| Set.difference (Set.ofList tids) (Set.ofList updatedIds)
+
+      Some { acceptedIds = updatedIds
+             failedIds = failedIds }
+
+    | None ->
+      failwith "not authenticated"
   )
 ])

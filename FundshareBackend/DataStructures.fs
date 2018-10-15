@@ -67,3 +67,7 @@ and BalanceToOtherUser = {
   lastUpdateAt : DateTime
   otherUser : User option
 }
+and AcceptTransactionsResult = {
+  acceptedIds : int list
+  failedIds : int list
+}

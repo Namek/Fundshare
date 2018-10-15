@@ -5,13 +5,17 @@ import Data.Context exposing (ContextData, GlobalMsg, Logged)
 import Data.Person exposing (PersonId)
 import Data.Session exposing (Session)
 import Data.Transaction exposing (Transaction, TransactionId, amountDifferenceForMyAccount, amountToMoney, isTransactionUnseenForUser)
-import Element exposing (Element, column, el, fill, paragraph, px, row, shrink, spacing, table, text)
+import Element exposing (Element, alignRight, centerY, column, el, fill, padding, paddingEach, paragraph, px, row, shrink, spacing, table, text, width)
 import Element.Font as Font
 import Element.Input as Input
+import GraphQL.Client.Http
 import Json.Decode as Json
-import Misc exposing (either, noCmd)
+import List.Extra
+import Misc exposing (attrWhen, edges, either, noCmd, noShadow, styledButton, toggle, userSelectNone, viewIcon)
+import Misc.Colors exposing (gray500)
 import Request.Common exposing (..)
-import Request.Transactions exposing (requestUserTransactions)
+import Request.Transactions exposing (AcceptTransactions, acceptTransactions, requestUserTransactions)
+import Set exposing (Set)
 import Task
 import Time exposing (Posix, now)
 
@@ -21,12 +25,16 @@ import Time exposing (Posix, now)
 
 
 type alias Model =
-    { transactions : List Transaction }
+    { inboxTransactions : List Transaction
+    , selectedInboxTransactionIds : Set TransactionId
+    }
 
 
 init : Session -> ( Model, Cmd Msg )
 init session =
-    ( { transactions = [] }
+    ( { inboxTransactions = []
+      , selectedInboxTransactionIds = Set.empty
+      }
     , Cmd.batch
         [ Cmd.Extra.perform RefreshTransactions
         , Task.attempt SetDate Time.now
@@ -43,6 +51,14 @@ hasAnyNewTransaction userId transactions =
     transactions |> List.any (isTransactionUnseenForUser userId)
 
 
+allSelected model =
+    List.length model.inboxTransactions == Set.size model.selectedInboxTransactionIds
+
+
+someSelected model =
+    not <| Set.isEmpty model.selectedInboxTransactionIds
+
+
 
 -- UPDATE --
 
@@ -51,7 +67,10 @@ type Msg
     = RefreshTransactions
     | RefreshTransactionsResponse (Result Error (List Transaction))
     | SetDate (Result String Posix)
-    | AcceptTransaction TransactionId
+    | ToggleInboxTransaction TransactionId
+    | ToggleCheckAllInboxTransactions
+    | AcceptSelectedTransactions
+    | AcceptSelectedTransactions_Response (Result GraphQL.Client.Http.Error AcceptTransactions)
 
 
 update : Context msg -> Msg -> ( ( Model, Cmd Msg ), Cmd GlobalMsg )
@@ -70,16 +89,72 @@ update { model, session } msg =
             ( ( model, Cmd.none ), Cmd.none )
 
         RefreshTransactionsResponse (Ok transactions) ->
-            { model | transactions = transactions }
+            { model
+                | inboxTransactions = List.filter (isTransactionUnseenForUser session.user.id) transactions
+            }
                 |> noCmd
                 |> noCmd
 
         SetDate dateStringResult ->
             ( ( model, Cmd.none ), Cmd.none )
 
-        AcceptTransaction tid ->
-            --TODO
-            model |> noCmd |> noCmd
+        ToggleInboxTransaction tid ->
+            { model | selectedInboxTransactionIds = toggle tid model.selectedInboxTransactionIds }
+                |> noCmd
+                |> noCmd
+
+        ToggleCheckAllInboxTransactions ->
+            { model
+                | selectedInboxTransactionIds =
+                    if someSelected model then
+                        Set.empty
+
+                    else
+                        model.inboxTransactions |> List.map .id |> Set.fromList
+            }
+                |> noCmd
+                |> noCmd
+
+        AcceptSelectedTransactions ->
+            let
+                cmd =
+                    model.selectedInboxTransactionIds
+                        |> Set.toList
+                        |> acceptTransactions
+                        |> sendMutationRequest
+                        |> Task.attempt AcceptSelectedTransactions_Response
+            in
+            ( model, cmd ) |> noCmd
+
+        AcceptSelectedTransactions_Response response ->
+            case response of
+                Ok data ->
+                    let
+                        acceptedIds =
+                            Set.fromList data.acceptedIds
+
+                        failedIds =
+                            Set.fromList data.failedIds
+
+                        shouldBeLeft tid =
+                            (not <| Set.member tid acceptedIds)
+                                || Set.member tid failedIds
+                    in
+                    { model
+                        | selectedInboxTransactionIds = Set.diff model.selectedInboxTransactionIds acceptedIds
+                        , inboxTransactions = List.filter (.id >> shouldBeLeft) model.inboxTransactions
+                    }
+                        |> noCmd
+                        |> noCmd
+
+                Err err ->
+                    let
+                        _ =
+                            Debug.todo "err" err
+                    in
+                    model
+                        |> noCmd
+                        |> noCmd
 
 
 
@@ -93,7 +168,7 @@ view ctx =
             ctx
     in
     column []
-        [ hasAnyNewTransaction session.user.id model.transactions
+        [ hasAnyNewTransaction session.user.id model.inboxTransactions
             |> either (viewInbox ctx) Element.none
         ]
 
@@ -105,13 +180,58 @@ viewInbox ctx =
             ctx
     in
     column [ spacing 15 ]
-        [ viewHeader <| "Inbox (" ++ (List.length model.transactions |> String.fromInt) ++ ")"
+        [ row [ width fill, paddingEach { edges | right = 20 } ]
+            [ text "Inbox"
+            , el [ Font.size 16 ] <|
+                text <|
+                    (" ("
+                        ++ (List.length model.inboxTransactions |> String.fromInt)
+                        ++ ")"
+                    )
+            , styledButton [ alignRight, centerY ]
+                { onPress =
+                    someSelected model
+                        |> either
+                            (Just <| ctx.lift <| AcceptSelectedTransactions)
+                            Nothing
+                , label = text "Accept selected"
+                }
+            ]
         , table [ Font.size 14, spacing 8 ]
-            { data = model.transactions
+            { data = model.inboxTransactions
             , columns =
-                [ { header = text "check all"
+                [ { header =
+                        Input.button
+                            [ userSelectNone
+                            , noShadow
+                            , Font.color gray500 |> attrWhen (someSelected model && not (allSelected model))
+                            , width shrink
+                            ]
+                            { onPress = Just <| (ctx.lift <| ToggleCheckAllInboxTransactions)
+                            , label =
+                                if someSelected model then
+                                    viewIcon [] "check"
+
+                                else
+                                    viewIcon [] "check-empty"
+                            }
                   , width = shrink
-                  , view = \t -> text "chck"
+                  , view =
+                        \t ->
+                            Input.checkbox [ userSelectNone ]
+                                { onChange = \selected -> ctx.lift <| ToggleInboxTransaction t.id
+                                , icon = either "check" "check-empty" >> viewIcon []
+                                , checked = Set.member t.id model.selectedInboxTransactionIds
+                                , label = Input.labelRight [] <| text ""
+                                }
+                  }
+                , { header = el [ Font.bold ] <| text "Tags"
+                  , width = fill
+                  , view = \t -> text (String.join ", " t.tags)
+                  }
+                , { header = el [ Font.bold ] <| text "Amount"
+                  , width = px 100
+                  , view = \t -> text (t.amount |> amountToMoney |> String.fromFloat)
                   }
                 , { header = el [ Font.bold ] <| text "Change"
                   , width = px 100
@@ -122,14 +242,6 @@ viewInbox ctx =
                                     |> amountToMoney
                                     |> String.fromFloat
                                 )
-                  }
-                , { header = el [ Font.bold ] <| text "Amount"
-                  , width = px 100
-                  , view = \t -> text (t.amount |> amountToMoney |> String.fromFloat)
-                  }
-                , { header = el [ Font.bold ] <| text "Tags"
-                  , width = fill
-                  , view = \t -> text (String.join ", " t.tags)
                   }
                 ]
             }

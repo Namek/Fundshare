@@ -1,7 +1,9 @@
-module Request.Transactions exposing (requestUserTransactions)
+module Request.Transactions exposing (AcceptTransactions, acceptTransactions, requestUserTransactions)
 
 import Data.Transaction exposing (Transaction, TransactionId)
 import GraphQL.Request.Builder exposing (..)
+import GraphQL.Request.Builder.Arg as Arg
+import GraphQL.Request.Builder.Variable as Var
 import Json.Decode
 import Request.Common exposing (date)
 
@@ -22,6 +24,8 @@ import Request.Common exposing (date)
         }
       }
     }
+
+    -- TODO filter for unseen by user
 
 -}
 requestUserTransactions : Request Query (List Transaction)
@@ -55,3 +59,27 @@ requestUserTransactions =
         )
         |> namedQueryDocument "currentUserTransactions"
         |> request {}
+
+
+acceptTransactions : List TransactionId -> Request Mutation AcceptTransactions
+acceptTransactions transactionIds =
+    let
+        tidsVar =
+            Var.required "transactionIds" identity (Var.list Var.int)
+    in
+    extract
+        (field "acceptTransactions"
+            [ ( "transactionIds", Arg.variable tidsVar ) ]
+            (object AcceptTransactions
+                |> with (field "acceptedIds" [] (list int))
+                |> with (field "failedIds" [] (list int))
+            )
+        )
+        |> namedMutationDocument "AcceptTransactions"
+        |> request transactionIds
+
+
+type alias AcceptTransactions =
+    { acceptedIds : List TransactionId
+    , failedIds : List TransactionId
+    }

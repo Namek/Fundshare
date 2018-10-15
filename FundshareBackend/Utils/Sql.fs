@@ -7,21 +7,21 @@ open Npgsql
 open System.Collections.Generic
 
 type SqlValue =
-    | Short of int16
-    | Int of int
-    | Long of int64
-    | String of string
-    | Date of DateTime
-    | Bool of bool
-    | Number of double
-    | Decimal of decimal
-    | Bytea of byte[]
-    | HStore of Map<string, string>
-    | Uuid of Guid
-    | IntArray of int list
-    | StringArray of string list
-    | Null
-    | Other of obj
+    | QShort of int16
+    | QInt of int
+    | QLong of int64
+    | QString of string
+    | QDate of DateTime
+    | QBool of bool
+    | QNumber of double
+    | QDecimal of decimal
+    | QBytea of byte[]
+    | QHStore of Map<string, string>
+    | QUuid of Guid
+    | QIntArray of int list
+    | QStringArray of string list
+    | QNull
+    | QOther of obj
 
 type SqlRow = list<string * SqlValue>
 
@@ -85,58 +85,58 @@ module Sql =
         for param in parameters do
           let paramValue : obj =
             match snd param with
-            | String text -> upcast text
-            | Int i -> upcast i
-            | Uuid x -> upcast x
-            | Short x -> upcast x
-            | Date date -> upcast date
-            | Number n -> upcast n
-            | Bool b -> upcast b
-            | Decimal x -> upcast x
-            | Long x -> upcast x
-            | Bytea x -> upcast x
-            | HStore dictionary ->
+            | QString text -> upcast text
+            | QInt i -> upcast i
+            | QUuid x -> upcast x
+            | QShort x -> upcast x
+            | QDate date -> upcast date
+            | QNumber n -> upcast n
+            | QBool b -> upcast b
+            | QDecimal x -> upcast x
+            | QLong x -> upcast x
+            | QBytea x -> upcast x
+            | QHStore dictionary ->
                 let value =
                   dictionary
                   |> Map.toList
                   |> dict
                   |> Dictionary
                 upcast value
-            | IntArray arr -> upcast arr
-            | StringArray arr -> upcast arr
-            | Null -> null
-            | Other x -> x
+            | QIntArray arr -> upcast arr
+            | QStringArray arr -> upcast arr
+            | QNull -> null
+            | QOther x -> x
 
           let paramName = sprintf "@%s" (fst param)
           cmd.Parameters.AddWithValue(paramName, paramValue) |> ignore
           
     let readValue value =
         match box value with
-          | :? int32 as x -> Int x
-          | :? string as x -> String x
-          | :? System.DateTime as x -> Date x
-          | :? bool as x -> Bool x
-          | :? int64 as x -> Long x
-          | :? decimal as x -> Decimal x
-          | :? double as x ->  Number x
-          | :? System.Guid as x -> Uuid x
-          | :? array<byte> as xs -> Bytea xs
+          | :? int32 as x -> QInt x
+          | :? string as x -> QString x
+          | :? System.DateTime as x -> QDate x
+          | :? bool as x -> QBool x
+          | :? int64 as x -> QLong x
+          | :? decimal as x -> QDecimal x
+          | :? double as x ->  QNumber x
+          | :? System.Guid as x -> QUuid x
+          | :? array<byte> as xs -> QBytea xs
           | :? IDictionary<string, string> as dict ->
               dict
               |> Seq.map (|KeyValue|)
               |> Map.ofSeq
-              |> HStore
-          | :? array<int> as xs -> IntArray (Array.toList xs)
-          | :? array<string> as xs -> StringArray (Array.toList xs)
-          | null -> Null
-          | _ -> Other value
+              |> QHStore
+          | :? array<int> as xs -> QIntArray (Array.toList xs)
+          | :? array<string> as xs -> QStringArray (Array.toList xs)
+          | null -> QNull
+          | _ -> QOther value
           
     
     let readRow (reader : NpgsqlDataReader) : SqlRow =
         let readFieldSync fieldIndex =
             let fieldName = reader.GetName(fieldIndex)
             if reader.IsDBNull(fieldIndex)
-            then fieldName, Null
+            then fieldName, QNull
             else fieldName, readValue (reader.GetFieldValue(fieldIndex))
 
         [0 .. reader.FieldCount - 1]
@@ -225,23 +225,23 @@ module Sql =
             con.Config
 
     let toBool = function
-        | Bool x -> x
+        | QBool x -> x
         | value -> failwithf "Could not convert %A into a boolean value" value
 
     let toInt = function
-        | Int x -> x
+        | QInt x -> x
         | value -> failwithf "Could not convert %A into an integer" value
 
     let toString = function
-        | String x -> x
+        | QString x -> x
         | value -> failwithf "Could not convert %A into a string" value
 
     let toDateTime = function
-        | Date x -> x
+        | QDate x -> x
         | value -> failwithf "Could not convert %A into a DateTime" value
 
     let toFloat = function
-        | Number x -> x
+        | QNumber x -> x
         | value -> failwithf "Could not convert %A into a floating number" value
 
     let multiline xs = String.concat Environment.NewLine xs
