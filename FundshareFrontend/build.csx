@@ -1,6 +1,7 @@
 #! "netcoreapp2.1"
 
 using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 using System.Threading;
 
 public static string GetScriptFolder([CallerFilePath] string path = null) =>
@@ -37,6 +38,11 @@ if (Args.Contains("build"))
     copyStatics();
     buildElm();
     buildScss();
+}
+
+if (Args.Contains("build-elm"))
+{
+    buildElm();
 }
 
 
@@ -90,9 +96,7 @@ void _onFileChanged(WatcherChangeTypes evt, FileSystemEventArgs args)
     var srcSubfolder = Path.GetDirectoryName(path)
         .Replace('\\', '/').Split('/').Last();
 
-    log($"Changed: {path}");
-
-    bool notifyBrowser = true;
+    bool notify = true;
 
     if (path.Contains("src/elm") && (path.EndsWith(".elm") || path.EndsWith(".js")))
         buildElm();
@@ -101,11 +105,13 @@ void _onFileChanged(WatcherChangeTypes evt, FileSystemEventArgs args)
     else if (path.Contains("src/static"))
         copyStatic(path);
     else
-        notifyBrowser = false;
+        notify = false;
 
-    if (notifyBrowser)
+    if (notify)
     {
-        // TODO
+        log($"Changed: {path}");
+
+        // TODO notify browser
     }
 }
 
@@ -160,13 +166,46 @@ void exec(String workDir, String cmd, String args = "")
     {
         FileName = cmd,
         Arguments = args,
-        WorkingDirectory = workDir
+        WorkingDirectory = workDir,
+        RedirectStandardError = true
+    
         //CreateNoWindow = true,
         //UseShellExecute = false
     };
 
     var proc = Process.Start(procInfo);
     proc.WaitForExit();
+    var err = proc.StandardError.ReadToEnd();
+    Console.Write(err);
+
+    var matches = Regex.Matches(err, "-- CORRUPT BINARY - ([^\n]+)");
+
+    bool shouldRetry = false;
+    foreach (Match match in matches)
+    {
+        if (match.Groups.Count > 1)
+        {
+            var path = match.Groups[1].Value.Trim();
+            var directory = Path.GetDirectoryName(path);
+
+            if (Directory.Exists(directory))
+            {
+
+                var oldColor = Console.BackgroundColor;
+                Console.BackgroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Deleting {directory}");
+                Console.BackgroundColor = oldColor;
+
+                Directory.Delete(directory, true);
+                shouldRetry = true;
+            }
+        }
+    }
+
+    if (shouldRetry)
+    {
+        exec(workDir, cmd, args);
+    }
 }
 
 void touchFile(string path)
