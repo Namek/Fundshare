@@ -6,10 +6,11 @@ import Data.Session exposing (Session, SessionState(..))
 import Element exposing (Element, column, padding, paragraph, row, text)
 import Element.Font as Font
 import Element.Input as Input
-import GraphQL.Client.Http
+import Graphql.Http as Http
 import Html.Events
 import Json.Decode as Json
 import Misc exposing (emailRegex, match, viewIf)
+import RemoteData exposing (RemoteData)
 import Request.Common exposing (..)
 import Request.Session exposing (..)
 import Route
@@ -40,7 +41,7 @@ type Msg
     | OnFieldBlurred
     | OnInFormKeyDown Int
     | SignIn
-    | SignInResponse (Result GraphQL.Client.Http.Error SignInResult)
+    | SignIn_Response (RemoteData (Http.Error SignInResult) SignInResult)
 
 
 type alias Context msg =
@@ -81,17 +82,13 @@ update ctx msg =
             let
                 cmd =
                     signIn model
-                        |> sendMutationRequest
-                        |> Task.attempt SignInResponse
+                        |> sendMutationRequest SignIn_Response
             in
             ( ( { model | isLoading = True }, cmd ), Cmd.none )
 
-        SignInResponse res ->
+        SignIn_Response res ->
             case res of
-                Err error ->
-                    ( ( { model | isLoading = False }, Cmd.none ), Cmd.none )
-
-                Ok user ->
+                RemoteData.Success user ->
                     ( ( model, Cmd.none )
                     , Cmd.batch <|
                         List.map Cmd.Extra.perform
@@ -99,6 +96,9 @@ update ctx msg =
                             , Navigate Route.Balances
                             ]
                     )
+
+                _ ->
+                    ( ( { model | isLoading = False }, Cmd.none ), Cmd.none )
 
 
 ids =

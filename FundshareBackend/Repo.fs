@@ -304,7 +304,7 @@ let getAllUsers() : User list =
             transactions = None } |> Some
       | _ -> None)
       
-let addTransaction (args : Input_AddTransaction) : UserTransaction option =
+let addTransaction (args : Input_AddTransaction) : Result<UserTransaction, String> =
   let now = DateTime.Now
   let acceptanceIds = [args.authorId]
   connect()
@@ -334,9 +334,9 @@ let addTransaction (args : Input_AddTransaction) : UserTransaction option =
           tags = args.tags
           description = args.description
           insertedAt = now
-          beneficients = None } |> Some   
+          beneficients = None } |> Ok
         
-    | _ -> None
+    | Error err -> Error (err.ToString())
 
 
 let getUserById (id : int) : User option =

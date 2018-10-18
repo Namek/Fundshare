@@ -8,7 +8,7 @@ import Data.Session as Session exposing (Session, SessionState(..))
 import Data.Transaction exposing (TransactionId)
 import Data.User exposing (User, UserId(..))
 import Element exposing (Element, paragraph, text)
-import GraphQL.Client.Http
+import Graphql.Http
 import Html exposing (Html)
 import Json.Decode as Decode exposing (Value)
 import Maybe.Extra
@@ -20,6 +20,7 @@ import Page.NewTransaction as NewTransaction
 import Page.NotFound as NotFound
 import Page.Transaction as Transaction
 import Page.TransactionList as TransactionList
+import RemoteData exposing (RemoteData)
 import Request.Common exposing (sendMutationRequest)
 import Request.Session exposing (SignInResult, checkSession)
 import Route exposing (Route, modifyUrl)
@@ -182,7 +183,7 @@ type Msg
     | UrlRequested Browser.UrlRequest
     | SetRoute (Maybe Route)
     | CheckAuthSession
-    | CheckAuthSessionResponse (Result GraphQL.Client.Http.Error (Maybe SignInResult))
+    | CheckAuthSession_Response (RemoteData (Graphql.Http.Error (Maybe SignInResult)) (Maybe SignInResult))
     | LoginLoaded (Result PageLoadError Login.Model)
     | LoginMsg Login.Msg
     | NewPaymentLoaded (Result PageLoadError NewTransaction.Model)
@@ -239,28 +240,14 @@ update msg model =
         CheckAuthSession ->
             let
                 cmd =
-                    checkSession
-                        |> sendMutationRequest
-                        |> Task.attempt CheckAuthSessionResponse
+                    checkSession ()
+                        |> sendMutationRequest CheckAuthSession_Response
             in
             ( model, cmd )
 
         {- first thing that comes from this app to backend - decide whether user is still logged in -}
-        CheckAuthSessionResponse response ->
-            let
-                maybeUser : Maybe SignInResult
-                maybeUser =
-                    response
-                        |> Result.toMaybe
-                        |> Maybe.andThen (\resp -> resp)
-            in
+        CheckAuthSession_Response (RemoteData.Success maybeUser) ->
             case maybeUser of
-                {- no valid token, guest session -}
-                Nothing ->
-                    ( { model | session = GuestSession }
-                    , Route.modifyUrl model Route.Login
-                    )
-
                 Just user ->
                     let
                         modelWithSession =
@@ -274,6 +261,19 @@ update msg model =
                             setRoute newRoute modelWithSession
                     in
                     ( newModel, rerouteCmd )
+
+                Nothing ->
+                    {- no valid token, guest session -}
+                    ( { model | session = GuestSession }
+                    , Route.modifyUrl model Route.Login
+                    )
+
+        CheckAuthSession_Response (RemoteData.Failure err) ->
+            {- we don't know but let's just say it's a guest session -}
+            { model | session = GuestSession } |> noCmd
+
+        CheckAuthSession_Response _ ->
+            model |> noCmd
 
         _ ->
             updatePage (getPage model.pageState) msg model

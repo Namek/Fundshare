@@ -1,52 +1,50 @@
 module Request.Session exposing (SignInResult, checkSession, signIn)
 
+import Api.Mutation as Mutation
+import Api.Object.CheckSessionResult as CheckSessionResult
+import Api.Object.SignInResult as SignInResult
 import Data.User exposing (User)
-import GraphQL.Request.Builder exposing (..)
-import GraphQL.Request.Builder.Arg as Arg
-import GraphQL.Request.Builder.Variable as Var
+import Graphql.Operation exposing (RootMutation, RootQuery)
+import Graphql.SelectionSet as SelectionSet exposing (SelectionSet, with)
 import MD5
+import RemoteData exposing (RemoteData)
 
 
 type alias SignInResult =
     User
 
 
-signIn : { a | email : String, password : String } -> Request Mutation SignInResult
+type alias SignInInput a =
+    { a | email : String, password : String }
+
+
+signIn : SignInInput a -> SelectionSet SignInResult RootMutation
 signIn credentials =
     let
-        emailVar =
-            Var.required "email" .email Var.string
-
-        passwordVar =
-            Var.required "passwordHash" (.password >> MD5.hex) Var.string
+        input =
+            { email = credentials.email
+            , passwordHash = credentials.password |> MD5.hex
+            }
     in
-    extract
-        (field "signIn"
-            [ ( "email", Arg.variable emailVar )
-            , ( "passwordHash", Arg.variable passwordVar )
-            ]
-            (object User
-                |> with (field "id" [] int)
-                |> with (field "email" [] string)
-                |> with (field "name" [] string)
-            )
-        )
-        |> namedMutationDocument "SignIn"
-        |> request credentials
-
-
-checkSession : Request Mutation (Maybe SignInResult)
-checkSession =
-    extract
-        (field "checkSession"
-            []
-            (nullable <|
-                (object User
-                    |> with (field "id" [] int)
-                    |> with (field "email" [] string)
-                    |> with (field "name" [] string)
+    Mutation.selection identity
+        |> with
+            (Mutation.signIn input
+                (SignInResult.selection User
+                    |> with SignInResult.id
+                    |> with SignInResult.email
+                    |> with SignInResult.name
                 )
             )
-        )
-        |> namedMutationDocument "CheckSession"
-        |> request ()
+
+
+checkSession : () -> SelectionSet (Maybe SignInResult) RootMutation
+checkSession () =
+    Mutation.selection identity
+        |> with
+            (Mutation.checkSession
+                (CheckSessionResult.selection User
+                    |> with CheckSessionResult.id
+                    |> with CheckSessionResult.email
+                    |> with CheckSessionResult.name
+                )
+            )

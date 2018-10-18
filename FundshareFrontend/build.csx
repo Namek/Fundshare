@@ -33,6 +33,11 @@ if (!Directory.Exists(outputDir))
     Directory.CreateDirectory(odir);
 }
 
+if (Args.Contains("api"))
+{
+    generateElmApi();
+}
+
 if (Args.Contains("build"))
 {
     copyStatics();
@@ -126,6 +131,12 @@ void buildElm()
     touchFile(output);
 }
 
+void generateElmApi()
+{
+    var workDir = Path.Combine(currentDir, "src", "elm");
+    exec(workDir, @"C:\Program Files\nodejs\npx.cmd", "@dillonkearns/elm-graphql --introspection-file ../../../graphql_schema.json");
+}
+
 void buildScss()
 {
     log("Building Sass code...");
@@ -168,9 +179,6 @@ void exec(String workDir, String cmd, String args = "")
         Arguments = args,
         WorkingDirectory = workDir,
         RedirectStandardError = true
-    
-        //CreateNoWindow = true,
-        //UseShellExecute = false
     };
 
     var proc = Process.Start(procInfo);
@@ -178,6 +186,7 @@ void exec(String workDir, String cmd, String args = "")
     var err = proc.StandardError.ReadToEnd();
     Console.Write(err);
 
+    // this is specific to Elm compiler
     var matches = Regex.Matches(err, "-- CORRUPT BINARY - ([^\n]+)");
 
     bool shouldRetry = false;

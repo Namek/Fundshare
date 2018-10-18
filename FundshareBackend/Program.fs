@@ -51,12 +51,13 @@ type OptionConverter() =
     serializer.Serialize(writer, value)
   override x.ReadJson(reader, t, existingValue, serializer) = failwith "Not supported"  
 
-type GraphQLServerReturn = { data : obj; errors: Error list }
+type GraphQLServerReturn = { data : obj; errors: (Error list) option }
 
 [<EntryPoint>]
 let main argv =
-  do Repo.updateBalanceForAllUsers () |> ignore
-  printfn "Balances recalculated and updated."
+  if AppConfig.Boot.updateBalanceForAllUsers then
+    do Repo.updateBalanceForAllUsers () |> ignore
+    printfn "Balances recalculated and updated in database."
 
   let settings = JsonSerializerSettings()
   settings.Converters <- [| OptionConverter() :> JsonConverter |]
@@ -64,12 +65,20 @@ let main argv =
   let json o = JsonConvert.SerializeObject(o, settings)
   
   let schema = Schema(Query, Mutation, config = { SchemaConfig.Default with Types = AllGraphqlTypes })
-  
+
   let authorize : OperationExecutionMiddleware = fun executionContext continueFn ->
     continueFn executionContext
 
   let executor = Executor(schema, [ ExecutorMiddleware(execute = authorize) ])
-  
+
+  let introspectionResult = executor.AsyncExecute(Introspection.introspectionQuery) |> Async.RunSynchronously
+  let schemaStr : string =
+    match introspectionResult with
+      | Direct (data, errors) -> json data.["data"]
+      | _ -> ""
+  System.IO.File.WriteAllText(AppConfig.Boot.outputSchemaPath, schemaStr)
+  printfn "GraphQL schema was generated: %s" AppConfig.Boot.outputSchemaPath
+
 
   let graphql : WebPart =
     fun http ->
@@ -109,7 +118,17 @@ let main argv =
                 Option.map (Map.tryFind "query") map
                 |> Option.flatten
                 |> Option.map (fun value -> value.ToString())
-                |> Option.map (fun query -> query.ToString().Trim().Replace("{", " {").Replace("\r\n", ", ").Replace("\n", " "))
+                |> Option.map (fun query ->
+                  let str = query.ToString().Trim().Replace("{", " {").Replace("\r\n", ", ").Replace("\n", " ").Trim()
+
+                  // a hack for the frontend code that can't name things and backend graphql lib which can't have unnamed things... omg
+                  if str.StartsWith("mutation  {") then
+                    str.Insert("mutation".Length, " SomeMutation ")
+                  else if str.StartsWith("query  {") then
+                    str.Insert("query".Length, " SomeQuery ")
+                  else
+                    str
+                )
 
               let variables =
                 Option.map (Map.tryFind "variables") map
@@ -158,15 +177,21 @@ let main argv =
             | Result.Ok (Direct (data, errors)) ->
               let resultJson = json {
                 data = data.["data"]
-                errors = if data.ContainsKey("errors") then data.["errors"] :?> Error list else []
+                errors =
+                  if data.ContainsKey("errors")
+                  then Some (data.["errors"] :?> Error list)
+                  else None
               }
+
               do printfn "Respond with: %s" resultJson |> ignore
               unsetInvalidCookie >=> Successful.OK resultJson >=> setAuthCookie session
             | Result.Ok response ->
               let resultJson = json response.Content
               do printfn "Respond with: %s" resultJson |> ignore
               unsetInvalidCookie >=> Successful.OK resultJson >=> setAuthCookie session
-            | Result.Error str -> Successful.OK str
+            | Result.Error err ->
+              do printfn "Error: %s" err
+              Successful.OK err
       }
   
   let setCorsHeaders = 

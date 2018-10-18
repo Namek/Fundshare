@@ -8,13 +8,14 @@ import Data.Transaction exposing (Transaction, TransactionId, amountDifferenceFo
 import Element exposing (Element, alignRight, centerY, column, el, fill, padding, paddingEach, paragraph, px, row, shrink, spacing, table, text, width)
 import Element.Font as Font
 import Element.Input as Input
-import GraphQL.Client.Http
+import Graphql.Http as GqlHttp
 import Json.Decode as Json
 import List.Extra
 import Misc exposing (attrWhen, edges, either, noCmd, noShadow, styledButton, toggle, userSelectNone, viewIcon)
 import Misc.Colors exposing (gray500)
+import RemoteData exposing (RemoteData)
 import Request.Common exposing (..)
-import Request.Transactions exposing (AcceptTransactions, acceptTransactions, requestUserTransactions)
+import Request.Transactions exposing (AcceptTransactionsResult, acceptTransactions, getUserTransactions)
 import Set exposing (Set)
 import Task
 import Time exposing (Posix, now)
@@ -65,12 +66,12 @@ someSelected model =
 
 type Msg
     = RefreshTransactions
-    | RefreshTransactionsResponse (Result Error (List Transaction))
+    | RefreshTransactions_Response (RemoteData (GqlHttp.Error (List Transaction)) (List Transaction))
     | SetDate (Result String Posix)
     | ToggleInboxTransaction TransactionId
     | ToggleCheckAllInboxTransactions
     | AcceptSelectedTransactions
-    | AcceptSelectedTransactions_Response (Result GraphQL.Client.Http.Error AcceptTransactions)
+    | AcceptSelectedTransactions_Response (RemoteData (GqlHttp.Error AcceptTransactionsResult) AcceptTransactionsResult)
 
 
 update : Context msg -> Msg -> ( ( Model, Cmd Msg ), Cmd GlobalMsg )
@@ -79,21 +80,20 @@ update { model, session } msg =
         RefreshTransactions ->
             let
                 cmd =
-                    requestUserTransactions
-                        |> sendQueryRequest
-                        |> Task.attempt RefreshTransactionsResponse
+                    getUserTransactions
+                        |> sendQueryRequest RefreshTransactions_Response
             in
             ( ( model, cmd ), Cmd.none )
 
-        RefreshTransactionsResponse (Err err) ->
-            ( ( model, Cmd.none ), Cmd.none )
-
-        RefreshTransactionsResponse (Ok transactions) ->
+        RefreshTransactions_Response (RemoteData.Success transactions) ->
             { model
                 | inboxTransactions = List.filter (isTransactionUnseenForUser session.user.id) transactions
             }
                 |> noCmd
                 |> noCmd
+
+        RefreshTransactions_Response _ ->
+            ( ( model, Cmd.none ), Cmd.none )
 
         SetDate dateStringResult ->
             ( ( model, Cmd.none ), Cmd.none )
@@ -121,14 +121,13 @@ update { model, session } msg =
                     model.selectedInboxTransactionIds
                         |> Set.toList
                         |> acceptTransactions
-                        |> sendMutationRequest
-                        |> Task.attempt AcceptSelectedTransactions_Response
+                        |> sendMutationRequest AcceptSelectedTransactions_Response
             in
             ( model, cmd ) |> noCmd
 
         AcceptSelectedTransactions_Response response ->
             case response of
-                Ok data ->
+                RemoteData.Success data ->
                     let
                         acceptedIds =
                             Set.fromList data.acceptedIds
@@ -147,11 +146,7 @@ update { model, session } msg =
                         |> noCmd
                         |> noCmd
 
-                Err err ->
-                    let
-                        _ =
-                            Debug.todo "err" err
-                    in
+                _ ->
                     model
                         |> noCmd
                         |> noCmd
@@ -237,11 +232,10 @@ viewInbox ctx =
                   , width = px 100
                   , view =
                         \t ->
-                            text
-                                (amountDifferenceForMyAccount session.user.id t
-                                    |> amountToMoney
-                                    |> String.fromFloat
-                                )
+                            amountDifferenceForMyAccount session.user.id t
+                                |> amountToMoney
+                                |> String.fromFloat
+                                |> text
                   }
                 ]
             }

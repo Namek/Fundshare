@@ -1,23 +1,21 @@
 module Request.People exposing (getPeople)
 
+import Api.Object.User as User
+import Api.Query as Query
+import Api.Scalar
 import Data.Person exposing (Person, PersonId)
-import GraphQL.Request.Builder exposing (..)
-import GraphQL.Request.Builder.Arg as Arg
-import GraphQL.Request.Builder.Variable as Var
+import Graphql.Field as Field
+import Graphql.Operation exposing (RootQuery)
+import Graphql.SelectionSet exposing (SelectionSet, with)
 
 
-getPeople : Request Query (List Person)
+getPeople : SelectionSet (List Person) RootQuery
 getPeople =
-    let
-        person =
-            object Person
-                |> with (field "id" [] int)
-                |> with (field "name" [] string)
-    in
-    extract
-        (field "users"
-            []
-            (list person)
-        )
-        |> namedQueryDocument "users"
-        |> request {}
+    Query.selection identity
+        |> with
+            (Query.users
+                (User.selection Person
+                    |> with User.id
+                    |> with User.name
+                )
+            )

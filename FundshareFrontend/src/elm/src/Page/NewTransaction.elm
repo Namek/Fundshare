@@ -11,7 +11,7 @@ import Element.Background as Bg
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input exposing (labelRight)
-import GraphQL.Client.Http
+import Graphql.Http
 import Html.Attributes as Attr
 import Html.Events exposing (keyCode)
 import Json.Decode as Json
@@ -22,6 +22,7 @@ import Maybe.Extra exposing (isJust, isNothing)
 import Misc exposing (attr, attrWhen, either, match, moneyRegex, noCmd, toggle, userSelectNone, viewIcon, viewIconButton, viewIf)
 import Misc.Colors exposing (blue500, rgbHex, teal100, teal500, teal700, white)
 import Regex
+import RemoteData exposing (RemoteData)
 import Request.AddTransaction exposing (..)
 import Request.Common exposing (..)
 import Request.People exposing (..)
@@ -73,7 +74,7 @@ init session =
 
 type Msg
     = RefreshPeopleList
-    | RefreshPeopleListResponse (Result GraphQL.Client.Http.Error (List Person))
+    | RefreshPeopleList_Response (RemoteData (Graphql.Http.Error (List Person)) (List Person))
     | SelectPayor PersonId
     | ToggleBeneficient PersonId Bool
     | SetAmount String
@@ -84,7 +85,7 @@ type Msg
     | TagsMsg ChipsTextfield.Msg
     | ToggleTag String
     | SaveTransaction
-    | SaveTransactionResponse (Result GraphQL.Client.Http.Error TransactionId)
+    | SaveTransaction_Response (RemoteData (Graphql.Http.Error TransactionId) TransactionId)
     | OpenSavedTransaction
 
 
@@ -103,17 +104,16 @@ update ctx msg =
             let
                 cmd =
                     getPeople
-                        |> sendQueryRequest
-                        |> Task.attempt RefreshPeopleListResponse
+                        |> sendQueryRequest RefreshPeopleList_Response
             in
             ( model, cmd ) |> noCmd
 
-        RefreshPeopleListResponse result ->
+        RefreshPeopleList_Response result ->
             let
                 newModel =
                     result
-                        |> Result.andThen (\people -> Ok { model | people = people })
-                        |> Result.withDefault model
+                        |> RemoteData.andThen (\people -> RemoteData.Success { model | people = people })
+                        |> RemoteData.withDefault model
             in
             ( newModel, Dom.focus idsStr.paymentAmount |> Task.attempt ElementFocused )
                 |> noCmd
@@ -232,25 +232,28 @@ update ctx msg =
                 sendReqCmd =
                     newTransaction
                         |> Maybe.andThen (Just << addTransaction)
-                        |> Maybe.andThen (Just << sendMutationRequest)
+                        |> Maybe.andThen (Just << sendMutationRequest SaveTransaction_Response)
             in
             case sendReqCmd of
                 Just cmd ->
                     ( { model | saveState = Saving }
-                    , Task.attempt SaveTransactionResponse cmd
+                    , cmd
                     )
                         |> noCmd
 
                 _ ->
                     model |> noCmd |> noCmd
 
-        SaveTransactionResponse result ->
+        SaveTransaction_Response result ->
             (case result of
-                Err error ->
+                RemoteData.Failure error ->
                     { model | saveState = SaveError }
 
-                Ok res ->
+                RemoteData.Success res ->
                     { model | saveState = Saved (SaveResult res) }
+
+                _ ->
+                    model
             )
                 |> noCmd
                 |> noCmd

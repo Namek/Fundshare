@@ -1,85 +1,70 @@
-module Request.Transactions exposing (AcceptTransactions, acceptTransactions, requestUserTransactions)
+module Request.Transactions exposing (AcceptTransactionsResult, acceptTransactions, getUserTransactions)
 
+import Api.Mutation as Mutation
+import Api.Object.AcceptTransactionsResult as AcceptTransactionsResult
+import Api.Object.User as User
+import Api.Object.UserTransaction as UserTransaction
+import Api.Query as Query
+import Api.Scalar
 import Data.Transaction exposing (Transaction, TransactionId)
-import GraphQL.Request.Builder exposing (..)
-import GraphQL.Request.Builder.Arg as Arg
-import GraphQL.Request.Builder.Variable as Var
-import Json.Decode
-import Request.Common exposing (date)
+import Graphql.Field as Field
+import Graphql.Operation exposing (RootMutation, RootQuery)
+import Graphql.SelectionSet as SelectionSet exposing (SelectionSet, with)
+import RemoteData exposing (RemoteData)
+import Request.Common exposing (decodeDate)
 
 
-{-| Decoder for query:
+type alias AcceptTransactionsResult =
+    { acceptedIds : List Int
+    , failedIds : List Int
+    }
+
+
+{-| Query:
 
     query currentUserTransactions {
       currentUser {
         transactions {
+          id
           amount
           description
           tags
-          beneficients {
-            userId
-          }
+          beneficientIds
           acceptanceIds
           insertedAt
         }
       }
     }
 
-    -- TODO filter for unseen by user
-
 -}
-requestUserTransactions : Request Query (List Transaction)
-requestUserTransactions =
-    extract
-        (field "currentUser"
-            []
-            (extract
-                (field "transactions"
-                    []
-                    (list <|
-                        (object Transaction
-                            |> with (field "id" [] int)
-                            |> with (field "amount" [] int)
-                            |> with (field "description" [] (nullable string))
-                            |> with (field "tags" [] (list string))
-                            |> with (field "payorId" [] int)
-                            |> with
-                                (field "beneficients"
-                                    []
-                                    (list
-                                        (extract (field "id" [] int))
-                                    )
-                                )
-                            |> with (field "acceptanceIds" [] (list int))
-                            |> with (field "insertedAt" [] date)
-                        )
-                    )
+getUserTransactions : SelectionSet (List Transaction) RootQuery
+getUserTransactions =
+    Query.selection (Maybe.withDefault [])
+        |> with
+            (Query.currentUser
+                (User.selection identity |> with (User.transactions transaction))
+            )
+
+
+transaction =
+    UserTransaction.selection Transaction
+        |> with UserTransaction.id
+        |> with UserTransaction.amount
+        |> with UserTransaction.description
+        |> with UserTransaction.tags
+        |> with UserTransaction.payorId
+        |> with UserTransaction.beneficientIds
+        |> with UserTransaction.acceptanceIds
+        |> with (UserTransaction.insertedAt |> Field.map decodeDate)
+
+
+acceptTransactions : List TransactionId -> SelectionSet AcceptTransactionsResult RootMutation
+acceptTransactions transactionIds =
+    Mutation.selection (Maybe.withDefault { acceptedIds = [], failedIds = transactionIds })
+        |> with
+            (Mutation.acceptTransactions { transactionIds = transactionIds }
+                (AcceptTransactionsResult.selection AcceptTransactionsResult
+                    |> with AcceptTransactionsResult.acceptedIds
+                    |> with AcceptTransactionsResult.failedIds
                 )
             )
-        )
-        |> namedQueryDocument "currentUserTransactions"
-        |> request {}
-
-
-acceptTransactions : List TransactionId -> Request Mutation AcceptTransactions
-acceptTransactions transactionIds =
-    let
-        tidsVar =
-            Var.required "transactionIds" identity (Var.list Var.int)
-    in
-    extract
-        (field "acceptTransactions"
-            [ ( "transactionIds", Arg.variable tidsVar ) ]
-            (object AcceptTransactions
-                |> with (field "acceptedIds" [] (list int))
-                |> with (field "failedIds" [] (list int))
-            )
-        )
-        |> namedMutationDocument "AcceptTransactions"
-        |> request transactionIds
-
-
-type alias AcceptTransactions =
-    { acceptedIds : List TransactionId
-    , failedIds : List TransactionId
-    }

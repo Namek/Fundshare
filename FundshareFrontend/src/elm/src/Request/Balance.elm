@@ -1,12 +1,20 @@
 module Request.Balance exposing (getBalances)
 
+import Api.Object
+import Api.Object.BalanceToOtherUser as BalanceToOtherUser
+import Api.Object.User as User
+import Api.Query as Query
 import Data.Balance exposing (Balance)
-import GraphQL.Request.Builder exposing (..)
-import Request.Common exposing (date)
+import Graphql.Field as Field
+import Graphql.Internal.Builder.Object exposing (fieldDecoder)
+import Graphql.Operation exposing (RootMutation, RootQuery)
+import Graphql.SelectionSet as SelectionSet exposing (SelectionSet, with)
+import Json.Decode as Decode
+import Request.Common exposing (decodeDate)
 import Time exposing (Posix)
 
 
-{-| The exact call is:
+{-| Query:
 
     currentUser currentUserBalances {
       balances {
@@ -24,40 +32,35 @@ import Time exposing (Posix)
     }
 
 -}
-getBalances : Request Query (List Balance)
+getBalances : SelectionSet (List Balance) RootQuery
 getBalances =
-    let
-        otherUser =
-            object QOtherUser
-                |> with (field "id" [] int)
-                |> with (field "name" [] string)
-
-        balance =
-            object QBalance
-                |> with (field "value" [] float)
-                |> with (field "iHaveMore" [] bool)
-                |> with (field "otherUser" [] otherUser)
-                |> with (field "sharedPaymentCount" [] int)
-                |> with (field "transferCount" [] int)
-                |> with (field "unseenForMeCount" [] int)
-                |> with (field "lastUpdateAt" [] (nullable date))
-    in
-    extract
-        (field "currentUser"
-            []
-            (extract
-                (field "balances"
-                    []
-                    (list (map queryToBalance balance))
+    Query.selection (Maybe.withDefault [])
+        |> with
+            (Query.currentUser
+                (User.selection identity
+                    |> with (User.balances userBalances)
                 )
             )
-        )
-        |> namedQueryDocument "currentUserBalances"
-        |> request {}
 
 
+userBalances : SelectionSet Balance Api.Object.BalanceToOtherUser
+userBalances =
+    BalanceToOtherUser.selection QBalance
+        |> with BalanceToOtherUser.value
+        |> with BalanceToOtherUser.iHaveMore
+        |> with (BalanceToOtherUser.otherUser otherUser)
+        |> with BalanceToOtherUser.sharedPaymentCount
+        |> with BalanceToOtherUser.transferCount
+        |> with BalanceToOtherUser.unseenForMeCount
+        |> with (BalanceToOtherUser.lastUpdateAt |> Field.map decodeDate)
+        |> SelectionSet.map queryToBalance
 
--- INTERNALS --
+
+otherUser : SelectionSet QOtherUser Api.Object.User
+otherUser =
+    User.selection QOtherUser
+        |> with (fieldDecoder "id" [] Decode.int)
+        |> with User.name
 
 
 type alias QBalance =
@@ -67,7 +70,7 @@ type alias QBalance =
     , sharedPaymentCount : Int
     , transferCount : Int
     , unseenForMeCount : Int
-    , lastUpdateAt : Maybe Posix
+    , lastUpdateAt : Posix
     }
 
 

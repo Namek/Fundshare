@@ -66,7 +66,7 @@ let parseToken token : PasetoInstance option =
 /////////////////////////
 
 let rec User = Define.Object<User>("User", fieldsFn = fun () -> [
-  Define.AutoField("id", ID)
+  Define.AutoField("id", Int)
   Define.AutoField("email", String)
   Define.AutoField("name", String)
   Define.Field("balances", ListOf BalanceToOtherUser, fun ctx user -> Repo.getUserBalances user.id )
@@ -168,7 +168,7 @@ let Query = Define.Object<Ref<Session>>("query", [
 ])
   
 let Mutation = Define.Object<Ref<Session>>("mutation", [
-  Define.Field("addTransaction", Nullable UserTransaction,
+  Define.Field("addTransaction", UserTransaction,
     "Remember transaction between payor and beneficients, then update balance between them", [
       Define.Input("payorId", Int)
       Define.Input("beneficientIds", ListOf Int)
@@ -185,13 +185,15 @@ let Mutation = Define.Object<Ref<Session>>("mutation", [
       description = ctx.TryArg "description"
     }
     
-    let transaction = Repo.addTransaction args
-    do Repo.updateBalanceForUsers (args.payorId :: args.authorId :: args.beneficientIds) |> ignore
-    
-    transaction
+    let result = Repo.addTransaction args
+    match result with
+    | Ok transaction ->
+        do Repo.updateBalanceForUsers (args.payorId :: args.authorId :: args.beneficientIds) |> ignore
+        transaction
+    | Error err -> failwith err
   )
   
-  Define.Field("registerUser", Nullable RegisterUserResult, "Register a new user", [
+  Define.Field("registerUser", RegisterUserResult, "Register a new user", [
     Define.Input("email", String)
     Define.Input("name", String)
     Define.Input("passwordHash", String)
@@ -199,9 +201,10 @@ let Mutation = Define.Object<Ref<Session>>("mutation", [
     let passwordSalted = Md5.hash <| (ctx.Arg "passwordHash") + AppConfig.Auth.passwordSalt
     Repo.addUser (ctx.Arg "email") passwordSalted (ctx.Arg "name")
       |> Option.map (fun id -> {id = id})
+      |> Option.orDefault (fun () -> failwith "couldn't add user")
   )
   
-  Define.Field("signIn", Nullable SignInResult, "Sign in user of given email with a password", [
+  Define.Field("signIn", SignInResult, "Sign in user of given email with a password", [
     Define.Input("email", String)
     Define.Input("passwordHash", String, description = "md5 hashed password where salt (added on the right) is login email")
   ], fun ctx session ->
@@ -216,7 +219,8 @@ let Mutation = Define.Object<Ref<Session>>("mutation", [
           token = Some <| createToken user.id
           authorizedUserId = Some user.id }
 
-      { id = user.id; email = user.email; name = user.name })
+      { SignInResult.id = user.id; email = user.email; name = user.name })
+    |> Option.orDefault (fun () -> failwith "can not log in")
   )
   
   Define.Field("signOut", SignOutResult, "Sign out current user", [], fun ctx session ->

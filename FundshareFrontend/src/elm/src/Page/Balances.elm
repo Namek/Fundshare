@@ -10,6 +10,7 @@ import Element.Background as Bg
 import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
+import Graphql.Http
 import Html
 import Html.Attributes
 import Json.Decode as Json
@@ -18,6 +19,7 @@ import Maybe.Extra
 import Misc exposing (attrWhen, css, edges, either, noCmd, noShadow, userSelectNone, viewBadge, viewIcon, viewIconButton, viewIf)
 import Misc.Colors exposing (grayed, teal500, teal700, white)
 import Misc.Time exposing (timeDistanceInWords)
+import RemoteData exposing (RemoteData)
 import Request.Balance exposing (getBalances)
 import Request.Common exposing (..)
 import Route
@@ -76,7 +78,7 @@ type alias Context msg =
 
 type Msg
     = RefreshBalances
-    | RefreshBalancesResponse (Result Error (List Balance))
+    | RefreshBalances_Response (RemoteData (Graphql.Http.Error (List Balance)) (List Balance))
     | SetDate (Result String Posix)
     | NewTransaction InteractedBalanceCard
     | SeeEvents InteractedBalanceCard
@@ -93,8 +95,7 @@ update ctx msg =
             let
                 cmd =
                     getBalances
-                        |> sendQueryRequest
-                        |> Task.attempt RefreshBalancesResponse
+                        |> sendQueryRequest RefreshBalances_Response
             in
             ( model, cmd ) |> noCmd
 
@@ -106,10 +107,10 @@ update ctx msg =
             )
                 |> noCmd
 
-        RefreshBalancesResponse result ->
+        RefreshBalances_Response result ->
             ( result
-                |> Result.andThen (\balances -> Ok { model | balances = balances })
-                |> Result.withDefault model
+                |> RemoteData.andThen (\balances -> RemoteData.Success { model | balances = balances })
+                |> RemoteData.withDefault model
             , Cmd.none
             )
                 |> noCmd
@@ -155,7 +156,7 @@ view ctx =
             , sharedPaymentCount = balance.sharedPaymentCount
             , transferCount = balance.transferCount
             , unseenUpdateCount = balance.unseenForMeCount
-            , lastUpdateAt = balance.lastUpdateAt
+            , lastUpdateAt = Just balance.lastUpdateAt
             , dateTimeNow = ctx.model.dateTimeNow
             , backgroundColor = teal700
             , interactMsg = InteractedPersonCard balance.personId
@@ -201,7 +202,7 @@ viewBalanceSummaryCard ctx =
 
         lastUpdateAt =
             balances
-                |> List.filterMap .lastUpdateAt
+                |> List.filterMap (.lastUpdateAt >> Just)
                 |> List.Extra.maximumBy Time.posixToMillis
 
         cardData =
