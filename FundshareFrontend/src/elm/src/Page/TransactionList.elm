@@ -26,14 +26,14 @@ import Time exposing (Posix, now)
 
 
 type alias Model =
-    { inboxTransactions : List Transaction
+    { inboxTransactions : Maybe (List Transaction)
     , selectedInboxTransactionIds : Set TransactionId
     }
 
 
 init : Session -> ( Model, Cmd Msg )
 init session =
-    ( { inboxTransactions = []
+    ( { inboxTransactions = Nothing
       , selectedInboxTransactionIds = Set.empty
       }
     , Cmd.batch
@@ -52,8 +52,8 @@ hasAnyNewTransaction userId transactions =
     transactions |> List.any (isTransactionUnseenForUser userId)
 
 
-allSelected model =
-    List.length model.inboxTransactions == Set.size model.selectedInboxTransactionIds
+allSelected inboxTransactions selectedInboxTransactionIds =
+    List.length inboxTransactions == Set.size selectedInboxTransactionIds
 
 
 someSelected model =
@@ -87,7 +87,7 @@ update { model, session } msg =
 
         RefreshTransactions_Response (RemoteData.Success transactions) ->
             { model
-                | inboxTransactions = List.filter (isTransactionUnseenForUser session.user.id) transactions
+                | inboxTransactions = Just <| List.filter (isTransactionUnseenForUser session.user.id) transactions
             }
                 |> noCmd
                 |> noCmd
@@ -110,7 +110,10 @@ update { model, session } msg =
                         Set.empty
 
                     else
-                        model.inboxTransactions |> List.map .id |> Set.fromList
+                        model.inboxTransactions
+                            |> Maybe.map (List.map .id)
+                            |> Maybe.withDefault []
+                            |> Set.fromList
             }
                 |> noCmd
                 |> noCmd
@@ -141,7 +144,8 @@ update { model, session } msg =
                     in
                     { model
                         | selectedInboxTransactionIds = Set.diff model.selectedInboxTransactionIds acceptedIds
-                        , inboxTransactions = List.filter (.id >> shouldBeLeft) model.inboxTransactions
+                        , inboxTransactions =
+                            model.inboxTransactions |> Maybe.map (List.filter (.id >> shouldBeLeft))
                     }
                         |> noCmd
                         |> noCmd
@@ -163,16 +167,24 @@ view ctx =
             ctx
     in
     column []
-        [ hasAnyNewTransaction session.user.id model.inboxTransactions
-            |> either (viewInbox ctx) Element.none
+        [ case model.inboxTransactions of
+            Just inboxTransactions ->
+                hasAnyNewTransaction session.user.id inboxTransactions
+                    |> either (viewInbox ctx inboxTransactions) Element.none
+
+            Nothing ->
+                text "Loading..."
         ]
 
 
-viewInbox : Context msg -> Element msg
-viewInbox ctx =
+viewInbox : Context msg -> List Transaction -> Element msg
+viewInbox ctx inboxTransactions =
     let
         { model, session } =
             ctx
+
+        areAllSelected =
+            allSelected inboxTransactions model.selectedInboxTransactionIds
     in
     column [ spacing 15 ]
         [ row [ width fill, paddingEach { edges | right = 20 } ]
@@ -180,7 +192,7 @@ viewInbox ctx =
             , el [ Font.size 16 ] <|
                 text <|
                     (" ("
-                        ++ (List.length model.inboxTransactions |> String.fromInt)
+                        ++ (List.length inboxTransactions |> String.fromInt)
                         ++ ")"
                     )
             , styledButton [ alignRight, centerY ]
@@ -193,13 +205,13 @@ viewInbox ctx =
                 }
             ]
         , table [ Font.size 14, spacing 8 ]
-            { data = model.inboxTransactions
+            { data = inboxTransactions
             , columns =
                 [ { header =
                         Input.button
                             [ userSelectNone
                             , noShadow
-                            , Font.color gray500 |> attrWhen (someSelected model && not (allSelected model))
+                            , Font.color gray500 |> attrWhen (someSelected model && not areAllSelected)
                             , width shrink
                             ]
                             { onPress = Just <| (ctx.lift <| ToggleCheckAllInboxTransactions)

@@ -2,6 +2,7 @@ module Misc exposing
     ( attr
     , attrWhen
     , css
+    , defaultShadow
     , delay
     , edges
     , either
@@ -129,6 +130,10 @@ noShadow =
     Border.shadow { offset = ( 0, 0 ), size = 0, blur = 0, color = rgba 0 0 0 0 }
 
 
+defaultShadow =
+    Border.shadow { offset = ( 1, 2 ), size = 1, blur = 7, color = rgba 0 0 0 0.2 }
+
+
 styledButton : List (Element.Attribute msg) -> { onPress : Maybe msg, label : Element msg } -> Element msg
 styledButton attrs opts =
     let
@@ -141,7 +146,7 @@ styledButton attrs opts =
         allAttrs =
             List.append
                 [ enabled |> either teal700 teal100 |> Bg.color
-                , enabled |> either (Border.shadow { offset = ( 1, 2 ), size = 1, blur = 7, color = rgba 0 0 0 0.2 }) noShadow
+                , enabled |> either defaultShadow noShadow
                 , Font.color white
                 , Font.size 14
                 , padding 5
