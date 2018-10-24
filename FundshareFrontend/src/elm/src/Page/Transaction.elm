@@ -18,8 +18,8 @@ type alias Model =
     { paymentId : TransactionId }
 
 
-init : Session -> TransactionId -> ( Model, Cmd Msg )
-init session paymentId =
+init : TransactionId -> Session -> ( Model, Cmd Msg )
+init paymentId session =
     ( { paymentId = paymentId }, Cmd.none )
 
 

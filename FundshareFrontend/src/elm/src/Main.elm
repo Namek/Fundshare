@@ -26,7 +26,7 @@ import Request.Session exposing (SignInResult, checkSession)
 import Route exposing (Route, modifyUrl)
 import Task
 import Url exposing (Url)
-import Views.Page as Page exposing (Page(..), PageState(..), frame)
+import Views.Page as Page exposing (Page(..), frame)
 
 
 
@@ -51,7 +51,7 @@ main =
 
 type alias Model =
     { navKey : Nav.Key
-    , pageState : PageState
+    , page : Page
     , lastLocation : Url
     , session : SessionState
     }
@@ -63,7 +63,7 @@ init json url navKey =
     let
         model =
             { navKey = navKey
-            , pageState = Loaded initialPage
+            , page = initialPage
             , lastLocation = url
             , session = GuestSession
             }
@@ -84,25 +84,19 @@ view : Model -> Document Msg
 view model =
     { title = "Fundshare"
     , body =
-        [ Element.layout [] <|
-            case model.pageState of
-                Loaded page ->
-                    viewPage model False page
-
-                TransitioningFrom page ->
-                    viewPage model True page
+        [ Element.layout [] (model.page |> viewPage model)
         ]
     }
 
 
-viewPage : Model -> Bool -> Page -> Element Msg
-viewPage model isLoading page =
+viewPage : Model -> Page -> Element Msg
+viewPage model page =
     let
         isLoggedIn =
             model.session /= GuestSession
 
         frame =
-            Page.frame HandleGlobalMsg isLoading isLoggedIn model.session
+            Page.frame HandleGlobalMsg isLoggedIn model.session
 
         getAuthorizedSession =
             \() ->
@@ -183,11 +177,8 @@ type Msg
     | UrlRequested Browser.UrlRequest
     | CheckAuthSession
     | CheckAuthSession_Response (RemoteData (Graphql.Http.Error (Maybe SignInResult)) (Maybe SignInResult))
-    | LoginLoaded (Result PageLoadError Login.Model)
     | LoginMsg Login.Msg
-    | NewPaymentLoaded (Result PageLoadError NewTransaction.Model)
     | NewTransactionMsg NewTransaction.Msg
-    | BalancesLoaded (Result PageLoadError Balances.Model)
     | BalancesMsg Balances.Msg
     | TransactionMsg Transaction.Msg
     | TransactionListMsg TransactionList.Msg
@@ -199,7 +190,7 @@ pageErrored model errorMessage =
         error =
             Errored.pageLoadError errorMessage
     in
-    ( { model | pageState = Loaded (Errored error) }
+    ( { model | page = Errored error }
     , Cmd.none
     )
 
@@ -278,31 +269,33 @@ update msg model =
             model |> noCmd
 
         _ ->
-            updatePage (getPage model.pageState) msg model
+            updatePage model.page msg model
 
 
 updatePage : Page -> Msg -> Model -> ( Model, Cmd Msg )
 updatePage page msg model =
     let
-        toPage toModel toMsg subUpdate subMsg =
+        toPage pageModelHandler msgLifter subUpdate subMsg =
             let
                 ( newModel, newCmd ) =
                     subUpdate subMsg
             in
-            ( { model | pageState = Loaded (toModel newModel) }, Cmd.map toMsg newCmd )
+            ( { model | page = pageModelHandler newModel }
+            , Cmd.map msgLifter newCmd
+            )
 
-        toPageWithGlobalMsgs toModel toMsg subUpdate subMsg =
+        toPageWithGlobalMsgs pageModelHandler msgLifter subUpdate subMsg =
             let
                 ( ( pageModel, cmd ), globalMsg ) =
                     subUpdate subMsg
 
                 cmds =
                     Cmd.batch
-                        [ Cmd.map toMsg cmd
+                        [ Cmd.map msgLifter cmd
                         , Cmd.map HandleGlobalMsg globalMsg
                         ]
             in
-            ( { model | pageState = Loaded (toModel pageModel) }, cmds )
+            ( { model | page = pageModelHandler pageModel }, cmds )
 
         getSession =
             \() ->
@@ -317,31 +310,14 @@ updatePage page msg model =
             pageErrored model
     in
     case ( msg, page ) of
-        ( LoginLoaded (Ok subModel), _ ) ->
-            ( { model | pageState = Loaded (Login subModel) }, Cmd.none )
-
         ( LoginMsg subMsg, Login subModel ) ->
             let
                 ctx =
                     { model = subModel
                     , lift = LoginMsg
                     }
-
-                ( ( pageModel, cmd ), globalMsg ) =
-                    Login.update ctx subMsg
-
-                cmds =
-                    Cmd.batch
-                        [ Cmd.map LoginMsg cmd
-                        , Cmd.map HandleGlobalMsg globalMsg
-                        ]
             in
-            ( { model | pageState = Loaded (Login pageModel) }, cmds )
-
-        ( NewPaymentLoaded (Ok subModel), _ ) ->
-            ( { model | pageState = Loaded (NewTransaction subModel) }
-            , Cmd.none
-            )
+            toPageWithGlobalMsgs Login LoginMsg (Login.update ctx) subMsg
 
         ( NewTransactionMsg subMsg, NewTransaction subModel ) ->
             let
@@ -350,22 +326,8 @@ updatePage page msg model =
                     , lift = NewTransactionMsg
                     , session = getSession ()
                     }
-
-                ( ( pageModel, cmd ), globalMsg ) =
-                    NewTransaction.update ctx subMsg
-
-                cmds =
-                    Cmd.batch
-                        [ Cmd.map NewTransactionMsg cmd
-                        , Cmd.map HandleGlobalMsg globalMsg
-                        ]
             in
-            ( { model | pageState = Loaded (NewTransaction pageModel) }, cmds )
-
-        ( BalancesLoaded (Ok subModel), _ ) ->
-            ( { model | pageState = Loaded (Balances subModel) }
-            , Cmd.none
-            )
+            toPageWithGlobalMsgs NewTransaction NewTransactionMsg (NewTransaction.update ctx) subMsg
 
         ( BalancesMsg subMsg, Balances subModel ) ->
             let
@@ -415,14 +377,11 @@ updatePage page msg model =
 -- HELPERS --
 
 
+{-| This does not change URL in a browser, it simply sets state in the model.
+-}
 setRoute : Maybe Route -> Model -> ( Model, Cmd Msg )
 setRoute maybeRoute model =
     let
-        transition toMsg task =
-            ( { model | pageState = TransitioningFrom (getPage model.pageState) }
-            , Task.attempt toMsg task
-            )
-
         errored =
             pageErrored model
 
@@ -433,15 +392,27 @@ setRoute maybeRoute model =
 
                 GuestSession ->
                     setRoute (Just Route.Login) model
+
+        initWhenLogged initFn pageStateHolder msgLift =
+            whenLogged
+                (\session ->
+                    let
+                        ( subModel, subMsg ) =
+                            initFn session
+                    in
+                    ( { model | page = pageStateHolder <| subModel }
+                    , Cmd.map msgLift subMsg
+                    )
+                )
     in
     case maybeRoute of
         Nothing ->
-            ( { model | pageState = Loaded NotFound }
+            ( { model | page = NotFound }
             , Cmd.none
             )
 
         Just Route.Login ->
-            ( { model | pageState = Loaded (Login Login.initialModel) }
+            ( { model | page = Login Login.initialModel }
             , Cmd.none
             )
 
@@ -450,64 +421,14 @@ setRoute maybeRoute model =
             , Route.modifyUrl model Route.Login
             )
 
-        -- Just Route.Register ->
-        -- { model | pageState = Loaded (Register Register.initialModel) } ! []
         Just Route.NewTransaction ->
-            case model.session of
-                LoggedSession session ->
-                    let
-                        ( subModel, subMsg ) =
-                            NewTransaction.init session
-                    in
-                    ( { model | pageState = Loaded (NewTransaction <| subModel) }
-                    , Cmd.map NewTransactionMsg subMsg
-                    )
-
-                GuestSession ->
-                    setRoute (Just Route.Login) model
+            initWhenLogged NewTransaction.init Page.NewTransaction NewTransactionMsg
 
         Just Route.Balances ->
-            whenLogged
-                (\session ->
-                    let
-                        ( subModel, subMsg ) =
-                            Balances.init session
-                    in
-                    ( { model | pageState = Loaded (Balances <| subModel) }
-                    , Cmd.map BalancesMsg subMsg
-                    )
-                )
+            initWhenLogged Balances.init Page.Balances BalancesMsg
 
         Just (Route.Transaction paymentId) ->
-            whenLogged
-                (\session ->
-                    let
-                        ( subModel, subMsg ) =
-                            Transaction.init session paymentId
-                    in
-                    ( { model | pageState = Loaded (Transaction paymentId <| subModel) }
-                    , Cmd.map TransactionMsg subMsg
-                    )
-                )
+            initWhenLogged (Transaction.init paymentId) (Page.Transaction paymentId) TransactionMsg
 
         Just Route.TransactionList ->
-            whenLogged
-                (\session ->
-                    let
-                        ( subModel, subMsg ) =
-                            TransactionList.init session
-                    in
-                    ( { model | pageState = Loaded (TransactionList <| subModel) }
-                    , Cmd.map TransactionListMsg subMsg
-                    )
-                )
-
-
-getPage : PageState -> Page
-getPage pageState =
-    case pageState of
-        Loaded page ->
-            page
-
-        TransitioningFrom page ->
-            page
+            initWhenLogged TransactionList.init Page.TransactionList TransactionListMsg

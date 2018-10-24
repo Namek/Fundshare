@@ -1,4 +1,4 @@
-module Views.Page exposing (Page(..), PageState(..), frame)
+module Views.Page exposing (Page(..), frame)
 
 import Data.Context exposing (GlobalMsg(..))
 import Data.Session exposing (SessionState(..))
@@ -36,11 +36,6 @@ type Page
     | TransactionList TransactionList.Model
 
 
-type PageState
-    = Loaded Page
-    | TransitioningFrom Page
-
-
 
 -- tabData isLoggedIn =
 --     if isLoggedIn then
@@ -61,24 +56,14 @@ type PageState
 --     ]
 
 
-{-| Take a page's Html and frame it with a header and footer.
-
-isLoading is for determining whether we should show a loading spinner
-in the header. (This comes up during slow page transitions.)
-
--}
-frame : (GlobalMsg -> msg) -> Bool -> Bool -> SessionState -> Element msg -> Element msg
-frame lift isLoading isLoggedIn session pageContent =
+frame : (GlobalMsg -> msg) -> Bool -> SessionState -> Element msg -> Element msg
+frame lift isLoggedIn session pageContent =
     let
         content =
-            if isLoading then
-                Element.el [] (text "omg!!11")
-
-            else
-                column [ width fill, spacing 10 ]
-                    [ viewMenu isLoggedIn
-                    , Element.el [ centerX ] pageContent
-                    ]
+            column [ width fill, spacing 10 ]
+                [ viewMenu isLoggedIn
+                , Element.el [ centerX ] pageContent
+                ]
     in
     Element.el
         [ width fill
