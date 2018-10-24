@@ -275,15 +275,6 @@ update msg model =
 updatePage : Page -> Msg -> Model -> ( Model, Cmd Msg )
 updatePage page msg model =
     let
-        toPage pageModelHandler msgLifter subUpdate subMsg =
-            let
-                ( newModel, newCmd ) =
-                    subUpdate subMsg
-            in
-            ( { model | page = pageModelHandler newModel }
-            , Cmd.map msgLifter newCmd
-            )
-
         toPageWithGlobalMsgs pageModelHandler msgLifter subUpdate subMsg =
             let
                 ( ( pageModel, cmd ), globalMsg ) =
@@ -297,80 +288,61 @@ updatePage page msg model =
             in
             ( { model | page = pageModelHandler pageModel }, cmds )
 
-        getSession =
-            \() ->
-                case model.session of
-                    LoggedSession session ->
-                        session
+        buildCtx subModel lift session =
+            { model = subModel
+            , lift = lift
+            , session = session
+            }
 
-                    _ ->
-                        Debug.todo "you are not authorized!"
-
-        errored =
-            pageErrored model
+        buildGuestCtx subModel lift =
+            { model = subModel
+            , lift = lift
+            }
     in
-    case ( msg, page ) of
-        ( LoginMsg subMsg, Login subModel ) ->
+    case ( msg, page, model.session ) of
+        ( LoginMsg subMsg, Login subModel, GuestSession ) ->
             let
                 ctx =
-                    { model = subModel
-                    , lift = LoginMsg
-                    }
+                    buildGuestCtx subModel LoginMsg
             in
             toPageWithGlobalMsgs Login LoginMsg (Login.update ctx) subMsg
 
-        ( NewTransactionMsg subMsg, NewTransaction subModel ) ->
+        ( NewTransactionMsg subMsg, NewTransaction subModel, LoggedSession session ) ->
             let
                 ctx =
-                    { model = subModel
-                    , lift = NewTransactionMsg
-                    , session = getSession ()
-                    }
+                    buildCtx subModel NewTransactionMsg session
             in
             toPageWithGlobalMsgs NewTransaction NewTransactionMsg (NewTransaction.update ctx) subMsg
 
-        ( BalancesMsg subMsg, Balances subModel ) ->
+        ( BalancesMsg subMsg, Balances subModel, LoggedSession session ) ->
             let
                 ctx =
-                    { model = subModel
-                    , lift = BalancesMsg
-                    , session = getSession ()
-                    }
+                    buildCtx subModel BalancesMsg session
             in
             toPageWithGlobalMsgs Balances BalancesMsg (Balances.update ctx) subMsg
 
-        ( TransactionMsg subMsg, Transaction paymentId subModel ) ->
+        ( TransactionMsg subMsg, Transaction paymentId subModel, LoggedSession session ) ->
             let
                 ctx =
-                    { model = subModel
-                    , lift = TransactionMsg
-                    , session = getSession ()
-                    }
+                    buildCtx subModel TransactionMsg session
             in
             toPageWithGlobalMsgs (Transaction paymentId) TransactionMsg (Transaction.update ctx) subMsg
 
-        ( TransactionListMsg subMsg, TransactionList subModel ) ->
+        ( TransactionListMsg subMsg, TransactionList subModel, LoggedSession session ) ->
             let
                 ctx =
-                    { model = subModel
-                    , lift = TransactionListMsg
-                    , session = getSession ()
-                    }
+                    buildCtx subModel TransactionListMsg session
             in
             toPageWithGlobalMsgs TransactionList TransactionListMsg (TransactionList.update ctx) subMsg
 
-        ( _, NotFound ) ->
+        ( _, NotFound, _ ) ->
             -- Disregard incoming messages when we're on the
             -- NotFound page.
-            ( model
-            , Cmd.none
-            )
+            model |> noCmd
 
-        ( _, _ ) ->
+        ( _, _, _ ) ->
             -- Disregard incoming messages that arrived for the wrong page
-            ( model
-            , Cmd.none
-            )
+            model |> noCmd
 
 
 
