@@ -181,7 +181,6 @@ type Msg
     = HandleGlobalMsg GlobalMsg
     | UrlChanged Url.Url
     | UrlRequested Browser.UrlRequest
-    | SetRoute (Maybe Route)
     | CheckAuthSession
     | CheckAuthSession_Response (RemoteData (Graphql.Http.Error (Maybe SignInResult)) (Maybe SignInResult))
     | LoginLoaded (Result PageLoadError Login.Model)
@@ -220,22 +219,25 @@ update msg model =
                     ( { model | session = GuestSession }, Cmd.none )
 
         UrlChanged url ->
-            ( { model | lastLocation = url }
-            , Cmd.Extra.perform (Route.fromUrl (Debug.log "urlchanged" url) |> SetRoute)
-            )
+            case Route.fromUrl url of
+                Just route ->
+                    setRoute (Just route) { model | lastLocation = url }
+
+                Nothing ->
+                    model |> noCmd
 
         UrlRequested req ->
             case req of
                 Browser.Internal url ->
-                    ( model
-                    , Cmd.Extra.perform (Route.fromUrl url |> SetRoute)
-                    )
+                    case Route.fromUrl url of
+                        Just route ->
+                            ( model, Route.modifyUrl model route )
+
+                        Nothing ->
+                            model |> noCmd
 
                 Browser.External href ->
                     ( model, Nav.load href )
-
-        SetRoute route ->
-            setRoute route model
 
         CheckAuthSession ->
             let
@@ -254,13 +256,13 @@ update msg model =
                             { model | session = LoggedSession { user = user } }
 
                         newRoute =
-                            Just Route.Login
-                                |> Maybe.Extra.or (Route.fromUrl model.lastLocation)
+                            Route.fromUrl model.lastLocation
+                                |> Maybe.withDefault Route.Balances
 
-                        ( newModel, rerouteCmd ) =
-                            setRoute newRoute modelWithSession
+                        rerouteCmd =
+                            Route.modifyUrl modelWithSession newRoute
                     in
-                    ( newModel, rerouteCmd )
+                    ( modelWithSession, rerouteCmd )
 
                 Nothing ->
                     {- no valid token, guest session -}
