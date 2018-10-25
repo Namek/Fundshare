@@ -70,9 +70,16 @@ let rec User = Define.Object<User>("User", fieldsFn = fun () -> [
   Define.AutoField("email", String)
   Define.AutoField("name", String)
   Define.Field("balances", ListOf BalanceToOtherUser, fun ctx user -> Repo.getUserBalances user.id )
-  Define.Field("transactions", ListOf UserTransaction, fun ctx user -> Repo.getUserTransactions user.id None)
+  Define.Field("transactions", ListOf UserTransaction, "Transactions for which this user was a payor or a beneficient",
+    [ Define.Input("offset", Nullable Int, Some 0)
+      Define.Input("limit", Nullable Int, Some 20)
+    ],
+    fun ctx user ->
+      let offset = ctx.Arg "offset"
+      let limit = ctx.Arg "limit"
+      Repo.getUserTransactions user.id None offset limit
+  )
 ])
-  
 and UserTransaction = Define.Object<UserTransaction>("UserTransaction", fieldsFn = fun () -> [
   Define.AutoField("id", Int)
   Define.AutoField("payorId", Int)
@@ -153,15 +160,7 @@ let Query = Define.Object<Ref<Session>>("query", [
         Repo.getAllUsers()
   )
   Define.Field("user", Nullable User, "Specified user", [Define.Input ("id", Int)],
-    fun ctx session ->
-      let user = Repo.getUserById <| ctx.Arg("id") 
-      user |> Option.map (fun user ->
-        let transactions = 
-          tryFindField "transactions" ctx
-          |> Option.map (fun _ -> Repo.getUserTransactions user.id None)
-
-        { user with transactions = transactions }
-      )
+    fun ctx session -> Repo.getUserById <| ctx.Arg("id")
   )
   Define.Field("currentUser", Nullable User, "Get currently logged in user", [], fun ctx session ->
     (!session).authorizedUserId |> Option.bind Repo.getUserById)

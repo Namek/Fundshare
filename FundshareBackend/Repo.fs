@@ -374,12 +374,16 @@ let addUser (email : string) (passwordHash : string) (name : String) : int optio
     | _ -> None
     
     
-let getTransactions (where : string option) : UserTransaction list =
+let getTransactions (where : string option) (orderBy : string option) (offset : int option) (limit : int option) : UserTransaction list =
   let baseQuery =
     "SELECT id, author_id, payor_id, beneficient_ids, acceptance_ids, amount, description, tags, inserted_at
      FROM public.transactions"
      
-  let finalQuery = baseQuery + (where |> transformOrEmpty (fun q -> " WHERE " + q))
+  let finalQuery = baseQuery +
+    (where |> transformOrEmpty (fun q -> " WHERE " + q)) +
+    (orderBy |> transformOrEmpty (fun o -> " ORDER BY " + o)) +
+    (offset |> Option.map Convert.ToString |> transformOrEmpty (fun off -> " OFFSET " + off)) +
+    (limit |>  Option.map Convert.ToString |> transformOrEmpty (fun lim -> " LIMIT " + lim))
   
   connect()
     |> Sql.executeQueryAndGetRows (TableQuery (finalQuery, []))
@@ -416,13 +420,13 @@ let getTransactions (where : string option) : UserTransaction list =
     |> Option.defaultValue []
     
     
-let getUserTransactions (userId : int) (where : String option) : UserTransaction list =
+let getUserTransactions (userId : int) (where : string option) (offset : int option) (limit : int option) : UserTransaction list =
   let uid = userId.ToString()
   let qwhere =
     "(payor_id = " + uid + " OR " + uid + " = any(beneficient_ids))"
     + (where |> transformOrEmpty (fun w -> " AND " + w))
 
-  getTransactions (Some qwhere)
+  getTransactions (Some qwhere) (Some "inserted_at DESC, id DESC") offset limit
  
 // returns IDs of updated transactions
 let acceptTransactions (userId : int) (transactionIds : int list) : int list =
