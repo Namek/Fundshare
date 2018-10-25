@@ -15,11 +15,12 @@ import Maybe.Extra
 import Misc exposing (noCmd)
 import Page.Balances as Balances
 import Page.Errored as Errored exposing (PageLoadError(..))
+import Page.Inbox as Inbox
 import Page.Login as Login
 import Page.NewTransaction as NewTransaction
 import Page.NotFound as NotFound
 import Page.Transaction as Transaction
-import Page.TransactionList as TransactionList
+import Page.TransactionHistory as TransactionHistory
 import RemoteData exposing (RemoteData)
 import Request.Common exposing (sendMutationRequest)
 import Request.Session exposing (SignInResult, checkSession)
@@ -106,55 +107,57 @@ viewPage model page =
 
                     _ ->
                         Debug.todo "you have to be authorized!"
+
+        pageView =
+            case page of
+                Blank ->
+                    paragraph [] [ text "" ]
+
+                NotFound ->
+                    NotFound.view model.session
+
+                Errored subModel ->
+                    Errored.view model.session subModel
+
+                Login subModel ->
+                    Login.view { model = subModel, lift = LoginMsg }
+
+                NewTransaction subModel ->
+                    NewTransaction.view
+                        { model = subModel
+                        , lift = NewTransactionMsg
+                        , session = getAuthorizedSession ()
+                        }
+
+                Balances subModel ->
+                    Balances.view
+                        { model = subModel
+                        , lift = BalancesMsg
+                        , session = getAuthorizedSession ()
+                        }
+
+                Transaction paymentId subModel ->
+                    Transaction.view
+                        { model = subModel
+                        , lift = TransactionMsg
+                        , session = getAuthorizedSession ()
+                        }
+
+                Inbox subModel ->
+                    Inbox.view
+                        { model = subModel
+                        , lift = InboxMsg
+                        , session = getAuthorizedSession ()
+                        }
+
+                TransactionHistory subModel ->
+                    TransactionHistory.view
+                        { model = subModel
+                        , lift = TransactionHistoryMsg
+                        , session = getAuthorizedSession ()
+                        }
     in
-    case page of
-        Blank ->
-            paragraph [] [ text "" ]
-                |> frame
-
-        NotFound ->
-            NotFound.view model.session
-                |> frame
-
-        Errored subModel ->
-            Errored.view model.session subModel
-                |> frame
-
-        Login subModel ->
-            Login.view { model = subModel, lift = LoginMsg }
-                |> frame
-
-        NewTransaction subModel ->
-            NewTransaction.view
-                { model = subModel
-                , lift = NewTransactionMsg
-                , session = getAuthorizedSession ()
-                }
-                |> frame
-
-        Balances subModel ->
-            Balances.view
-                { model = subModel
-                , lift = BalancesMsg
-                , session = getAuthorizedSession ()
-                }
-                |> frame
-
-        Transaction paymentId subModel ->
-            Transaction.view
-                { model = subModel
-                , lift = TransactionMsg
-                , session = getAuthorizedSession ()
-                }
-                |> frame
-
-        TransactionList subModel ->
-            TransactionList.view
-                { model = subModel
-                , lift = TransactionListMsg
-                , session = getAuthorizedSession ()
-                }
-                |> frame
+    frame pageView
 
 
 
@@ -181,7 +184,8 @@ type Msg
     | NewTransactionMsg NewTransaction.Msg
     | BalancesMsg Balances.Msg
     | TransactionMsg Transaction.Msg
-    | TransactionListMsg TransactionList.Msg
+    | InboxMsg Inbox.Msg
+    | TransactionHistoryMsg TransactionHistory.Msg
 
 
 pageErrored : Model -> String -> ( Model, Cmd msg )
@@ -328,12 +332,12 @@ updatePage page msg model =
             in
             toPageWithGlobalMsgs (Transaction paymentId) TransactionMsg (Transaction.update ctx) subMsg
 
-        ( TransactionListMsg subMsg, TransactionList subModel, LoggedSession session ) ->
+        ( InboxMsg subMsg, Inbox subModel, LoggedSession session ) ->
             let
                 ctx =
-                    buildCtx subModel TransactionListMsg session
+                    buildCtx subModel InboxMsg session
             in
-            toPageWithGlobalMsgs TransactionList TransactionListMsg (TransactionList.update ctx) subMsg
+            toPageWithGlobalMsgs Inbox InboxMsg (Inbox.update ctx) subMsg
 
         ( _, NotFound, _ ) ->
             -- Disregard incoming messages when we're on the
@@ -402,5 +406,8 @@ setRoute maybeRoute model =
         Just (Route.Transaction paymentId) ->
             initWhenLogged (Transaction.init paymentId) (Page.Transaction paymentId) TransactionMsg
 
-        Just Route.TransactionList ->
-            initWhenLogged TransactionList.init Page.TransactionList TransactionListMsg
+        Just Route.Inbox ->
+            initWhenLogged Inbox.init Page.Inbox InboxMsg
+
+        Just Route.TransactionHistory ->
+            initWhenLogged TransactionHistory.init Page.TransactionHistory TransactionHistoryMsg

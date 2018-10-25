@@ -20,7 +20,8 @@ type Route
     | NewTransaction
     | Balances
     | Transaction TransactionId
-    | TransactionList
+    | Inbox
+    | TransactionHistory
 
 
 parseRoute : Parser (Route -> a) a
@@ -34,7 +35,8 @@ parseRoute =
         , map NewTransaction (s "pay")
         , map Balances (s "balances")
         , map Transaction (s "transaction" </> int)
-        , map TransactionList (s "history")
+        , map Inbox (s "inbox")
+        , map TransactionHistory (s "history")
         ]
 
 
@@ -66,7 +68,10 @@ routeToString page =
                 Transaction id ->
                     [ "transaction", String.fromInt id ]
 
-                TransactionList ->
+                Inbox ->
+                    [ "inbox" ]
+
+                TransactionHistory ->
                     [ "history" ]
     in
     "#/" ++ String.join "/" pieces

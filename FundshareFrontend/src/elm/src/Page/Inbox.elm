@@ -1,5 +1,6 @@
-module Page.TransactionList exposing (Model, Msg, init, update, view)
+module Page.Inbox exposing (Model, Msg, init, update, view)
 
+import Array exposing (Array)
 import Cmd.Extra
 import Data.Context exposing (ContextData, GlobalMsg, Logged)
 import Data.Person exposing (PersonId)
@@ -252,8 +253,3 @@ viewInbox ctx inboxTransactions =
                 ]
             }
         ]
-
-
-viewHeader : String -> Element msg
-viewHeader str =
-    Element.paragraph [] [ Element.text str ]

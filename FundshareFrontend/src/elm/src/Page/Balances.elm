@@ -130,7 +130,7 @@ update ctx msg =
             case card of
                 InteractedTotalCard ->
                     ( model |> noCmd
-                    , Cmd.Extra.perform (Navigate <| Route.TransactionList)
+                    , Cmd.Extra.perform (Navigate <| Route.Inbox)
                     )
 
                 InteractedPersonCard pid ->

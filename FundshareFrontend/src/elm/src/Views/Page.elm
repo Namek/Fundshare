@@ -15,11 +15,12 @@ import Misc exposing (defaultShadow, edges, either)
 import Misc.Colors as Colors
 import Page.Balances as Balances
 import Page.Errored as Errored exposing (PageLoadError(..))
+import Page.Inbox as Inbox
 import Page.Login as Login
 import Page.NewTransaction as NewTransaction
 import Page.NotFound as NotFound
 import Page.Transaction as Transaction
-import Page.TransactionList as TransactionList
+import Page.TransactionHistory as TransactionHistory
 import Route exposing (Route, routeToString)
 import Styles.Common exposing (commonGlobalStylesheet)
 import Views.Spinner exposing (spinner)
@@ -33,14 +34,15 @@ type Page
     | NewTransaction NewTransaction.Model
     | Balances Balances.Model
     | Transaction TransactionId Transaction.Model
-    | TransactionList TransactionList.Model
+    | Inbox Inbox.Model
+    | TransactionHistory TransactionHistory.Model
 
 
 
 -- tabData isLoggedIn =
 --     if isLoggedIn then
 --         [ ( "Balances", Balances, Route.Balances, "trending_up" )
---         , ( "History", TransactionList, Route.TransactionList, "event" )
+--         , ( "History", Inbox, Route.Inbox, "event" )
 --         , ( "New Transaction", NewTransaction, Route.NewTransaction, "add" )
 --         ]
 --
@@ -50,7 +52,7 @@ type Page
 --
 -- drawerData =
 --     [ ( "Balances", Balances, Route.Balances, "trending_up" )
---     , ( "History", TransactionList, Route.TransactionList, "event" )
+--     , ( "History", Inbox, Route.Inbox, "event" )
 --     , ( "New Transaction", NewTransaction, Route.NewTransaction, "add" )
 --     , ( "Log out", Other, Route.Logout, "exit_to_app" )
 --     ]
@@ -91,7 +93,8 @@ viewMenu isLoggedIn =
         (if isLoggedIn then
             [ row [ centerX, spacing 18 ]
                 [ alink Route.Balances "Balances"
-                , alink Route.TransactionList "Inbox"
+                , alink Route.Inbox "Inbox"
+                , alink Route.TransactionHistory "History"
                 , alink Route.NewTransaction "Add transaction"
                 , alink Route.Logout "Logout"
                 ]
