@@ -2,7 +2,7 @@
 -- https://github.com/dillonkearns/elm-graphql
 
 
-module Api.Object.User exposing (balances, email, id, name, selection, transactions)
+module Api.Object.User exposing (TransactionsOptionalArguments, balances, email, id, name, selection, transactions)
 
 import Api.InputObject
 import Api.Interface
@@ -45,6 +45,20 @@ name =
     Object.fieldDecoder "name" [] Decode.string
 
 
-transactions : SelectionSet decodesTo Api.Object.UserTransaction -> Field (List decodesTo) Api.Object.User
-transactions object_ =
-    Object.selectionField "transactions" [] object_ (identity >> Decode.list)
+type alias TransactionsOptionalArguments =
+    { offset : OptionalArgument Int, limit : OptionalArgument Int }
+
+
+{-| Transactions for which this user was a payor or a beneficient
+-}
+transactions : (TransactionsOptionalArguments -> TransactionsOptionalArguments) -> SelectionSet decodesTo Api.Object.UserTransaction -> Field (List decodesTo) Api.Object.User
+transactions fillInOptionals object_ =
+    let
+        filledInOptionals =
+            fillInOptionals { offset = Absent, limit = Absent }
+
+        optionalArgs =
+            [ Argument.optional "offset" filledInOptionals.offset Encode.int, Argument.optional "limit" filledInOptionals.limit Encode.int ]
+                |> List.filterMap identity
+    in
+    Object.selectionField "transactions" optionalArgs object_ (identity >> Decode.list)

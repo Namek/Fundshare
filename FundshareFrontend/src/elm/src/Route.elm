@@ -5,7 +5,8 @@ import Data.Transaction exposing (TransactionId)
 import Html exposing (Attribute)
 import Html.Attributes as Attr
 import Url exposing (Url)
-import Url.Parser as UrlParser exposing ((</>), Parser, int, map, oneOf, s)
+import Url.Parser as UrlParser exposing ((</>), (<?>), Parser, int, map, oneOf, s)
+import Url.Parser.Query as Query
 
 
 
@@ -15,13 +16,11 @@ import Url.Parser as UrlParser exposing ((</>), Parser, int, map, oneOf, s)
 type Route
     = Login
     | Logout
-      -- | Register
-      -- | Profile UserId
     | NewTransaction
     | Balances
     | Transaction TransactionId
     | Inbox
-    | TransactionHistory
+    | TransactionHistory (Maybe Int)
 
 
 parseRoute : Parser (Route -> a) a
@@ -29,56 +28,44 @@ parseRoute =
     oneOf
         [ map Login (s "login")
         , map Logout (s "logout")
-
-        -- , Url.map Register (s "register")
-        -- , Url.map Profile (s "profile" </> User.usernameParser)
         , map NewTransaction (s "pay")
         , map Balances (s "balances")
         , map Transaction (s "transaction" </> int)
         , map Inbox (s "inbox")
-        , map TransactionHistory (s "history")
+        , map TransactionHistory (s "history" <?> Query.int "page")
         ]
-
-
-
--- INTERNAL --
 
 
 routeToString : Route -> String
 routeToString page =
     let
-        pieces =
+        url =
             case page of
                 Login ->
-                    [ "login" ]
+                    "login"
 
                 Logout ->
-                    [ "logout" ]
+                    "logout"
 
-                -- Register ->
-                -- [ "register" ]
-                -- Profile username ->
-                --     [ "profile", User.usernameToString username ]
                 NewTransaction ->
-                    [ "pay" ]
+                    "pay"
 
                 Balances ->
-                    [ "balances" ]
+                    "balances"
 
                 Transaction id ->
-                    [ "transaction", String.fromInt id ]
+                    "transaction/" ++ String.fromInt id
 
                 Inbox ->
-                    [ "inbox" ]
+                    "inbox"
 
-                TransactionHistory ->
-                    [ "history" ]
+                TransactionHistory Nothing ->
+                    "history"
+
+                TransactionHistory (Just pageNo) ->
+                    "history/?page=" ++ String.fromInt pageNo
     in
-    "#/" ++ String.join "/" pieces
-
-
-
--- PUBLIC HELPERS --
+    "#/" ++ url
 
 
 href : Route -> Attribute msg
@@ -91,7 +78,28 @@ modifyUrl state route =
     routeToString route |> Nav.pushUrl state.navKey
 
 
+{-| URIs in this program are written with # in the beginning
+so we have to move URI parts so parser can handle it.
+-}
 fromUrl : Url -> Maybe Route
 fromUrl url =
-    { url | path = Maybe.withDefault "" url.fragment, fragment = Nothing }
+    let
+        splitted =
+            url.fragment
+                |> Maybe.andThen (String.split "?" >> Just)
+                |> Maybe.withDefault []
+
+        path =
+            List.head splitted
+                |> Maybe.withDefault ""
+
+        query =
+            List.drop 1 splitted
+                |> List.head
+    in
+    { url
+        | path = path
+        , fragment = Nothing
+        , query = query
+    }
         |> UrlParser.parse parseRoute

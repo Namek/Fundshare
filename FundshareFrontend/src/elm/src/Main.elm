@@ -216,7 +216,7 @@ update msg model =
         UrlChanged url ->
             case Route.fromUrl url of
                 Just route ->
-                    setRoute (Just route) { model | lastLocation = url }
+                    initRoute (Just route) { model | lastLocation = url }
 
                 Nothing ->
                     model |> noCmd
@@ -339,6 +339,13 @@ updatePage page msg model =
             in
             toPageWithGlobalMsgs Inbox InboxMsg (Inbox.update ctx) subMsg
 
+        ( TransactionHistoryMsg subMsg, TransactionHistory subModel, LoggedSession session ) ->
+            let
+                ctx =
+                    buildCtx subModel TransactionHistoryMsg session
+            in
+            toPageWithGlobalMsgs TransactionHistory TransactionHistoryMsg (TransactionHistory.update ctx) subMsg
+
         ( _, NotFound, _ ) ->
             -- Disregard incoming messages when we're on the
             -- NotFound page.
@@ -355,8 +362,8 @@ updatePage page msg model =
 
 {-| This does not change URL in a browser, it simply sets state in the model.
 -}
-setRoute : Maybe Route -> Model -> ( Model, Cmd Msg )
-setRoute maybeRoute model =
+initRoute : Maybe Route -> Model -> ( Model, Cmd Msg )
+initRoute maybeRoute model =
     let
         errored =
             pageErrored model
@@ -367,7 +374,7 @@ setRoute maybeRoute model =
                     func session
 
                 GuestSession ->
-                    setRoute (Just Route.Login) model
+                    initRoute (Just Route.Login) model
 
         initWhenLogged initFn pageStateHolder msgLift =
             whenLogged
@@ -409,5 +416,5 @@ setRoute maybeRoute model =
         Just Route.Inbox ->
             initWhenLogged Inbox.init Page.Inbox InboxMsg
 
-        Just Route.TransactionHistory ->
-            initWhenLogged TransactionHistory.init Page.TransactionHistory TransactionHistoryMsg
+        Just (Route.TransactionHistory pageNo) ->
+            initWhenLogged (TransactionHistory.init pageNo) Page.TransactionHistory TransactionHistoryMsg

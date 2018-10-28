@@ -94,7 +94,7 @@ viewMenu isLoggedIn =
             [ row [ centerX, spacing 18 ]
                 [ alink Route.Balances "Balances"
                 , alink Route.Inbox "Inbox"
-                , alink Route.TransactionHistory "History"
+                , alink (Route.TransactionHistory Nothing) "History"
                 , alink Route.NewTransaction "Add transaction"
                 , alink Route.Logout "Logout"
                 ]

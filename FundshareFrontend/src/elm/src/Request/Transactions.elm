@@ -1,4 +1,9 @@
-module Request.Transactions exposing (AcceptTransactionsResult, acceptTransactions, getUserTransactions)
+module Request.Transactions exposing
+    ( AcceptTransactionsResult
+    , TransactionList
+    , acceptTransactions
+    , getUserTransactions
+    )
 
 import Api.Mutation as Mutation
 import Api.Object.AcceptTransactionsResult as AcceptTransactionsResult
@@ -9,9 +14,17 @@ import Api.Scalar
 import Data.Transaction exposing (Transaction, TransactionId)
 import Graphql.Field as Field
 import Graphql.Operation exposing (RootMutation, RootQuery)
+import Graphql.OptionalArgument exposing (OptionalArgument(..))
 import Graphql.SelectionSet as SelectionSet exposing (SelectionSet, with)
 import RemoteData exposing (RemoteData)
 import Request.Common exposing (decodeDate)
+
+
+type alias TransactionList =
+    { transactions : List Transaction
+    , offset : Int
+    , limit : Int
+    }
 
 
 type alias AcceptTransactionsResult =
@@ -37,12 +50,26 @@ type alias AcceptTransactionsResult =
     }
 
 -}
-getUserTransactions : SelectionSet (List Transaction) RootQuery
-getUserTransactions =
-    Query.selection (Maybe.withDefault [])
+getUserTransactions : Int -> Int -> SelectionSet TransactionList RootQuery
+getUserTransactions offset limit =
+    let
+        params =
+            { offset = Present offset
+            , limit = Present limit
+            }
+
+        defaultResult =
+            { offset = offset, limit = 0, transactions = [] }
+    in
+    Query.selection (Maybe.withDefault defaultResult)
         |> with
             (Query.currentUser
-                (User.selection identity |> with (User.transactions transaction))
+                (User.selection identity
+                    |> with
+                        (User.transactions (always params) transaction
+                            |> Field.map (\t -> { defaultResult | limit = limit, transactions = t })
+                        )
+                )
             )
 
 

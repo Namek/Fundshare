@@ -16,7 +16,7 @@ import Misc exposing (attrWhen, edges, either, noCmd, noShadow, styledButton, to
 import Misc.Colors exposing (gray500)
 import RemoteData exposing (RemoteData)
 import Request.Common exposing (..)
-import Request.Transactions exposing (AcceptTransactionsResult, acceptTransactions, getUserTransactions)
+import Request.Transactions exposing (AcceptTransactionsResult, TransactionList, acceptTransactions, getUserTransactions)
 import Set exposing (Set)
 import Task
 import Time exposing (Posix, now)
@@ -67,7 +67,7 @@ someSelected model =
 
 type Msg
     = RefreshTransactions
-    | RefreshTransactions_Response (RemoteData (GqlHttp.Error (List Transaction)) (List Transaction))
+    | RefreshTransactions_Response (RemoteData (GqlHttp.Error TransactionList) TransactionList)
     | SetDate (Result String Posix)
     | ToggleInboxTransaction TransactionId
     | ToggleCheckAllInboxTransactions
@@ -81,14 +81,16 @@ update { model, session } msg =
         RefreshTransactions ->
             let
                 cmd =
-                    getUserTransactions
+                    getUserTransactions 0 1000
                         |> sendQueryRequest RefreshTransactions_Response
             in
             ( ( model, cmd ), Cmd.none )
 
-        RefreshTransactions_Response (RemoteData.Success transactions) ->
+        RefreshTransactions_Response (RemoteData.Success transactionList) ->
             { model
-                | inboxTransactions = Just <| List.filter (isTransactionUnseenForUser session.user.id) transactions
+                | inboxTransactions =
+                    Just <|
+                        List.filter (isTransactionUnseenForUser session.user.id) transactionList.transactions
             }
                 |> noCmd
                 |> noCmd
