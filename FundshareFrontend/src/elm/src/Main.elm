@@ -213,12 +213,13 @@ update msg model =
                 SetSession Nothing ->
                     ( { model | session = GuestSession }, Cmd.none )
 
+        -- it's called when user first enters URL of website or back/forward is clicked
         UrlChanged url ->
             case Route.fromUrl url of
                 Just route ->
                     initRoute (Just route) { model | lastLocation = url }
 
-                Nothing ->
+                _ ->
                     model |> noCmd
 
         UrlRequested req ->
@@ -226,7 +227,11 @@ update msg model =
                 Browser.Internal url ->
                     case Route.fromUrl url of
                         Just route ->
-                            ( model, Route.modifyUrl model route )
+                            let
+                                routeCmd =
+                                    Route.modifyUrl model route
+                            in
+                            ( model, routeCmd )
 
                         Nothing ->
                             model |> noCmd
@@ -414,7 +419,25 @@ initRoute maybeRoute model =
             initWhenLogged (Transaction.init paymentId) (Page.Transaction paymentId) TransactionMsg
 
         Just Route.Inbox ->
-            initWhenLogged Inbox.init Page.Inbox InboxMsg
+            let
+                initFn =
+                    case model.page of
+                        Page.Inbox subModel ->
+                            Inbox.reinit subModel
+
+                        _ ->
+                            Inbox.init
+            in
+            initWhenLogged initFn Page.Inbox InboxMsg
 
         Just (Route.TransactionHistory pageNo) ->
-            initWhenLogged (TransactionHistory.init pageNo) Page.TransactionHistory TransactionHistoryMsg
+            let
+                initFn =
+                    case model.page of
+                        Page.TransactionHistory subModel ->
+                            TransactionHistory.reinit subModel pageNo
+
+                        _ ->
+                            TransactionHistory.init pageNo
+            in
+            initWhenLogged initFn Page.TransactionHistory TransactionHistoryMsg

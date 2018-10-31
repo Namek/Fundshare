@@ -7,6 +7,7 @@ module Misc exposing
     , edges
     , either
     , emailRegex
+    , getUpdatedProperty
     , match
     , moneyRegex
     , noCmd
@@ -70,6 +71,11 @@ either a1 a2 cond =
 
     else
         a2
+
+
+getUpdatedProperty : (record -> property) -> (property -> property) -> record -> property
+getUpdatedProperty propGetter propValueUpdater record =
+    record |> propGetter |> propValueUpdater
 
 
 delay : Float -> msg -> Cmd msg

@@ -1,4 +1,4 @@
-module Page.TransactionHistory exposing (Model, Msg, init, update, view)
+module Page.TransactionHistory exposing (Model, Msg, init, reinit, update, view)
 
 import Cmd.Extra
 import Data.Context exposing (ContextData, GlobalMsg, Logged)
@@ -11,7 +11,7 @@ import Graphql.Http
 import Html exposing (i)
 import List exposing (range)
 import List.Extra
-import Misc exposing (noCmd, viewIf)
+import Misc exposing (getUpdatedProperty, noCmd, viewIf)
 import Misc.Pagination as Pagination exposing (Pagination, hasNoMorePages)
 import RemoteData exposing (RemoteData)
 import Request.Common exposing (sendQueryRequest)
@@ -43,6 +43,11 @@ init pageNo session =
     )
 
 
+reinit : Model -> Maybe Int -> Session -> ( Model, Cmd Msg )
+reinit model pageNo session =
+    ( model, Cmd.Extra.perform <| LoadPage (pageNo |> Maybe.withDefault 1) )
+
+
 type alias Context msg =
     Logged (ContextData Model Msg msg)
 
@@ -62,19 +67,18 @@ update { model } msg =
         LoadPage pageNo ->
             let
                 pageRequest =
-                    Pagination.createPageRequest transactions pageNo
-
-                transactions =
-                    model.transactions
+                    Pagination.createPageRequest model.transactions pageNo
 
                 updatedTransactions =
-                    { transactions
-                        | lastRequest = Just pageRequest
-                    }
+                    model |> getUpdatedProperty .transactions (\t -> { t | lastRequest = Just pageRequest })
 
                 cmd =
-                    getUserTransactions pageRequest.offset pageRequest.limit
-                        |> sendQueryRequest LoadPage_Response
+                    if Pagination.isPageLoaded pageNo model.transactions then
+                        Cmd.none
+
+                    else
+                        getUserTransactions pageRequest.offset pageRequest.limit
+                            |> sendQueryRequest LoadPage_Response
             in
             ( { model | transactions = updatedTransactions }, cmd ) |> noCmd
 

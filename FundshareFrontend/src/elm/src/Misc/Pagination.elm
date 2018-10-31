@@ -8,6 +8,7 @@ module Misc.Pagination exposing
     , furthestPageIndex
     , getMultiple
     , hasNoMorePages
+    , isPageLoaded
     , mapElements
     , setMultiple
     , viewPaginator
@@ -56,15 +57,10 @@ currentPageIndex pagination =
 
 furthestPageIndex : Pagination data -> Int
 furthestPageIndex pagination =
-    let
-        iter pageIndex elIndex =
-            if Dict.member elIndex pagination.elements then
-                iter (pageIndex + 1) (elIndex + pagination.resultsPerPage)
-
-            else
-                pageIndex
-    in
-    iter 0 0
+    Dict.keys pagination.elements
+        |> List.maximum
+        |> Maybe.withDefault 0
+        |> (\idx -> idx // pagination.resultsPerPage)
 
 
 createPageRequest pagination pageNo =
@@ -125,7 +121,7 @@ getMultiple dict startIndex limit =
                     in
                     inner (offset - 1) (el :: accList)
     in
-    inner limit []
+    inner (max 0 <| limit - 1) []
 
 
 mapElements : (data -> mapped) -> Pagination data -> List mapped
@@ -146,6 +142,20 @@ mapElements mapper pagination =
             )
 
 
+isPageLoaded : Int -> Pagination data -> Bool
+isPageLoaded pageNo pagination =
+    let
+        limit =
+            pagination.resultsPerPage
+
+        startIndex =
+            (pageNo - 1) * limit
+    in
+    getMultiple pagination.elements startIndex limit
+        |> List.member Nothing
+        |> not
+
+
 viewPaginator : Pagination data -> Element msg
 viewPaginator pagination =
     let
@@ -156,14 +166,31 @@ viewPaginator pagination =
             pageIndex + 1
 
         maxPageIndex =
-            max pageIndex (furthestPageIndex pagination)
+            furthestPageIndex pagination
 
         previousNumbers =
             if pageIndex > 0 then
-                List.range 1 maxPageIndex
+                List.range 1 (min pageIndex maxPageIndex)
 
             else
                 []
+
+        nextNumbers =
+            if pageIndex == maxPageIndex then
+                []
+
+            else
+                List.range (pageIndex + 2) (maxPageIndex + 1)
+
+        canShowNextPage =
+            (pageIndex < maxPageIndex)
+                || (not <| hasNoMorePages pagination)
+
+        viewNumberLink number =
+            link []
+                { url = Route.routeToString (Route.TransactionHistory (Just number))
+                , label = number |> String.fromInt |> text
+                }
     in
     row [ spacing 15, Font.size 14 ]
         [ link []
@@ -172,19 +199,13 @@ viewPaginator pagination =
             }
             |> viewIf (pageIndex > 0)
         , row [ spacing 5 ]
-            (previousNumbers
-                |> List.map
-                    (\number ->
-                        link []
-                            { url = Route.routeToString (Route.TransactionHistory (Just number))
-                            , label = number |> String.fromInt |> text
-                            }
-                    )
-            )
+            (previousNumbers |> List.map viewNumberLink)
         , text ((pageIndex + 1) |> String.fromInt)
+        , row [ spacing 5 ]
+            (nextNumbers |> List.map viewNumberLink)
         , link []
             { label = text "next page"
             , url = Route.routeToString (Route.TransactionHistory (Just <| nextPageIndex + 1))
             }
-            |> viewIf (not <| hasNoMorePages pagination)
+            |> viewIf canShowNextPage
         ]

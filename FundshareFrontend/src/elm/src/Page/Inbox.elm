@@ -1,4 +1,4 @@
-module Page.Inbox exposing (Model, Msg, init, update, view)
+module Page.Inbox exposing (Model, Msg, init, reinit, update, view)
 
 import Array exposing (Array)
 import Cmd.Extra
@@ -37,11 +37,20 @@ init session =
     ( { inboxTransactions = Nothing
       , selectedInboxTransactionIds = Set.empty
       }
-    , Cmd.batch
+    , initialCmds
+    )
+
+
+reinit : Model -> Session -> ( Model, Cmd Msg )
+reinit model session =
+    ( model, initialCmds )
+
+
+initialCmds =
+    Cmd.batch
         [ Cmd.Extra.perform RefreshTransactions
         , Task.attempt SetDate Time.now
         ]
-    )
 
 
 type alias Context msg =
