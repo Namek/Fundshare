@@ -475,21 +475,23 @@ viewDescription ctx =
         , Element.htmlAttribute <| Html.Events.on "keydown" (Json.map (ctx.lift << OnPaymentDescriptionKeyDown) Html.Events.keyCode)
         ]
         { onChange = ctx.lift << SetPaymentDescription
-        , placeholder = Nothing
-        , label =
-            Input.labelAbove []
-                (text <|
-                    if isFormDisabled model then
-                        if String.isEmpty model.paymentDescription then
-                            "No description"
+        , placeholder =
+            Just
+                (Input.placeholder [] <|
+                    (text <|
+                        if isFormDisabled model then
+                            if String.isEmpty model.paymentDescription then
+                                "No description"
+
+                            else
+                                "Description"
 
                         else
-                            "Description"
-
-                    else
-                        "Description (optional)"
+                            "Description (optional)"
+                    )
                 )
         , text = model.paymentDescription
+        , label = Input.labelHidden ""
         }
 
 
