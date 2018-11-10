@@ -19,7 +19,7 @@ import Json.Encode
 import List
 import List.Extra
 import Maybe.Extra exposing (isJust, isNothing)
-import Misc exposing (attr, attrWhen, either, match, moneyRegex, noCmd, toggle, userSelectNone, viewIcon, viewIconButton, viewIf)
+import Misc exposing (attr, attrWhen, either, match, moneyRegex, noCmd, userSelectNone, viewIcon, viewIconButton, viewIf)
 import Misc.Colors exposing (blue500, rgbHex, teal100, teal500, teal700, white)
 import Regex
 import RemoteData exposing (RemoteData)

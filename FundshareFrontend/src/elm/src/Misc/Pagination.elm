@@ -5,6 +5,7 @@ module Misc.Pagination exposing
     , createPageRequest
     , currentOffset
     , currentPageIndex
+    , currentPageNo
     , furthestPageIndex
     , getMultiple
     , hasNoMorePages
@@ -53,6 +54,11 @@ currentPageIndex pagination =
             pagination.resultsPerPage
     in
     currentOffset pagination // limit
+
+
+currentPageNo : Pagination data -> Int
+currentPageNo pagination =
+    currentPageIndex pagination + 1
 
 
 furthestPageIndex : Pagination data -> Int

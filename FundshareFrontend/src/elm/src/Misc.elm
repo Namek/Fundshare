@@ -4,6 +4,7 @@ module Misc exposing
     , css
     , defaultShadow
     , delay
+    , digitCount
     , edges
     , either
     , emailRegex
@@ -13,7 +14,6 @@ module Misc exposing
     , noCmd
     , noShadow
     , styledButton
-    , toggle
     , userSelectNone
     , viewBadge
     , viewIcon
@@ -82,23 +82,6 @@ delay : Float -> msg -> Cmd msg
 delay milliseconds msg =
     Process.sleep milliseconds
         |> Task.perform (always msg)
-
-
-{-| If the set does not contain the element, add it. If it does contain the element, remove it.
-
-    toggle 1 (Set.fromList [1,2,3])
-    --> Set.fromList [2, 3]
-    toggle 1 (Set.fromList [2,3])
-    --> Set.fromList [1, 2, 3]
-
--}
-toggle : comparable -> Set comparable -> Set comparable
-toggle elem set =
-    if Set.member elem set then
-        Set.remove elem set
-
-    else
-        Set.insert elem set
 
 
 edges =
@@ -209,3 +192,61 @@ viewBadge aText =
 
 userSelectNone =
     css "user-select" "none"
+
+
+digitCount : Int -> Int
+digitCount number =
+    let
+        num =
+            abs number
+    in
+    if num < 10 then
+        1
+
+    else if num < 100 then
+        2
+
+    else if num < 1000 then
+        3
+
+    else if num < 10000 then
+        4
+
+    else if num < 100000 then
+        5
+
+    else if num < 1000000 then
+        6
+
+    else if num < 10000000 then
+        7
+
+    else if num < 100000000 then
+        8
+
+    else if num < 1000000000 then
+        9
+
+    else if num < 10000000000 then
+        10
+
+    else if num < 100000000000 then
+        11
+
+    else if num < 1000000000000 then
+        12
+
+    else if num < 10000000000000 then
+        13
+
+    else if num < 100000000000000 then
+        14
+
+    else if num < 1000000000000000 then
+        15
+
+    else if num < 10000000000000000 then
+        16
+
+    else
+        17

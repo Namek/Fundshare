@@ -1,7 +1,17 @@
-module Data.Transaction exposing (Transaction, TransactionId, amountDifferenceForMyAccount, amountToMoney, isTransactionUnseenForUser)
+module Data.Transaction exposing
+    ( Transaction
+    , TransactionId
+    , amountDifferenceForMyAccount
+    , amountToMoney
+    , amountToMoneyChange
+    , amountToMoneyLeftPad
+    , isTransactionUnseenForUser
+    )
 
 import Data.Person exposing (PersonId)
+import Date exposing (Date)
 import List.Extra
+import Misc exposing (digitCount, either)
 import Time exposing (Posix)
 
 
@@ -28,6 +38,59 @@ isTransactionUnseenForUser personId transaction =
 amountToMoney : Int -> Float
 amountToMoney amount =
     (amount |> toFloat) / 100
+
+
+amountToMoneyChange : Bool -> Int -> String
+amountToMoneyChange includeSign amount =
+    let
+        val =
+            amountToMoney amount
+    in
+    if includeSign then
+        if val > 0 then
+            "+" ++ String.fromFloat val
+
+        else
+            String.fromFloat val
+
+    else
+        String.fromFloat (abs val)
+
+
+amountToMoneyLeftPad : Bool -> Int -> Int -> String
+amountToMoneyLeftPad includeSign integralTotalWidth amount =
+    let
+        val =
+            abs amount
+
+        integralPart =
+            (val // 100) * 100
+
+        fractionalPart =
+            val |> modBy 100
+
+        integralPartStr =
+            amountToMoneyChange False (Debug.log "i" integralPart)
+                |> String.padLeft integralTotalWidth ' '
+
+        fractionalPartStr =
+            if fractionalPart > 10 then
+                "." ++ String.fromInt fractionalPart
+
+            else if fractionalPart > 0 then
+                "." ++ String.fromInt fractionalPart ++ "0"
+
+            else
+                ""
+
+        str =
+            integralPartStr ++ fractionalPartStr
+    in
+    if includeSign then
+        (amount < 0 |> either "-" "+") ++ str
+
+    else
+        str
 
 
 amountDifferenceForMyAccount : PersonId -> Transaction -> Int

@@ -7,6 +7,7 @@ import Data.Context exposing (GlobalMsg(..))
 import Data.Session as Session exposing (Session, SessionState(..))
 import Data.Transaction exposing (TransactionId)
 import Data.User exposing (User, UserId(..))
+import Date exposing (Date)
 import Element exposing (Element, paragraph, text)
 import Graphql.Http
 import Html exposing (Html)
@@ -26,6 +27,7 @@ import Request.Common exposing (sendMutationRequest)
 import Request.Session exposing (SignInResult, checkSession)
 import Route exposing (Route, modifyUrl)
 import Task
+import Time
 import Url exposing (Url)
 import Views.Page as Page exposing (Page(..), frame)
 
@@ -34,7 +36,7 @@ import Views.Page as Page exposing (Page(..), frame)
 -- MAIN --
 
 
-main : Program Value Model Msg
+main : Program { day : Int, month : Int, year : Int } Model Msg
 main =
     Browser.application
         { init = init
@@ -55,17 +57,19 @@ type alias Model =
     , page : Page
     , lastLocation : Url
     , session : SessionState
+    , todayDate : Date
     }
 
 
-init : Value -> Url -> Nav.Key -> ( Model, Cmd Msg )
-init json url navKey =
+init : { day : Int, month : Int, year : Int } -> Url -> Nav.Key -> ( Model, Cmd Msg )
+init { day, month, year } url navKey =
     {- check authorization before setting location from URL -}
     let
         model =
             { navKey = navKey
             , page = initialPage
             , lastLocation = url
+            , todayDate = Date.fromCalendarDate year (Date.numberToMonth month) day
             , session = GuestSession
             }
     in
@@ -120,12 +124,17 @@ viewPage model page =
                     Errored.view model.session subModel
 
                 Login subModel ->
-                    Login.view { model = subModel, lift = LoginMsg }
+                    Login.view
+                        { model = subModel
+                        , lift = LoginMsg
+                        , todayDate = model.todayDate
+                        }
 
                 NewTransaction subModel ->
                     NewTransaction.view
                         { model = subModel
                         , lift = NewTransactionMsg
+                        , todayDate = model.todayDate
                         , session = getAuthorizedSession ()
                         }
 
@@ -133,6 +142,7 @@ viewPage model page =
                     Balances.view
                         { model = subModel
                         , lift = BalancesMsg
+                        , todayDate = model.todayDate
                         , session = getAuthorizedSession ()
                         }
 
@@ -140,6 +150,7 @@ viewPage model page =
                     Transaction.view
                         { model = subModel
                         , lift = TransactionMsg
+                        , todayDate = model.todayDate
                         , session = getAuthorizedSession ()
                         }
 
@@ -147,6 +158,7 @@ viewPage model page =
                     Inbox.view
                         { model = subModel
                         , lift = InboxMsg
+                        , todayDate = model.todayDate
                         , session = getAuthorizedSession ()
                         }
 
@@ -154,6 +166,7 @@ viewPage model page =
                     TransactionHistory.view
                         { model = subModel
                         , lift = TransactionHistoryMsg
+                        , todayDate = model.todayDate
                         , session = getAuthorizedSession ()
                         }
     in
@@ -300,12 +313,14 @@ updatePage page msg model =
         buildCtx subModel lift session =
             { model = subModel
             , lift = lift
+            , todayDate = model.todayDate
             , session = session
             }
 
         buildGuestCtx subModel lift =
             { model = subModel
             , lift = lift
+            , todayDate = model.todayDate
             }
     in
     case ( msg, page, model.session ) of

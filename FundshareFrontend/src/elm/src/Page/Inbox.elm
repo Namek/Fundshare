@@ -12,8 +12,9 @@ import Element.Input as Input
 import Graphql.Http as GqlHttp
 import Json.Decode as Json
 import List.Extra
-import Misc exposing (attrWhen, edges, either, noCmd, noShadow, styledButton, toggle, userSelectNone, viewIcon)
+import Misc exposing (attrWhen, edges, either, noCmd, noShadow, styledButton, userSelectNone, viewIcon)
 import Misc.Colors exposing (gray500)
+import Misc.DataExtra exposing (toggle)
 import RemoteData exposing (RemoteData)
 import Request.Common exposing (..)
 import Request.Transactions exposing (AcceptTransactionsResult, TransactionList, acceptTransactions, getUserTransactions)

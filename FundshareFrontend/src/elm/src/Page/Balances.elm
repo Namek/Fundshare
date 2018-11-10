@@ -5,6 +5,7 @@ import Data.Balance exposing (Balance)
 import Data.Context exposing (..)
 import Data.Person exposing (Person, PersonId)
 import Data.Session exposing (Session)
+import Date exposing (Date)
 import Element exposing (Element, FocusStyle, above, alignBottom, alignLeft, alignRight, alignTop, centerY, column, el, explain, fill, focused, height, inFront, maximum, mouseDown, moveDown, moveUp, padding, paddingEach, paragraph, px, rgb, rgb255, rgba, row, spaceEvenly, spacing, text, width, wrappedRow)
 import Element.Background as Bg
 import Element.Border as Border
@@ -202,7 +203,7 @@ viewBalanceSummaryCard ctx =
 
         lastUpdateAt =
             balances
-                |> List.filterMap (.lastUpdateAt >> Just)
+                |> List.map .lastUpdateAt
                 |> List.Extra.maximumBy Time.posixToMillis
 
         cardData =

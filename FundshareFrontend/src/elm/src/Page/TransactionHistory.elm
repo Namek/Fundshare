@@ -1,7 +1,7 @@
 module Page.TransactionHistory exposing (Model, Msg, init, reinit, update, view)
 
 import Cmd.Extra
-import Data.Context exposing (ContextData, GlobalMsg, Logged)
+import Data.Context exposing (ContextData, GlobalMsg, Logged, subContext)
 import Data.Session exposing (Session)
 import Data.Transaction exposing (Transaction)
 import Dict exposing (Dict)
@@ -11,12 +11,13 @@ import Graphql.Http
 import Html exposing (i)
 import List exposing (range)
 import List.Extra
-import Misc exposing (getUpdatedProperty, noCmd, viewIf)
+import Misc exposing (getUpdatedProperty, noCmd, styledButton, viewIf)
 import Misc.Pagination as Pagination exposing (Pagination, hasNoMorePages)
 import RemoteData exposing (RemoteData)
 import Request.Common exposing (sendQueryRequest)
 import Request.Transactions exposing (TransactionList, getUserTransactions)
 import Route
+import Views.Timeline as Timeline
 
 
 
@@ -26,6 +27,7 @@ import Route
 type alias Model =
     { transactions : Pagination Transaction
     , isPageLoading : Bool
+    , timeline : Timeline.Model
     }
 
 
@@ -34,9 +36,10 @@ init pageNo session =
     ( { transactions =
             { elements = Dict.empty
             , lastRequest = Nothing
-            , resultsPerPage = 20
+            , resultsPerPage = 50
             }
       , isPageLoading = True
+      , timeline = Timeline.init []
       }
     , Cmd.Extra.perform <|
         LoadPage (pageNo |> Maybe.withDefault 1)
@@ -58,7 +61,9 @@ type alias Context msg =
 
 type Msg
     = LoadPage Int
+    | LoadNextPage
     | LoadPage_Response (RemoteData (Graphql.Http.Error TransactionList) TransactionList)
+    | Timeline_Msg Timeline.Msg
 
 
 update : Context msg -> Msg -> ( ( Model, Cmd Msg ), Cmd GlobalMsg )
@@ -82,6 +87,13 @@ update { model } msg =
             in
             ( { model | transactions = updatedTransactions }, cmd ) |> noCmd
 
+        LoadNextPage ->
+            let
+                cmd =
+                    LoadPage <| Pagination.currentPageNo model.transactions + 1
+            in
+            ( model, Cmd.Extra.perform cmd ) |> noCmd
+
         LoadPage_Response RemoteData.Loading ->
             { model | isPageLoading = True } |> noCmd |> noCmd
 
@@ -99,12 +111,23 @@ update { model } msg =
                 updatedModelTransactions =
                     { modelTransactions | elements = updatedElements }
             in
-            { model | isPageLoading = False, transactions = updatedModelTransactions }
+            { model
+                | isPageLoading = False
+                , transactions = updatedModelTransactions
+                , timeline = Timeline.insertTransactions model.timeline transactions
+            }
                 |> noCmd
                 |> noCmd
 
         LoadPage_Response _ ->
             { model | isPageLoading = False } |> noCmd |> noCmd
+
+        Timeline_Msg timelineMsg ->
+            let
+                ( subModel, subMsg ) =
+                    Timeline.update model.timeline timelineMsg
+            in
+            ( { model | timeline = subModel }, Cmd.map Timeline_Msg subMsg ) |> noCmd
 
 
 
@@ -113,15 +136,14 @@ update { model } msg =
 
 view : Context msg -> Element msg
 view ctx =
-    column []
-        [ Pagination.viewPaginator ctx.model.transactions
-        , viewHistoryTransactions ctx
+    let
+        subCtx =
+            subContext ctx .timeline Timeline_Msg
+    in
+    Element.column [ spacing 15 ]
+        [ Timeline.view subCtx
+        , styledButton []
+            { onPress = Just <| ctx.lift LoadNextPage
+            , label = text "Load more..."
+            }
         ]
-
-
-viewHistoryTransactions : Context msg -> Element msg
-viewHistoryTransactions ctx =
-    column []
-        (ctx.model.transactions
-            |> Pagination.mapElements (\t -> paragraph [] [ text <| String.fromInt <| t.id ])
-        )

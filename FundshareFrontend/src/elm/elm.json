@@ -19,19 +19,25 @@
             "elm/url": "1.0.0",
             "elm-community/list-extra": "8.0.0",
             "elm-community/maybe-extra": "5.0.0",
+            "justinmimbs/date": "3.1.2",
             "jweir/elm-iso8601": "5.0.0",
             "krisajenkins/remotedata": "5.0.0",
             "mdgriffith/elm-ui": "1.1.0",
             "truqu/elm-md5": "1.0.1"
         },
         "indirect": {
+            "elm/parser": "1.1.0",
             "elm/virtual-dom": "1.0.0",
             "lukewestby/elm-string-interpolate": "1.0.3",
             "zwilias/elm-utf-tools": "2.0.1"
         }
     },
     "test-dependencies": {
-        "direct": {},
-        "indirect": {}
+        "direct": {
+            "elm-explorations/test": "1.1.0"
+        },
+        "indirect": {
+            "elm/random": "1.0.0"
+        }
     }
 }

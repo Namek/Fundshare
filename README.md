@@ -3,9 +3,12 @@
 ### Frontend
 
 We need:
+
 nodejs, npm, [dotnet-script](https://github.com/filipw/dotnet-script)
 
+
 Installation:
+
 `npm i -g npx`
 `npm i -g @dillonkearns/elm-graphql`
 `dotnet tool install -g dotnet-script`
@@ -18,6 +21,8 @@ Generate Elm code for GraphQL API based on `graphql_schema.json` file generated 
 
 Of course you can call them all:
 `dotnet script build.csx api build watch`
+
+
 
 ### Backend
 
