@@ -7,7 +7,7 @@ import Data.Session exposing (Session)
 import Data.Transaction exposing (Transaction, amountDifferenceForMyAccount, amountToMoney, amountToMoneyChange, amountToMoneyLeftPad)
 import Date exposing (Date)
 import Dict exposing (Dict)
-import Element exposing (Element, alignRight, alignTop, behindContent, centerX, centerY, column, fill, height, inFront, link, mouseOver, moveDown, moveLeft, moveRight, padding, paddingEach, paddingXY, paragraph, px, row, spacing, text, width)
+import Element exposing (Element, above, alignRight, alignTop, behindContent, below, centerX, centerY, column, fill, height, inFront, link, mouseOver, moveDown, moveLeft, moveRight, padding, paddingEach, paddingXY, paragraph, px, row, spacing, text, width)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font exposing (center, justify)
@@ -255,6 +255,17 @@ viewDay ctx dayView =
                 { label = text <| dayRelative ctx.todayDate dayView.date
                 , onPress = Just <| ctx.lift <| ToggleDayView dayView
                 }
+            , Element.row
+                [ padding 4
+                , Background.color Colors.white
+                , Font.alignRight
+                , Font.size 10
+                ]
+              <|
+                [ text <|
+                    Date.toIsoString <|
+                        dayView.date
+                ]
             ]
         , column
             [ alignTop
