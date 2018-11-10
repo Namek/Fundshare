@@ -2,10 +2,11 @@ module Page.TransactionHistory exposing (Model, Msg, init, reinit, update, view)
 
 import Cmd.Extra
 import Data.Context exposing (ContextData, GlobalMsg, Logged, subContext)
+import Data.Person exposing (Person)
 import Data.Session exposing (Session)
 import Data.Transaction exposing (Transaction)
 import Dict exposing (Dict)
-import Element exposing (Element, column, link, paragraph, row, spacing, text)
+import Element exposing (Element, centerX, column, link, paragraph, row, spacing, text)
 import Element.Font as Font
 import Graphql.Http
 import Html exposing (i)
@@ -33,16 +34,22 @@ type alias Model =
 
 init : Maybe Int -> Session -> ( Model, Cmd Msg )
 init pageNo session =
+    let
+        ( timeline, timelineMsg ) =
+            Timeline.init [] []
+    in
     ( { transactions =
             { elements = Dict.empty
             , lastRequest = Nothing
-            , resultsPerPage = 50
+            , resultsPerPage = 100
             }
       , isPageLoading = True
-      , timeline = Timeline.init []
+      , timeline = timeline
       }
-    , Cmd.Extra.perform <|
-        LoadPage (pageNo |> Maybe.withDefault 1)
+    , Cmd.batch
+        [ Cmd.map Timeline_Msg timelineMsg
+        , Cmd.Extra.perform <| LoadPage (pageNo |> Maybe.withDefault 1)
+        ]
     )
 
 
@@ -114,7 +121,7 @@ update { model } msg =
             { model
                 | isPageLoading = False
                 , transactions = updatedModelTransactions
-                , timeline = Timeline.insertTransactions model.timeline transactions
+                , timeline = Timeline.insertTransactionsToModel model.timeline transactions
             }
                 |> noCmd
                 |> noCmd
@@ -142,7 +149,7 @@ view ctx =
     in
     Element.column [ spacing 15 ]
         [ Timeline.view subCtx
-        , styledButton []
+        , styledButton [ centerX ]
             { onPress = Just <| ctx.lift LoadNextPage
             , label = text "Load more..."
             }

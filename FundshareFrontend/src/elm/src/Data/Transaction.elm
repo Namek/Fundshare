@@ -74,7 +74,7 @@ amountToMoneyLeftPad includeSign integralTotalWidth amount =
                 |> String.padLeft integralTotalWidth ' '
 
         fractionalPartStr =
-            if fractionalPart > 10 then
+            if fractionalPart >= 10 then
                 "." ++ String.fromInt fractionalPart
 
             else if fractionalPart > 0 then

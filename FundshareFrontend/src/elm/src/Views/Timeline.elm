@@ -1,12 +1,13 @@
-module Views.Timeline exposing (Model, Msg, init, insertTransactions, update, view)
+module Views.Timeline exposing (Model, Msg, init, insertTransactionsToModel, update, view)
 
 import Cmd.Extra
 import Data.Context exposing (ContextData, GlobalMsg, Logged)
+import Data.Person exposing (Person)
 import Data.Session exposing (Session)
 import Data.Transaction exposing (Transaction, amountDifferenceForMyAccount, amountToMoney, amountToMoneyChange, amountToMoneyLeftPad)
 import Date exposing (Date)
 import Dict exposing (Dict)
-import Element exposing (Element, alignTop, behindContent, centerX, centerY, column, fill, height, inFront, link, moveDown, moveRight, paddingEach, paddingXY, paragraph, px, row, spacing, text, width)
+import Element exposing (Element, alignTop, behindContent, centerX, centerY, column, fill, height, inFront, link, mouseOver, moveDown, moveRight, padding, paddingEach, paddingXY, paragraph, px, row, spacing, text, width)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font exposing (center, justify)
@@ -15,9 +16,12 @@ import Graphql.Http
 import Html exposing (i)
 import List exposing (range)
 import List.Extra
-import Misc exposing (css, edges, either, getUpdatedProperty, noCmd, noShadow, viewIf)
+import Misc exposing (attrWhen, css, edges, either, getUpdatedProperty, noCmd, noShadow, userSelectNone, viewIf)
 import Misc.Colors as Colors exposing (red50)
 import Misc.DataExtra exposing (updateOrAddOrdered)
+import RemoteData exposing (RemoteData)
+import Request.Common exposing (sendQueryRequest)
+import Request.People exposing (getPeople)
 import Route
 import Set exposing (Set)
 import Time exposing (Posix)
@@ -28,7 +32,9 @@ import Time exposing (Posix)
 
 
 type alias Model =
-    Timeline
+    { timeline : Timeline
+    , people : List Person
+    }
 
 
 type alias Timeline =
@@ -49,9 +55,22 @@ type alias TransactionView =
     }
 
 
-init : List Transaction -> Model
-init transactions =
-    insertTransactions { dayViews = [] } transactions
+init : List Transaction -> List Person -> ( Model, Cmd Msg )
+init transactions people =
+    ( { timeline = insertTransactions { dayViews = [] } transactions
+      , people = people
+      }
+    , getPeople |> sendQueryRequest RefreshPeopleList_Response
+    )
+
+
+insertTransactionsToModel : Model -> List Transaction -> Model
+insertTransactionsToModel model transactions =
+    let
+        updatedTimeline =
+            insertTransactions model.timeline transactions
+    in
+    { model | timeline = updatedTimeline }
 
 
 insertTransactions : Timeline -> List Transaction -> Timeline
@@ -97,7 +116,7 @@ insertTransactions timeline transactions =
                     updateOrAddOrdered
                         (\dv -> Date.compare dv.date dayDate)
                         updateDayView
-                        (\() -> { date = dayDate, transactionViews = [], isExpanded = False })
+                        (\() -> { date = dayDate, transactionViews = [], isExpanded = True })
                         timeline.dayViews
 
                 updatedTimeline : Timeline
@@ -117,6 +136,7 @@ type alias Context msg =
 
 type Msg
     = NoOp
+    | RefreshPeopleList_Response (RemoteData (Graphql.Http.Error (List Person)) (List Person))
     | ToggleDayView DayView
 
 
@@ -130,18 +150,30 @@ update model msg =
         NoOp ->
             model |> noCmd
 
+        RefreshPeopleList_Response result ->
+            let
+                newModel =
+                    result
+                        |> RemoteData.andThen (\people -> RemoteData.Success { model | people = people })
+                        |> RemoteData.withDefault model
+            in
+            newModel |> noCmd
+
         ToggleDayView dayView ->
             let
+                timeline =
+                    model.timeline
+
                 updatedDayViews =
                     List.Extra.updateIf
                         (\dv -> EQ == Date.compare dv.date dayView.date)
                         (\dv -> { dv | isExpanded = not dv.isExpanded })
-                        model.dayViews
+                        timeline.dayViews
 
-                updatedModel =
-                    { model | dayViews = updatedDayViews }
+                updatedTimeline =
+                    { timeline | dayViews = updatedDayViews }
             in
-            updatedModel |> noCmd
+            { model | timeline = updatedTimeline } |> noCmd
 
 
 
@@ -155,14 +187,14 @@ view ctx =
             ctx
 
         isFirstDayToday =
-            List.head model.dayViews
+            List.head model.timeline.dayViews
                 |> Maybe.andThen (\dv -> Just <| Date.compare dv.date ctx.todayDate == EQ)
                 |> Maybe.withDefault False
     in
-    column [ Font.size 15 ] <|
+    column [ Font.size 15, paddingEach { edges | top = 15 } ] <|
         List.concat
             [ [ if not isFirstDayToday then
-                    row
+                    paragraph
                         [ inFront <|
                             Element.el
                                 [ moveRight <| leftSideWidth - 4
@@ -171,6 +203,9 @@ view ctx =
                                 ]
                             <|
                                 viewDayPoint ctx
+                        , width (px leftSideWidth)
+                        , Font.alignRight
+                        , paddingEach { edges | right = 15 }
                         ]
                         [ text "Today"
                         ]
@@ -178,7 +213,7 @@ view ctx =
                 else
                     Element.none
               ]
-            , List.map (viewDay ctx) model.dayViews
+            , List.map (viewDay ctx) model.timeline.dayViews
             ]
 
 
@@ -197,23 +232,24 @@ viewDay ctx dayView =
                 , width (px middlePartWidth)
                 , height fill
                 , Border.color Colors.gray300
-                , Border.widthEach { edges | left = 3 }
+                , Border.widthEach { edges | left = 2 }
                 , Border.solid
                 ]
                 (text "")
         , inFront <|
             Element.el
-                [ moveRight <| leftSideWidth - 4
+                [ moveRight <| leftSideWidth - 4.5
                 , moveDown <| eachDaySpacing + 4
                 ]
             <|
                 viewDayPoint ctx
         ]
-        [ column
+        [ paragraph
             [ alignTop
             , width (px leftSideWidth)
             , Font.size 14
-            , paddingEach { edges | top = 2 }
+            , paddingEach { edges | top = 2, right = 15 }
+            , Font.alignRight
             ]
             [ Input.button [ noShadow ]
                 { label = text <| dayRelative ctx.todayDate dayView.date
@@ -224,10 +260,10 @@ viewDay ctx dayView =
             [ alignTop
             , Font.size 14
             , paddingEach { edges | left = middlePartWidth, top = 2 }
-            , spacing 4
+            , spacing <| either 10 3 dayView.isExpanded
             ]
           <|
-            (if List.length transactionViews > 1 || not dayView.isExpanded then
+            (if List.length transactionViews > 1 then
                 let
                     daySum =
                         transactionViews
@@ -239,32 +275,28 @@ viewDay ctx dayView =
                                 0
                 in
                 Element.el
-                    (if List.length transactionViews > 1 && dayView.isExpanded then
+                    (if List.length transactionViews > 1 then
                         [ Border.widthEach { edges | bottom = 1 }
                         , Border.color Colors.gray300
                         , paddingEach { edges | bottom = 3 }
-                        , width <| px 75
+                        , width <| px transactionMoneyColumnWidth
                         ]
 
                      else
-                        [ width <| px 75 ]
+                        [ width <| px transactionMoneyColumnWidth ]
                     )
-                <|
-                    Element.el
+                    (Element.el
                         [ Font.family [ Font.monospace ]
                         , Font.color <| either Colors.green800 Colors.red500 (daySum > 0)
+                        , paddingEach { edges | left = 7 }
                         ]
-                        (text <| amountToMoneyLeftPad True maxIntegralDigits daySum)
+                        (text <| amountToMoneyLeftPad True maxIntegralDigits daySum ++ " zł")
+                    )
 
              else
                 Element.none
             )
-                :: (if dayView.isExpanded then
-                        List.map (viewTransaction ctx) transactionViews
-
-                    else
-                        []
-                   )
+                :: List.map (viewTransaction ctx dayView.isExpanded) transactionViews
         ]
 
 
@@ -279,7 +311,6 @@ viewDayPoint ctx =
         , height (px size)
         , Background.color Colors.gray300
         , Border.rounded size
-        , Border.color Colors.blueGray300
         , Border.solid
         , Border.width 1
         , css "z-index" "2"
@@ -290,26 +321,67 @@ viewDayPoint ctx =
         (text "")
 
 
-viewTransaction : Context msg -> TransactionView -> Element msg
-viewTransaction ctx tv =
+viewTransaction : Context msg -> Bool -> TransactionView -> Element msg
+viewTransaction ctx isExpanded tv =
     let
         t =
             tv.transaction
 
+        isCollapsed =
+            not isExpanded
+
         diff =
             amountDifferenceForMyAccount ctx.session.user.id t
+
+        basics =
+            Element.row
+                []
+                [ Element.el
+                    [ Font.family [ Font.monospace ]
+                    , Font.color <| either Colors.green800 Colors.red500 (diff > 0)
+                    , width (px <| transactionMoneyColumnWidth)
+                    ]
+                    (diff
+                        |> amountToMoneyLeftPad True (isExpanded |> either 0 maxIntegralDigits)
+                        |> text
+                    )
+                , viewTransactionTags ctx tv
+                ]
+
+        personIdToName : Int -> String
+        personIdToName pid =
+            List.Extra.find (\p -> p.id == pid) ctx.model.people
+                |> Maybe.andThen (Just << .name)
+                |> Maybe.withDefault ""
+
+        viewDetails () =
+            column [ paddingXY 0 7, spacing 7 ]
+                [ row [ width <| px transactionMoneyColumnWidth ]
+                    [ text <| personIdToName t.payorId
+                    , text <| " → "
+                    , text <| String.join ", " <| List.map personIdToName t.beneficientIds
+                    , text <| " (" ++ String.fromFloat (amountToMoney t.amount) ++ " zł)"
+                    ]
+                , paragraph [ Font.size 13, Font.color Colors.gray500 ]
+                    [ text <| Maybe.withDefault "" t.description ]
+                ]
     in
-    Element.row []
-        [ Element.el
-            [ Font.family [ Font.monospace ]
-            , Font.color <| either Colors.green800 Colors.red500 (diff > 0)
-            , width (px <| (maxIntegralDigits + 4) * 10)
-            ]
-            (diff
-                |> amountToMoneyLeftPad True maxIntegralDigits
-                |> text
-            )
-        , Element.el [] (viewTransactionTags ctx tv)
+    Element.column
+        [ Border.color Colors.teal50
+        , Border.width 1 |> attrWhen isExpanded
+        , Border.rounded 3
+        , width fill
+        , mouseOver [ Background.color Colors.teal50 ]
+        , paddingXY 7 (either 7 0 <| isExpanded)
+        , width (px 300) |> attrWhen isExpanded
+        , userSelectNone
+        ]
+        [ basics
+        , if isExpanded then
+            viewDetails ()
+
+          else
+            Element.none
         ]
 
 
@@ -346,6 +418,10 @@ eachDaySpacing =
 
 maxIntegralDigits =
     5
+
+
+transactionMoneyColumnWidth =
+    115
 
 
 dayRelative : Date -> Date -> String

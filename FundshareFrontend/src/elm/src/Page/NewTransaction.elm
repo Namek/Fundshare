@@ -103,8 +103,7 @@ update ctx msg =
         RefreshPeopleList ->
             let
                 cmd =
-                    getPeople
-                        |> sendQueryRequest RefreshPeopleList_Response
+                    getPeople |> sendQueryRequest RefreshPeopleList_Response
             in
             ( model, cmd ) |> noCmd
 
