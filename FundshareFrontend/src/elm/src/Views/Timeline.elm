@@ -7,7 +7,7 @@ import Data.Session exposing (Session)
 import Data.Transaction exposing (Transaction, amountDifferenceForMyAccount, amountToMoney, amountToMoneyChange, amountToMoneyLeftPad)
 import Date exposing (Date)
 import Dict exposing (Dict)
-import Element exposing (Element, alignTop, behindContent, centerX, centerY, column, fill, height, inFront, link, mouseOver, moveDown, moveRight, padding, paddingEach, paddingXY, paragraph, px, row, spacing, text, width)
+import Element exposing (Element, alignRight, alignTop, behindContent, centerX, centerY, column, fill, height, inFront, link, mouseOver, moveDown, moveLeft, moveRight, padding, paddingEach, paddingXY, paragraph, px, row, spacing, text, width)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font exposing (center, justify)
@@ -336,16 +336,17 @@ viewTransaction ctx isExpanded tv =
         basics =
             Element.row
                 []
-                [ Element.el
+                [ Element.row
                     [ Font.family [ Font.monospace ]
                     , Font.color <| either Colors.green800 Colors.red500 (diff > 0)
                     , width (px <| transactionMoneyColumnWidth)
                     ]
-                    (diff
+                    [ diff
                         |> amountToMoneyLeftPad True (isExpanded |> either 0 maxIntegralDigits)
                         |> text
-                    )
-                , viewTransactionTags ctx tv
+                    , viewIf isExpanded <| text " zł"
+                    ]
+                , viewIf isCollapsed <| viewTransactionTags ctx False tv
                 ]
 
         personIdToName : Int -> String
@@ -360,7 +361,7 @@ viewTransaction ctx isExpanded tv =
                     [ text <| personIdToName t.payorId
                     , text <| " → "
                     , text <| String.join ", " <| List.map personIdToName t.beneficientIds
-                    , text <| " (" ++ String.fromFloat (amountToMoney t.amount) ++ " zł)"
+                    , Element.el [ Font.size 10 ] <| text <| " (" ++ String.fromFloat (amountToMoney t.amount) ++ " zł)"
                     ]
                 , paragraph [ Font.size 13, Font.color Colors.gray500 ]
                     [ text <| Maybe.withDefault "" t.description ]
@@ -375,6 +376,7 @@ viewTransaction ctx isExpanded tv =
         , paddingXY 7 (either 7 0 <| isExpanded)
         , width (px 300) |> attrWhen isExpanded
         , userSelectNone
+        , inFront (Element.el [ alignRight, moveLeft 6, moveDown 4 ] <| viewTransactionTags ctx True tv) |> attrWhen isExpanded
         ]
         [ basics
         , if isExpanded then
@@ -385,10 +387,11 @@ viewTransaction ctx isExpanded tv =
         ]
 
 
-viewTransactionTags : Context msg -> TransactionView -> Element msg
-viewTransactionTags ctx tv =
-    Element.row [ spacing 3 ] <|
-        List.map (\tag -> viewTag ctx tv tag) tv.transaction.tags
+viewTransactionTags : Context msg -> Bool -> TransactionView -> Element msg
+viewTransactionTags ctx inColumn tv =
+    (inColumn |> either column row)
+        [ spacing 3 ]
+        (List.map (\tag -> viewTag ctx tv tag) tv.transaction.tags)
 
 
 viewTag : Context msg -> TransactionView -> String -> Element msg
@@ -399,9 +402,9 @@ viewTag ctx tv tag =
         , Font.color Colors.white
         , paddingXY 4 2
         , Font.size 12
+        , alignRight
         ]
-    <|
-        text tag
+        (text tag)
 
 
 middlePartWidth =
