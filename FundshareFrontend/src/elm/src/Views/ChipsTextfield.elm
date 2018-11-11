@@ -118,7 +118,7 @@ viewTextfield ctx cfg text =
         , Element.htmlAttribute <| Html.Events.on "keydown" (Json.map (ctx.lift << OnTextfieldKeyDown) Html.Events.keyCode)
         ]
         (Input.text
-            [ width (px 100) ]
+            [ width (px 100), attr "id" "input_add-tag" ]
             { label = Input.labelHidden "Tags"
             , text = text
             , onChange = ctx.lift << SetText
@@ -145,10 +145,11 @@ viewChip ctx animatedIndex isEnabled index chip =
     in
     row
         [ userSelectNone
-        , paddingXY 8 4
+        , paddingXY 6 2
         , spacing 8
         , Bg.color Colors.teal200
         , Font.color Colors.white
+        , Font.size 15
         , Border.rounded 2
         , css "transition" "0.1s ease-out"
         , css "transform" "scale(1.1)" |> attrWhen isFocused
@@ -160,7 +161,8 @@ viewChip ctx animatedIndex isEnabled index chip =
             , mouseOver [ noShadow, Bg.color red400 ]
             , mouseDown [ noShadow, Font.color teal100 ]
             , Border.rounded 4
-            , padding 3
+            , padding 2
+            , Font.size 15
             ]
             { onPress =
                 if isEnabled then

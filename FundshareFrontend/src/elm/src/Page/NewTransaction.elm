@@ -169,7 +169,7 @@ update ctx msg =
             let
                 cmds =
                     if keyCode == 13 then
-                        [ Cmd.Extra.perform SaveTransaction ]
+                        [ Dom.focus "input_add-tag" |> Task.attempt ElementFocused ]
 
                     else
                         []
@@ -276,24 +276,6 @@ idsStr =
     }
 
 
-{-| IDs needed for Material UI to conveniently distinguish states of components.
--}
-
-
-
--- ids =
---     { paymentDescription = 0
---     , amount = 1
---     , btnAdd = 2
---     , catSel = 3
---     , payorSelection = 4
---     , beneficientSelection = 5
---     , tags = 6
---     , usualTags = 7
---     , btnOpenSavedPayment = 8
---     }
-
-
 amountStrToInt : String -> Int
 amountStrToInt str =
     case Regex.find moneyRegex str of
@@ -391,6 +373,7 @@ viewAmount ctx =
     Input.text
         [ Element.htmlAttribute <| Html.Events.on "keydown" (Json.map (ctx.lift << OnPaymentAmountKeyDown) Html.Events.keyCode)
         , attr "id" idsStr.paymentAmount
+        , attr "type" "number"
         ]
         { onChange = ctx.lift << SetAmount
         , label = Input.labelAbove [] Element.none
@@ -439,12 +422,8 @@ beneficientSelection ctx =
                 , label = Input.labelRight [] <| text person.name
                 }
     in
-    row []
+    column [ spacing 8 ]
         (ctx.model.people
-            |> List.filter
-                (\p ->
-                    Just p.id /= model.payor
-                )
             |> List.indexedMap viewEl
         )
 
@@ -517,11 +496,12 @@ viewUsualTags : Context msg -> Element msg
 viewUsualTags ctx =
     let
         iconizedTags =
-            [ ( "journey", "flight" )
-            , ( "tool", "wrench" )
-            , ( "car", "cab" )
-            , ( "cash", "wallet" )
-            , ( "food", "food" )
+            [ ( "wycieczka", "flight" )
+            , ( "narzędzia", "wrench" )
+            , ( "auto", "cab" )
+            , ( "gotówka", "wallet" )
+            , ( "jedzenie", "food" )
+            , ( "mieszkanie", "home" )
             ]
     in
     column [ spacing 15 ] <|

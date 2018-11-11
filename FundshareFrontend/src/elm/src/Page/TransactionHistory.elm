@@ -41,7 +41,7 @@ init pageNo session =
     ( { transactions =
             { elements = Dict.empty
             , lastRequest = Nothing
-            , resultsPerPage = 100
+            , resultsPerPage = 60
             }
       , isPageLoading = True
       , timeline = timeline

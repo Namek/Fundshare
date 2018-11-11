@@ -385,7 +385,7 @@ viewTransaction ctx isExpanded tv =
         , width fill
         , mouseOver [ Background.color Colors.teal50 ]
         , paddingXY 7 (either 7 0 <| isExpanded)
-        , width (px 300) |> attrWhen isExpanded
+        , width (px 250) |> attrWhen isExpanded
         , userSelectNone
         , inFront (Element.el [ alignRight, moveLeft 6, moveDown 4 ] <| viewTransactionTags ctx True tv) |> attrWhen isExpanded
         ]
