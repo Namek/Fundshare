@@ -242,6 +242,18 @@ update msg model =
                 SetSession Nothing ->
                     ( { model | session = GuestSession }, Cmd.none )
 
+                UpdateInboxSize inboxSize ->
+                    let
+                        updatedSession =
+                            case model.session of
+                                LoggedSession session ->
+                                    LoggedSession <| { session | inboxSize = inboxSize }
+
+                                whatever ->
+                                    whatever
+                    in
+                    { model | session = updatedSession } |> noCmd
+
         -- it's called when user first enters URL of website or back/forward is clicked
         UrlChanged url ->
             case Route.fromUrl url of

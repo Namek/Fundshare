@@ -2,7 +2,7 @@ module Page.Inbox exposing (Model, Msg, init, reinit, update, view)
 
 import Array exposing (Array)
 import Cmd.Extra
-import Data.Context exposing (ContextData, GlobalMsg, Logged)
+import Data.Context exposing (ContextData, GlobalMsg(..), Logged)
 import Data.Person exposing (PersonId)
 import Data.Session exposing (Session)
 import Data.Transaction exposing (Transaction, TransactionId, amountDifferenceForMyAccount, amountToMoney, isTransactionInInboxForUser)
@@ -154,14 +154,19 @@ update { model, session } msg =
                         shouldBeLeft tid =
                             (not <| Set.member tid acceptedIds)
                                 || Set.member tid failedIds
+
+                        transactionsLeft =
+                            model.inboxTransactions
+                                |> Maybe.map (List.filter (.id >> shouldBeLeft))
+                                |> Maybe.withDefault []
                     in
-                    { model
+                    ( { model
                         | selectedInboxTransactionIds = Set.diff model.selectedInboxTransactionIds acceptedIds
-                        , inboxTransactions =
-                            model.inboxTransactions |> Maybe.map (List.filter (.id >> shouldBeLeft))
-                    }
+                        , inboxTransactions = Just transactionsLeft
+                      }
                         |> noCmd
-                        |> noCmd
+                    , Cmd.Extra.perform <| UpdateInboxSize <| List.length transactionsLeft
+                    )
 
                 _ ->
                     model
@@ -201,14 +206,7 @@ viewInbox ctx inboxTransactions =
     in
     column [ spacing 15 ]
         [ row [ width fill, paddingEach { edges | right = 20 } ]
-            [ text "Inbox"
-            , el [ Font.size 16 ] <|
-                text <|
-                    (" ("
-                        ++ (List.length inboxTransactions |> String.fromInt)
-                        ++ ")"
-                    )
-            , styledButton [ alignRight, centerY ]
+            [ styledButton [ alignRight, centerY ]
                 { onPress =
                     someSelected model
                         |> either

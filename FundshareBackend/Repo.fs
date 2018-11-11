@@ -83,7 +83,7 @@ let isMoneyTransfer transaction =
   List.length transaction.beneficientIds = 1 && not <| isPayingForSelfOnly transaction
   
 let isUnseenForUser userId (transaction : Transaction) : bool =
-  not <| List.contains userId (transaction.authorId :: transaction.acceptanceIds)
+  not <| List.contains userId transaction.acceptanceIds
 
 
 // greatest common denominator
@@ -98,6 +98,14 @@ let lcm (a : int) (b : int) : int =
   match a, b with
   | 0, 0 -> 0
   | a, b -> a*b / gcd a b
+
+let update (table : string) (where : string option) (values : (string * string) list) =
+  [
+    (Table table).Update values
+    WhereS (where |> Option.defaultValue "")
+  ]
+  |> emitSql
+  |> executeNonQuery
   
 // balance: how much the left is rebalanced to the right
 // e.g. if num/den > 0 then user2 (right) is in debt to user1 (left)
@@ -433,27 +441,34 @@ let acceptTransactions (userId : int) (transactionIds : int list) : int list =
   let uid = userId.ToString()
   let tids = System.String.Join(",", transactionIds)
   let query =
-    "UPDATE transactions" +
-    " SET acceptance_ids = acceptance_ids || " + uid + ", updated_at = NOW()" +
-    " WHERE" +
+    "UPDATE transactions SET" +
+    " acceptance_ids = acceptance_ids || " + uid + ", updated_at = NOW()" +
+    "WHERE" +
     " id = any('{" + tids + "}'::int[])" +
     " AND (" + uid + " = any(beneficient_ids) OR " + uid + " = payor_id)" + 
     " AND " + uid + " != all(acceptance_ids)" +
-    " RETURNING id"
+    "RETURNING id"
 
   connect()
   |> Sql.executeQueryAndGetRows (TableQuery (query, []))
   |> Option.map (Sql.mapEachRow (function | ["id", QInt id] -> Some id))
+  |> Option.map (fun acceptedIds ->
+    let inboxDiff = (List.length acceptedIds).ToString()
+    let query =
+      "UPDATE balances SET" +
+      " inbox_for_user1_count = " +
+      "  (CASE WHEN user1_id = " + uid + " THEN GREATEST(0, inbox_for_user1_count - " + inboxDiff + ") ELSE inbox_for_user1_count END)" +
+      ",inbox_for_user2_count = " +
+      "  (CASE WHEN user2_id = " + uid + " THEN GREATEST(0, inbox_for_user2_count - " + inboxDiff + ") ELSE inbox_for_user2_count END)" +
+      "WHERE (user1_id = " + uid + " OR user2_id = " + uid + ")"
+
+    do connect()
+    |> Sql.executeQuery (NonQuery (query, []))
+    |> ignore
+
+    acceptedIds
+  )
   |> Option.defaultValue []
-  
-let update (table : string) (where : string option) (values : (string * string) list) =
-  [
-    (Table table).Update values
-    WhereS (where |> Option.defaultValue "")
-  ]
-  |> emitSql
-  |> executeNonQuery
-  
   
 let getUserBalances userId : BalanceToOtherUser list =
   connect()

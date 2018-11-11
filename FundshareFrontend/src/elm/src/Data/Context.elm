@@ -63,3 +63,4 @@ subContext ctx modelGetter subMsg =
 type GlobalMsg
     = Navigate Route
     | SetSession (Maybe Session)
+    | UpdateInboxSize Int
