@@ -17,7 +17,8 @@ open YoLo
 type SignInResult =
   { id : int
     name : string
-    email : string }
+    email : string
+    inboxSize : int }
 
 type SignOutResult =
   { userId : int option }
@@ -25,7 +26,8 @@ type SignOutResult =
 type CheckSessionResult =
   { id : int
     name : string
-    email : string }
+    email : string
+    inboxSize : int }
   
 type RegisterUserResult =
   { id : int }
@@ -96,6 +98,7 @@ and SignInResult = Define.Object<SignInResult>("SignInResult", [
   Define.AutoField("id", Int)
   Define.AutoField("name", String)
   Define.AutoField("email", String)
+  Define.AutoField("inboxSize", Int)
 ])
 and SignOutResult = Define.Object<SignOutResult>("SignOutResult", [
   Define.AutoField("userId", Nullable Int)
@@ -104,6 +107,7 @@ and CheckSessionResult = Define.Object<CheckSessionResult>("CheckSessionResult",
   Define.AutoField("id", Int)
   Define.AutoField("name", String)
   Define.AutoField("email", String)
+  Define.AutoField("inboxSize", Int)
 ])
 and RegisterUserResult = Define.Object<RegisterUserResult>("RegisterUserResult", [
   Define.AutoField("id", Int)
@@ -116,8 +120,8 @@ and BalanceToOtherUser = Define.Object<BalanceToOtherUser>("BalanceToOtherUser",
   Define.AutoField("transferCount", Int)
   Define.AutoField("authoredByMeCount", Int)
   Define.AutoField("authoredByOtherUserCount", Int)
-  Define.AutoField("unseenForMeCount", Int)
-  Define.AutoField("unseenForOtherUserCount", Int)
+  Define.AutoField("inboxForMeCount", Int)
+  Define.AutoField("inboxForOtherUserCount", Int)
   Define.AutoField("lastUpdateAt", Date)
   Define.Field("otherUser", User, fun ctx balance -> (Repo.getUserById balance.otherUserId).Value)
 ])
@@ -218,7 +222,13 @@ let Mutation = Define.Object<Ref<Session>>("mutation", [
           token = Some <| createToken user.id
           authorizedUserId = Some user.id }
 
-      { SignInResult.id = user.id; email = user.email; name = user.name })
+      let balances = Repo.getUserBalances user.id
+      let inboxSize = List.sumBy (fun b -> b.inboxForMeCount) balances
+
+      { SignInResult.id = user.id
+        email = user.email
+        name = user.name
+        inboxSize = inboxSize } )
     |> Option.orDefault (fun () -> failwith "can not log in")
   )
   
@@ -237,7 +247,12 @@ let Mutation = Define.Object<Ref<Session>>("mutation", [
     |> Option.map Repo.getUserById
     |> Option.flatten
     |> Option.map (fun user ->
-      { id = user.id; name = user.name; email = user.email } )
+      let balances = Repo.getUserBalances user.id
+      let inboxSize = List.sumBy (fun b -> b.inboxForMeCount) balances
+      { id = user.id
+        name = user.name
+        email = user.email
+        inboxSize = inboxSize } )
   )
   
   Define.Field("acceptTransactions", Nullable AcceptTransactionsResult, "Accept transactions added by someone else", [

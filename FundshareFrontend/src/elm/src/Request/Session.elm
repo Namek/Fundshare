@@ -3,7 +3,7 @@ module Request.Session exposing (SignInResult, checkSession, signIn)
 import Api.Mutation as Mutation
 import Api.Object.CheckSessionResult as CheckSessionResult
 import Api.Object.SignInResult as SignInResult
-import Data.User exposing (User)
+import Data.Session exposing (Session)
 import Graphql.Operation exposing (RootMutation, RootQuery)
 import Graphql.SelectionSet as SelectionSet exposing (SelectionSet, with)
 import MD5
@@ -11,7 +11,7 @@ import RemoteData exposing (RemoteData)
 
 
 type alias SignInResult =
-    User
+    Session
 
 
 type alias SignInInput a =
@@ -29,10 +29,11 @@ signIn credentials =
     Mutation.selection identity
         |> with
             (Mutation.signIn input
-                (SignInResult.selection User
+                (SignInResult.selection Session
                     |> with SignInResult.id
                     |> with SignInResult.email
                     |> with SignInResult.name
+                    |> with SignInResult.inboxSize
                 )
             )
 
@@ -42,9 +43,10 @@ checkSession () =
     Mutation.selection identity
         |> with
             (Mutation.checkSession
-                (CheckSessionResult.selection User
+                (CheckSessionResult.selection Session
                     |> with CheckSessionResult.id
                     |> with CheckSessionResult.email
                     |> with CheckSessionResult.name
+                    |> with CheckSessionResult.inboxSize
                 )
             )

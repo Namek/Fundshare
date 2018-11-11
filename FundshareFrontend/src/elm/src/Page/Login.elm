@@ -88,11 +88,11 @@ update ctx msg =
 
         SignIn_Response res ->
             case res of
-                RemoteData.Success user ->
+                RemoteData.Success signInResult ->
                     ( ( model, Cmd.none )
                     , Cmd.batch <|
                         List.map Cmd.Extra.perform
-                            [ SetSession (Just { user = user })
+                            [ SetSession (Just signInResult)
                             , Navigate Route.Balances
                             ]
                     )

@@ -50,8 +50,8 @@ and Balance = {
   transferCount : int
   authoredByUser1Count : int
   authoredByUser2Count : int
-  unseenForMeCount : int
-  unseenForOtherUserCount : int
+  inboxForMeCount : int
+  inboxForOtherUserCount : int
   lastUpdateAt : DateTime
 }
 and BalanceToOtherUser = {
@@ -62,8 +62,8 @@ and BalanceToOtherUser = {
   transferCount : int
   authoredByMeCount : int
   authoredByOtherUserCount : int
-  unseenForMeCount : int
-  unseenForOtherUserCount : int
+  inboxForMeCount : int
+  inboxForOtherUserCount : int
   lastUpdateAt : DateTime
   otherUser : User option
 }

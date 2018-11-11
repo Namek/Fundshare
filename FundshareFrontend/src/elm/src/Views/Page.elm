@@ -3,15 +3,14 @@ module Views.Page exposing (Page(..), frame)
 import Data.Context exposing (GlobalMsg(..))
 import Data.Session exposing (SessionState(..))
 import Data.Transaction exposing (TransactionId)
-import Data.User exposing (..)
-import Element exposing (Element, centerX, centerY, column, el, fill, link, newTabLink, padding, paddingEach, row, shrink, spacing, text, width, wrappedRow)
+import Element exposing (Element, centerX, centerY, column, el, fill, inFront, link, moveLeft, moveUp, newTabLink, onRight, padding, paddingEach, paddingXY, row, shrink, spacing, text, width, wrappedRow)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
 import Element.Lazy
 import Html exposing (Html)
 import List.Extra
-import Misc exposing (defaultShadow, edges, either)
+import Misc exposing (attrWhen, defaultShadow, edges, either, viewBadge, viewIf)
 import Misc.Colors as Colors
 import Page.Balances as Balances
 import Page.Errored as Errored exposing (PageLoadError(..))
@@ -41,19 +40,19 @@ frame : (GlobalMsg -> msg) -> Bool -> SessionState -> Element msg -> Element msg
 frame lift isLoggedIn session pageContent =
     let
         content =
-            column [ width fill, spacing 10 ]
-                [ viewMenu isLoggedIn
-                , Element.el [ centerX ] pageContent
-                ]
+            viewIf isLoggedIn <|
+                column [ width fill, spacing 10 ]
+                    [ Element.el [ centerX ] <| viewMenu session
+                    , Element.el [ centerX ] pageContent
+                    ]
     in
     Element.el
-        [ width fill
-        , paddingEach { edges | left = 5, right = 5, top = 5, bottom = 5 }
-        ]
+        [ width fill ]
         content
 
 
-viewMenu isLoggedIn =
+viewMenu : SessionState -> Element msg
+viewMenu sessionState =
     let
         alink route label =
             link []
@@ -62,23 +61,32 @@ viewMenu isLoggedIn =
                 }
     in
     row
-        [ width fill
-        , padding 10
-        , Background.color Colors.blueGray50
+        [ width shrink
+        , paddingXY 20 10
+        , Background.color Colors.teal500
+        , Font.color Colors.white
         , Font.size 15
-        , Border.rounded 1
+        , Border.rounded 2
         , defaultShadow
         ]
-        (if isLoggedIn then
-            [ row [ centerX, spacing 18 ]
-                [ alink Route.Balances "Balances"
-                , alink Route.Inbox "Inbox"
-                , alink (Route.TransactionHistory Nothing) "History"
-                , alink Route.NewTransaction "Add transaction"
-                , alink Route.Logout "Logout"
+        (case sessionState of
+            LoggedSession session ->
+                [ row [ centerX, spacing 18 ]
+                    [ alink Route.Balances "Balances"
+                    , Element.el
+                        [ onRight
+                            (el [ moveLeft 5, moveUp 8 ] <|
+                                (viewBadge <| String.fromInt <| session.inboxSize)
+                            )
+                            |> attrWhen (session.inboxSize > 0)
+                        ]
+                        (alink Route.Inbox "Inbox")
+                    , alink (Route.TransactionHistory Nothing) "History"
+                    , alink Route.NewTransaction "Add transaction"
+                    , alink Route.Logout "Logout"
+                    ]
                 ]
-            ]
 
-         else
-            []
+            _ ->
+                []
         )

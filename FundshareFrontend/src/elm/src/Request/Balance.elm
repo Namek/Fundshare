@@ -26,7 +26,7 @@ import Time exposing (Posix)
         iHaveMore
         sharedPaymentCount
         transferCount
-        unseenForMeCount
+        inboxForMeCount
         lastUpdateAt
       }
     }
@@ -51,7 +51,7 @@ userBalances =
         |> with (BalanceToOtherUser.otherUser otherUser)
         |> with BalanceToOtherUser.sharedPaymentCount
         |> with BalanceToOtherUser.transferCount
-        |> with BalanceToOtherUser.unseenForMeCount
+        |> with BalanceToOtherUser.inboxForMeCount
         |> with (BalanceToOtherUser.lastUpdateAt |> Field.map decodeDate)
         |> SelectionSet.map queryToBalance
 
@@ -69,7 +69,7 @@ type alias QBalance =
     , otherUser : QOtherUser
     , sharedPaymentCount : Int
     , transferCount : Int
-    , unseenForMeCount : Int
+    , inboxForMeCount : Int
     , lastUpdateAt : Posix
     }
 
@@ -82,4 +82,4 @@ type alias QOtherUser =
 
 queryToBalance : QBalance -> Balance
 queryToBalance b =
-    Balance b.otherUser.userId b.otherUser.name b.value b.iHaveMore b.sharedPaymentCount b.transferCount b.unseenForMeCount b.lastUpdateAt
+    Balance b.otherUser.userId b.otherUser.name b.value b.iHaveMore b.sharedPaymentCount b.transferCount b.inboxForMeCount b.lastUpdateAt

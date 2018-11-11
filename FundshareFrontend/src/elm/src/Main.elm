@@ -6,7 +6,6 @@ import Cmd.Extra
 import Data.Context exposing (GlobalMsg(..))
 import Data.Session as Session exposing (Session, SessionState(..))
 import Data.Transaction exposing (TransactionId)
-import Data.User exposing (User, UserId(..))
 import Date exposing (Date)
 import Element exposing (Element, paragraph, text)
 import Graphql.Http
@@ -261,12 +260,12 @@ update msg model =
             ( model, cmd )
 
         {- first thing that comes from this app to backend - decide whether user is still logged in -}
-        CheckAuthSession_Response (RemoteData.Success maybeUser) ->
-            case maybeUser of
-                Just user ->
+        CheckAuthSession_Response (RemoteData.Success maybeAuth) ->
+            case maybeAuth of
+                Just auth ->
                     let
                         modelWithSession =
-                            { model | session = LoggedSession { user = user } }
+                            { model | session = LoggedSession auth }
 
                         newRoute =
                             Route.fromUrl model.lastLocation

@@ -2,7 +2,7 @@
 -- https://github.com/dillonkearns/elm-graphql
 
 
-module Api.Object.BalanceToOtherUser exposing (authoredByMeCount, authoredByOtherUserCount, iHaveMore, lastUpdateAt, otherUser, otherUserId, selection, sharedPaymentCount, transferCount, unseenForMeCount, unseenForOtherUserCount, value)
+module Api.Object.BalanceToOtherUser exposing (authoredByMeCount, authoredByOtherUserCount, iHaveMore, inboxForMeCount, inboxForOtherUserCount, lastUpdateAt, otherUser, otherUserId, selection, sharedPaymentCount, transferCount, value)
 
 import Api.InputObject
 import Api.Interface
@@ -40,6 +40,16 @@ iHaveMore =
     Object.fieldDecoder "iHaveMore" [] Decode.bool
 
 
+inboxForMeCount : Field Int Api.Object.BalanceToOtherUser
+inboxForMeCount =
+    Object.fieldDecoder "inboxForMeCount" [] Decode.int
+
+
+inboxForOtherUserCount : Field Int Api.Object.BalanceToOtherUser
+inboxForOtherUserCount =
+    Object.fieldDecoder "inboxForOtherUserCount" [] Decode.int
+
+
 lastUpdateAt : Field Api.Scalar.Date Api.Object.BalanceToOtherUser
 lastUpdateAt =
     Object.fieldDecoder "lastUpdateAt" [] (Object.scalarDecoder |> Decode.map Api.Scalar.Date)
@@ -63,16 +73,6 @@ sharedPaymentCount =
 transferCount : Field Int Api.Object.BalanceToOtherUser
 transferCount =
     Object.fieldDecoder "transferCount" [] Decode.int
-
-
-unseenForMeCount : Field Int Api.Object.BalanceToOtherUser
-unseenForMeCount =
-    Object.fieldDecoder "unseenForMeCount" [] Decode.int
-
-
-unseenForOtherUserCount : Field Int Api.Object.BalanceToOtherUser
-unseenForOtherUserCount =
-    Object.fieldDecoder "unseenForOtherUserCount" [] Decode.int
 
 
 value : Field Float Api.Object.BalanceToOtherUser

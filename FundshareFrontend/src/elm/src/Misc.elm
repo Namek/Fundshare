@@ -180,10 +180,10 @@ viewBadge aText =
         [ Bg.color (rgb255 255 82 82)
         , Border.rounded 100
         , Font.color white
-        , Font.size 13
+        , Font.size 12
         , Font.semiBold
-        , width (px 18)
-        , height (px 18)
+        , width (px 16)
+        , height (px 16)
         ]
         [ Element.column [ height shrink, width shrink, centerX, centerY ]
             [ Element.text aText ]

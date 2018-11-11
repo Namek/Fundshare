@@ -50,8 +50,8 @@ type BalanceDao =
     moneyTransferCount : int
     authoredByUser1Count : int
     authoredByUser2Count : int
-    unseenForUser1Count : int
-    unseenForUser2Count : int
+    inboxForUser1Count : int
+    inboxForUser2Count : int
     lastUpdateAt : DateTime option }
 
 type BalanceCorrection =
@@ -211,8 +211,8 @@ let calculateBalanceFor2Users (user1Id : int) (user2Id : int) : BalanceDao =
     moneyTransferCount = s2
     authoredByUser1Count = s3
     authoredByUser2Count = s4
-    unseenForUser1Count = s5
-    unseenForUser2Count = s6
+    inboxForUser1Count = s5
+    inboxForUser2Count = s6
     lastUpdateAt = d   
   }
   
@@ -248,7 +248,7 @@ let updateBalances (balances : BalanceDao seq) =
         INSERT INTO public.balances
          (user1_id, user2_id, balance_num, balance_den, user1_has_more, shared_payment_count,
           transfer_count, authored_by_user1_count, authored_by_user2_count,
-          unseen_for_user1_count, unseen_for_user2_count, last_update_at, inserted_at, updated_at)
+          inbox_for_user1_count, inbox_for_user2_count, last_update_at, inserted_at, updated_at)
         
         VALUES
          (@user1Id, @user2Id, @num, @den, @user1HasMore, @spc, @tc, @au1c, @au2c, @uu1c, @uu2c, @lastUpdate, @timeNow, @timeNow)
@@ -256,7 +256,7 @@ let updateBalances (balances : BalanceDao seq) =
         ON CONFLICT (user1_id, user2_id) DO UPDATE SET
           balance_num=@num, balance_den=@den, user1_has_more=@user1HasMore, shared_payment_count = @spc,
           transfer_count=@tc, authored_by_user1_count=@au1c, authored_by_user2_count=@au2c,
-          unseen_for_user1_count=@uu1c, unseen_for_user2_count=@uu2c, last_update_at=@lastUpdate, updated_at=@timeNow;
+          inbox_for_user1_count=@uu1c, inbox_for_user2_count=@uu2c, last_update_at=@lastUpdate, updated_at=@timeNow;
         ",
         [ "user1Id", QInt b.user1Id
           "user2Id", QInt b.user2Id
@@ -267,8 +267,8 @@ let updateBalances (balances : BalanceDao seq) =
           "tc", QInt b.moneyTransferCount
           "au1c", QInt b.authoredByUser1Count
           "au2c", QInt b.authoredByUser2Count
-          "uu1c", QInt b.unseenForUser1Count
-          "uu2c", QInt b.unseenForUser2Count
+          "uu1c", QInt b.inboxForUser1Count
+          "uu2c", QInt b.inboxForUser2Count
           "lastUpdate", if b.lastUpdateAt.IsSome then QDate b.lastUpdateAt.Value else QNull
           "timeNow", QDate DateTime.Now
         ] ))
@@ -462,7 +462,7 @@ let getUserBalances userId : BalanceToOtherUser list =
      	transfer_count, last_update_at,
      	authored_by_user1_count as authored_by_me_count,
      	(shared_payment_count + transfer_count - authored_by_user1_count) as authored_by_other_user_count,
-     	unseen_for_user1_count as unseen_for_me_count, unseen_for_user2_count as unseen_for_other_user_count
+     	inbox_for_user1_count as inbox_for_me_count, inbox_for_user2_count as inbox_for_other_user_count
      FROM public.balances
      WHERE user1_id = @uid)
      UNION
@@ -470,7 +470,7 @@ let getUserBalances userId : BalanceToOtherUser list =
      	transfer_count, last_update_at,
      	(shared_payment_count + transfer_count - authored_by_user1_count) as authored_by_me_count,
      	authored_by_user1_count as authored_by_other_user_count,
-     	unseen_for_user2_count as unseen_for_me_count, unseen_for_user1_count as unseen_for_other_user_count
+     	inbox_for_user2_count as inbox_for_me_count, inbox_for_user1_count as inbox_for_other_user_count
      FROM public.balances
      WHERE user2_id = @uid)", ["uid", QInt userId]))
   |> (Option.map << Sql.mapEachRow) (
@@ -484,8 +484,8 @@ let getUserBalances userId : BalanceToOtherUser list =
         "last_update_at", QDate lastUpdateAt
         "authored_by_me_count", QInt authoredByMeCount
         "authored_by_other_user_count", QInt authoredByOtherUserCount
-        "unseen_for_me_count", QInt unseenForMeCount
-        "unseen_for_other_user_count", QInt unseenForOtherUsercount
+        "inbox_for_me_count", QInt inboxForMeCount
+        "inbox_for_other_user_count", QInt inboxForOtherUsercount
       ] ->
         let sign = if signBool then 1 else -1
         Some <|
@@ -496,8 +496,8 @@ let getUserBalances userId : BalanceToOtherUser list =
             transferCount = transferCount
             authoredByMeCount = authoredByMeCount
             authoredByOtherUserCount = authoredByOtherUserCount
-            unseenForMeCount = unseenForMeCount
-            unseenForOtherUserCount = unseenForOtherUsercount
+            inboxForMeCount = inboxForMeCount
+            inboxForOtherUserCount = inboxForOtherUsercount
             lastUpdateAt = lastUpdateAt
             otherUser = None
           }

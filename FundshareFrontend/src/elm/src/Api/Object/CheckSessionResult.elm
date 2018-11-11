@@ -2,7 +2,7 @@
 -- https://github.com/dillonkearns/elm-graphql
 
 
-module Api.Object.CheckSessionResult exposing (email, id, name, selection)
+module Api.Object.CheckSessionResult exposing (email, id, inboxSize, name, selection)
 
 import Api.InputObject
 import Api.Interface
@@ -33,6 +33,11 @@ email =
 id : Field Int Api.Object.CheckSessionResult
 id =
     Object.fieldDecoder "id" [] Decode.int
+
+
+inboxSize : Field Int Api.Object.CheckSessionResult
+inboxSize =
+    Object.fieldDecoder "inboxSize" [] Decode.int
 
 
 name : Field String Api.Object.CheckSessionResult

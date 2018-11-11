@@ -2,7 +2,7 @@
 -- https://github.com/dillonkearns/elm-graphql
 
 
-module Api.Object.SignInResult exposing (email, id, name, selection)
+module Api.Object.SignInResult exposing (email, id, inboxSize, name, selection)
 
 import Api.InputObject
 import Api.Interface
@@ -33,6 +33,11 @@ email =
 id : Field Int Api.Object.SignInResult
 id =
     Object.fieldDecoder "id" [] Decode.int
+
+
+inboxSize : Field Int Api.Object.SignInResult
+inboxSize =
+    Object.fieldDecoder "inboxSize" [] Decode.int
 
 
 name : Field String Api.Object.SignInResult

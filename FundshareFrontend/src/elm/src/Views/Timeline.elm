@@ -280,7 +280,7 @@ viewDay ctx dayView =
                         transactionViews
                             |> List.foldl
                                 (.transaction
-                                    >> amountDifferenceForMyAccount ctx.session.user.id
+                                    >> amountDifferenceForMyAccount ctx.session.id
                                     >> (+)
                                 )
                                 0
@@ -342,7 +342,7 @@ viewTransaction ctx isExpanded tv =
             not isExpanded
 
         diff =
-            amountDifferenceForMyAccount ctx.session.user.id t
+            amountDifferenceForMyAccount ctx.session.id t
 
         basics =
             Element.row

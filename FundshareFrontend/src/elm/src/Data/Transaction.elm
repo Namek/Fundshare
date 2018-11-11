@@ -5,7 +5,7 @@ module Data.Transaction exposing
     , amountToMoney
     , amountToMoneyChange
     , amountToMoneyLeftPad
-    , isTransactionUnseenForUser
+    , isTransactionInInboxForUser
     )
 
 import Data.Person exposing (PersonId)
@@ -31,7 +31,7 @@ type alias TransactionId =
     Int
 
 
-isTransactionUnseenForUser personId transaction =
+isTransactionInInboxForUser personId transaction =
     not <| List.member personId transaction.acceptanceIds
 
 

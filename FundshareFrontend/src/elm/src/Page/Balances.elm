@@ -6,7 +6,7 @@ import Data.Context exposing (..)
 import Data.Person exposing (Person, PersonId)
 import Data.Session exposing (Session)
 import Date exposing (Date)
-import Element exposing (Element, FocusStyle, above, alignBottom, alignLeft, alignRight, alignTop, centerY, column, el, explain, fill, focused, height, inFront, maximum, mouseDown, moveDown, moveUp, padding, paddingEach, paragraph, px, rgb, rgb255, rgba, row, spaceEvenly, spacing, text, width, wrappedRow)
+import Element exposing (Element, FocusStyle, above, alignBottom, alignLeft, alignRight, alignTop, centerX, centerY, column, el, explain, fill, focused, height, inFront, maximum, mouseDown, moveDown, moveUp, padding, paddingEach, paragraph, px, rgb, rgb255, rgba, row, spaceEvenly, spacing, text, width, wrappedRow)
 import Element.Background as Bg
 import Element.Border as Border
 import Element.Font as Font
@@ -44,7 +44,7 @@ type alias BalanceCard =
     , totalBalance : Float
     , sharedPaymentCount : Int
     , transferCount : Int
-    , unseenUpdateCount : Int
+    , inboxUpdateCount : Int
     , lastUpdateAt : Maybe Posix
     , dateTimeNow : Maybe Posix
     , backgroundColor : Element.Color
@@ -81,7 +81,6 @@ type Msg
     = RefreshBalances
     | RefreshBalances_Response (RemoteData (Graphql.Http.Error (List Balance)) (List Balance))
     | SetDate (Result String Posix)
-    | NewTransaction InteractedBalanceCard
     | SeeEvents InteractedBalanceCard
 
 
@@ -116,17 +115,6 @@ update ctx msg =
             )
                 |> noCmd
 
-        NewTransaction card ->
-            case card of
-                InteractedTotalCard ->
-                    ( model |> noCmd
-                    , Cmd.Extra.perform (Navigate <| Route.NewTransaction)
-                    )
-
-                InteractedPersonCard pid ->
-                    -- TODO
-                    model |> noCmd |> noCmd
-
         SeeEvents card ->
             case card of
                 InteractedTotalCard ->
@@ -156,7 +144,7 @@ view ctx =
             , totalBalance = balance.value
             , sharedPaymentCount = balance.sharedPaymentCount
             , transferCount = balance.transferCount
-            , unseenUpdateCount = balance.unseenForMeCount
+            , inboxUpdateCount = balance.inboxForMeCount
             , lastUpdateAt = Just balance.lastUpdateAt
             , dateTimeNow = ctx.model.dateTimeNow
             , backgroundColor = teal700
@@ -164,7 +152,7 @@ view ctx =
             }
     in
     wrappedRow
-        []
+        [ centerX, css "justify-content" "center" ]
         ((viewBalanceSummaryCard ctx
             :: (balances
                     |> List.map (extractCardData >> viewBalanceCard ctx)
@@ -198,8 +186,8 @@ viewBalanceSummaryCard ctx =
         transferCount =
             balances |> List.map .transferCount |> List.sum
 
-        unseenUpdateCount =
-            balances |> List.map .unseenForMeCount |> List.sum
+        inboxUpdateCount =
+            balances |> List.map .inboxForMeCount |> List.sum
 
         lastUpdateAt =
             balances
@@ -212,7 +200,7 @@ viewBalanceSummaryCard ctx =
             , totalBalance = totalBalance
             , sharedPaymentCount = sharedPaymentCount
             , transferCount = transferCount
-            , unseenUpdateCount = unseenUpdateCount
+            , inboxUpdateCount = inboxUpdateCount
             , lastUpdateAt = lastUpdateAt
             , dateTimeNow = ctx.model.dateTimeNow
             , backgroundColor = teal500
@@ -271,7 +259,7 @@ viewBalanceCard ctx cardData =
                 , column [ Font.color grayed, Font.size 14, spacing 6 ]
                     [ el [] <| text (String.fromInt cardData.sharedPaymentCount ++ " shared payments")
                     , el [] <| text (String.fromInt cardData.transferCount ++ " transfers")
-                    , el [] <| text (String.fromInt cardData.unseenUpdateCount ++ " new transactions")
+                    , el [] <| text (String.fromInt cardData.inboxUpdateCount ++ " new transactions")
                     ]
                 ]
             , row
@@ -305,14 +293,11 @@ viewBalanceCard ctx cardData =
                 ]
                 (text lastChangeDatetime)
             , row [ alignRight, spacing 5 ]
-                [ viewIconButton []
-                    "plus"
-                    (ctx.lift <| NewTransaction cardData.interactMsg)
-                , viewIconButton
-                    [ attrWhen (cardData.unseenUpdateCount > 0) <|
+                [ viewIconButton
+                    [ attrWhen (cardData.inboxUpdateCount > 0) <|
                         inFront <|
                             el [ paddingEach { edges | left = 15 }, moveUp 8 ] <|
-                                (viewBadge <| String.fromInt <| cardData.unseenUpdateCount)
+                                (viewBadge <| String.fromInt <| cardData.inboxUpdateCount)
                     ]
                     "calendar"
                     (ctx.lift <| SeeEvents cardData.interactMsg)

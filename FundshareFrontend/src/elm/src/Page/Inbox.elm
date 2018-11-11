@@ -5,7 +5,7 @@ import Cmd.Extra
 import Data.Context exposing (ContextData, GlobalMsg, Logged)
 import Data.Person exposing (PersonId)
 import Data.Session exposing (Session)
-import Data.Transaction exposing (Transaction, TransactionId, amountDifferenceForMyAccount, amountToMoney, isTransactionUnseenForUser)
+import Data.Transaction exposing (Transaction, TransactionId, amountDifferenceForMyAccount, amountToMoney, isTransactionInInboxForUser)
 import Element exposing (Element, alignRight, centerY, column, el, fill, padding, paddingEach, paragraph, px, row, shrink, spacing, table, text, width)
 import Element.Font as Font
 import Element.Input as Input
@@ -60,7 +60,7 @@ type alias Context msg =
 
 hasAnyNewTransaction : PersonId -> List Transaction -> Bool
 hasAnyNewTransaction userId transactions =
-    transactions |> List.any (isTransactionUnseenForUser userId)
+    transactions |> List.any (isTransactionInInboxForUser userId)
 
 
 allSelected inboxTransactions selectedInboxTransactionIds =
@@ -100,7 +100,7 @@ update { model, session } msg =
             { model
                 | inboxTransactions =
                     Just <|
-                        List.filter (isTransactionUnseenForUser session.user.id) transactionList.transactions
+                        List.filter (isTransactionInInboxForUser session.id) transactionList.transactions
             }
                 |> noCmd
                 |> noCmd
@@ -182,7 +182,7 @@ view ctx =
     column []
         [ case model.inboxTransactions of
             Just inboxTransactions ->
-                hasAnyNewTransaction session.user.id inboxTransactions
+                hasAnyNewTransaction session.id inboxTransactions
                     |> either (viewInbox ctx inboxTransactions) Element.none
 
             Nothing ->
@@ -257,7 +257,7 @@ viewInbox ctx inboxTransactions =
                   , width = px 100
                   , view =
                         \t ->
-                            amountDifferenceForMyAccount session.user.id t
+                            amountDifferenceForMyAccount session.id t
                                 |> amountToMoney
                                 |> String.fromFloat
                                 |> text
