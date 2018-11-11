@@ -283,7 +283,7 @@ viewBalanceCard ctx cardData =
                     )
                 , paragraph
                     [ Font.color white, Font.size 36, alignBottom, moveDown 2 ]
-                    [ text <| String.fromFloat <| abs cardData.totalBalance ]
+                    [ text <| String.fromFloat <| abs (((cardData.totalBalance * 100 |> round) |> toFloat) / 100) ]
                 , paragraph
                     [ Font.color grayed, Font.size 18, alignBottom ]
                     [ text "zł" ]

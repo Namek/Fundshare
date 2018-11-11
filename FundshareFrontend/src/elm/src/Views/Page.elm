@@ -22,7 +22,6 @@ import Page.NotFound as NotFound
 import Page.Transaction as Transaction
 import Page.TransactionHistory as TransactionHistory
 import Route exposing (Route, routeToString)
-import Styles.Common exposing (commonGlobalStylesheet)
 import Views.Spinner exposing (spinner)
 
 
@@ -36,26 +35,6 @@ type Page
     | Transaction TransactionId Transaction.Model
     | Inbox Inbox.Model
     | TransactionHistory TransactionHistory.Model
-
-
-
--- tabData isLoggedIn =
---     if isLoggedIn then
---         [ ( "Balances", Balances, Route.Balances, "trending_up" )
---         , ( "History", Inbox, Route.Inbox, "event" )
---         , ( "New Transaction", NewTransaction, Route.NewTransaction, "add" )
---         ]
---
---     else
---         []
---
---
--- drawerData =
---     [ ( "Balances", Balances, Route.Balances, "trending_up" )
---     , ( "History", Inbox, Route.Inbox, "event" )
---     , ( "New Transaction", NewTransaction, Route.NewTransaction, "add" )
---     , ( "Log out", Other, Route.Logout, "exit_to_app" )
---     ]
 
 
 frame : (GlobalMsg -> msg) -> Bool -> SessionState -> Element msg -> Element msg
@@ -103,42 +82,3 @@ viewMenu isLoggedIn =
          else
             []
         )
-
-
-
-{- TODO some tabs here? -}
-{- viewHeader, viewMain -}
--- Material.Scheme.topWithScheme primary accent <|
---     Layout.render liftMdl
---         mdl
---         [ Layout.seamed
---         , Layout.fixedHeader
---         , Layout.waterfall True
---         , Layout.selectedTab (findTabIndex isLoggedIn page)
---         , Layout.onSelectTab (getNthTabRoute isLoggedIn >> Navigate >> lift)
---         ]
---         { header = viewHeader
---         , drawer = drawer session lift liftMdl
---         , main = [ viewMain c ]
---         , tabs =
---             ( tabs isLoggedIn
---             , [ Color.background (Color.color primary Color.S400) ]
---             )
---         }
--- viewHeader : List (Element msg)
--- viewHeader =
--- [ commonGlobalStylesheet |> Options.stylesheet
--- , Layout.row []
---     [ Layout.title [] [ text "Fund$hare" ]
---     , Layout.spacer
---     , Layout.navigation [] [ Layout.link [ Layout.href githubUrl ] [ span [] [ text "GitHub" ] ] ]
---     ]
--- ]
--- viewMain : Element msg -> Html msg
--- viewMain content =
---     Element.layout
---         [ paddingEach { edges | top = 10, left = 5, right = 5 }
---         , centerX
---         , centerY
---         ]
---         content

@@ -139,10 +139,7 @@ view ctx =
         , Element.inFront <|
             viewIf model.isLoading (paragraph [] [ text "Signing in..." ])
         ]
-        [ {- Options.stylesheet loginStylesheet
-             ,
-          -}
-          paragraph
+        [ paragraph
             [ Font.size 18 ]
             [ text "Hi." ]
         , column []

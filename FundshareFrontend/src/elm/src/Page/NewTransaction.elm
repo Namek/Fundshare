@@ -28,8 +28,6 @@ import Request.Common exposing (..)
 import Request.People exposing (..)
 import Route
 import Set exposing (Set)
-import Styles.Common exposing (csg)
-import Styles.NewTransaction exposing (..)
 import Task
 import Views.ChipsTextfield as ChipsTextfield
 
