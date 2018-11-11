@@ -28,7 +28,7 @@ import Route exposing (Route, modifyUrl)
 import Task
 import Time
 import Url exposing (Url)
-import Views.Page as Page exposing (Page(..), frame)
+import Views.Page as Page exposing (ActivePage(..), Page(..), frame)
 
 
 
@@ -168,8 +168,25 @@ viewPage model page =
                         , todayDate = model.todayDate
                         , session = getAuthorizedSession ()
                         }
+
+        activePage =
+            case page of
+                NewTransaction _ ->
+                    Route_NewTransaction
+
+                Balances _ ->
+                    Route_Balances
+
+                Inbox _ ->
+                    Route_Inbox
+
+                TransactionHistory _ ->
+                    Route_History
+
+                _ ->
+                    Route_Unknown
     in
-    frame pageView
+    frame activePage pageView
 
 
 

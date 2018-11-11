@@ -1,4 +1,4 @@
-module Views.Page exposing (Page(..), frame)
+module Views.Page exposing (ActivePage(..), Page(..), frame)
 
 import Data.Context exposing (GlobalMsg(..))
 import Data.Session exposing (SessionState(..))
@@ -36,13 +36,21 @@ type Page
     | TransactionHistory TransactionHistory.Model
 
 
-frame : (GlobalMsg -> msg) -> Bool -> SessionState -> Element msg -> Element msg
-frame lift isLoggedIn session pageContent =
+type ActivePage
+    = Route_Unknown
+    | Route_Balances
+    | Route_Inbox
+    | Route_History
+    | Route_NewTransaction
+
+
+frame : (GlobalMsg -> msg) -> Bool -> SessionState -> ActivePage -> Element msg -> Element msg
+frame lift isLoggedIn session activePage pageContent =
     let
         content =
             viewIf isLoggedIn <|
                 column [ width fill, spacing 10 ]
-                    [ Element.el [ centerX ] <| viewMenu session
+                    [ Element.el [ centerX ] <| viewMenu session activePage
                     , Element.el [ centerX ] pageContent
                     ]
     in
@@ -51,11 +59,20 @@ frame lift isLoggedIn session pageContent =
         content
 
 
-viewMenu : SessionState -> Element msg
-viewMenu sessionState =
+viewMenu : SessionState -> ActivePage -> Element msg
+viewMenu sessionState activePage =
     let
-        alink route label =
-            link []
+        alink : Maybe ActivePage -> Route -> String -> Element msg
+        alink page route label =
+            let
+                isActivePage =
+                    page
+                        |> Maybe.andThen ((==) activePage >> Just)
+                        |> Maybe.withDefault False
+            in
+            link
+                [ Font.underline |> attrWhen isActivePage
+                ]
                 { url = routeToString route
                 , label = text label
                 }
@@ -72,7 +89,7 @@ viewMenu sessionState =
         (case sessionState of
             LoggedSession session ->
                 [ row [ centerX, spacing 18 ]
-                    [ alink Route.Balances "Balances"
+                    [ alink (Just Route_Balances) Route.Balances "Balances"
                     , Element.el
                         [ onRight
                             (el [ moveLeft 5, moveUp 8 ] <|
@@ -80,10 +97,10 @@ viewMenu sessionState =
                             )
                             |> attrWhen (session.inboxSize > 0)
                         ]
-                        (alink Route.Inbox "Inbox")
-                    , alink (Route.TransactionHistory Nothing) "History"
-                    , alink Route.NewTransaction "Add transaction"
-                    , alink Route.Logout "Logout"
+                        (alink (Just Route_Inbox) Route.Inbox "Inbox")
+                    , alink (Just Route_History) (Route.TransactionHistory Nothing) "History"
+                    , alink (Just Route_NewTransaction) Route.NewTransaction "Add transaction"
+                    , alink Nothing Route.Logout "Logout"
                     ]
                 ]
 
