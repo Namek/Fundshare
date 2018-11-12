@@ -3,13 +3,15 @@ module Page.Login exposing (Model, Msg, initialModel, update, view)
 import Cmd.Extra
 import Data.Context exposing (ContextData, GlobalMsg(..))
 import Data.Session exposing (Session, SessionState(..))
-import Element exposing (Element, column, padding, paragraph, row, spacing, text)
+import Element exposing (Element, below, column, moveDown, padding, paragraph, row, spacing, text)
+import Element.Events exposing (onFocus, onLoseFocus)
 import Element.Font as Font
 import Element.Input as Input exposing (focusedOnLoad, placeholder)
 import Graphql.Http as Http
 import Html.Events
 import Json.Decode as Json
-import Misc exposing (attr, emailRegex, match, styledButton, viewIf)
+import Misc exposing (attr, attrWhen, emailRegex, match, styledButton, viewIf)
+import Misc.Colors as Colors
 import RemoteData exposing (RemoteData)
 import Request.Common exposing (..)
 import Request.Session exposing (..)
@@ -56,7 +58,7 @@ update ctx msg =
     in
     case msg of
         SetEmail email ->
-            ( ( { model | email = Debug.log "email" email }, Cmd.none ), Cmd.none )
+            ( ( { model | email = email }, Cmd.none ), Cmd.none )
 
         SetPassword password ->
             ( ( { model | password = password }, Cmd.none ), Cmd.none )
@@ -101,13 +103,6 @@ update ctx msg =
                     ( ( { model | isLoading = False }, Cmd.none ), Cmd.none )
 
 
-ids =
-    { username = 0
-    , password = 1
-    , loginButton = 2
-    }
-
-
 view : Context msg -> Element msg
 view ctx =
     let
@@ -136,7 +131,7 @@ view ctx =
     in
     column
         [ padding 25
-        , spacing 20
+        , spacing 25
         , Element.inFront <|
             viewIf model.isLoading (paragraph [] [ text "Signing in..." ])
         ]
@@ -145,25 +140,26 @@ view ctx =
             [ text "Hi." ]
         , column [ spacing 15 ]
             [ Input.text
-                [ attr "type" "email", attr "name" "email", focusedOnLoad ]
+                [ attr "type" "email"
+                , attr "name" "email"
+                , focusedOnLoad
+                , Element.htmlAttribute <| Html.Events.on "keydown" (Json.map (ctx.lift << OnInFormKeyDown) Html.Events.keyCode)
+                , viewInputError shouldErrorEmail <| "Not an e-mail"
+                , onFocus (lift <| OnFieldFocused Email)
+                , onLoseFocus (lift <| OnFieldBlurred)
+                , attr "disabled" "disabled" |> attrWhen formDisabled
+                ]
                 { onChange = lift << SetEmail
                 , text = model.email
                 , placeholder = Just <| placeholder [] <| text "E-mail"
                 , label = Input.labelHidden "E-mail"
                 }
-
-            -- , Options.onFocus (lift <| OnFieldFocused Email)
-            -- , Options.onBlur (lift <| OnFieldBlurred)
-            -- , Options.on "keydown" (Json.map (ctx.lift << OnInFormKeyDown) Html.Events.keyCode)
-            -- , Textfield.disabled |> when formDisabled
-            -- , Textfield.error "Is not e-mail"   |> when shouldErrorEmail
             , Input.currentPassword
-                [--  Options.onFocus (lift <| OnFieldFocused Password)
-                 -- , Options.onBlur (lift <| OnFieldBlurred)
-                 -- , Options.on "keydown" (Json.map (ctx.lift << OnInFormKeyDown) Html.Events.keyCode)
-                 -- , Textfield.disabled |> when formDisabled
-                 -- , Textfield.error ("Minimum " ++ String.fromInt minPasswordLength ++ " characters")  |> when shouldErrorPassword
-                 --Element.htmlAttribute <| Html.Events.on "keydown" (Json.map (ctx.lift << OnInFormKeyDown) Html.Events.keyCode)
+                [ Element.htmlAttribute <| Html.Events.on "keydown" (Json.map (ctx.lift << OnInFormKeyDown) Html.Events.keyCode)
+                , viewInputError shouldErrorPassword <| "Minimum " ++ String.fromInt minPasswordLength ++ " characters"
+                , onFocus (lift <| OnFieldFocused Password)
+                , onLoseFocus (lift <| OnFieldBlurred)
+                , attr "disabled" "disabled" |> attrWhen formDisabled
                 ]
                 { onChange = lift << SetPassword
                 , text = model.password
@@ -172,15 +168,27 @@ view ctx =
                 , show = False
                 }
             ]
-        , styledButton
-            [--Button.disabled |> when ((not <| isLoginFilled model) || formDisabled)
-             --, Button.raised
-             --, Button.colored |> when (isLoginFilled model)
-            ]
-            { onPress = Just (lift <| SignIn)
+        , styledButton [ Font.size 20 ]
+            { onPress =
+                if (not <| isLoginFilled model) || formDisabled then
+                    Nothing
+
+                else
+                    Just (lift <| SignIn)
             , label = text "Sign In"
             }
         ]
+
+
+viewInputError onCondition message =
+    Element.el
+        [ moveDown 5
+        , Font.color Colors.red400
+        , Font.size 12
+        ]
+        (text message)
+        |> below
+        |> attrWhen onCondition
 
 
 
