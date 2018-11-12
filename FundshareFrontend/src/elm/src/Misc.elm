@@ -19,6 +19,7 @@ module Misc exposing
     , viewIcon
     , viewIconButton
     , viewIf
+    , viewLoadingBar
     )
 
 import Bitwise exposing (and, shiftLeftBy, shiftRightBy)
@@ -184,10 +185,25 @@ viewBadge aText =
         , Font.semiBold
         , width (px 16)
         , height (px 16)
+        , userSelectNone
         ]
         [ Element.column [ height shrink, width shrink, centerX, centerY ]
             [ Element.text aText ]
         ]
+
+
+viewLoadingBar : Element msg
+viewLoadingBar =
+    Element.html <|
+        Html.div
+            [ Html.Attributes.class "load-bar"
+            , Html.Attributes.style "width" "100vw"
+            , Html.Attributes.style "max-width" "300px"
+            ]
+            [ Html.div [ Html.Attributes.class "bar" ] []
+            , Html.div [ Html.Attributes.class "bar" ] []
+            , Html.div [ Html.Attributes.class "bar" ] []
+            ]
 
 
 userSelectNone =

@@ -11,6 +11,7 @@ var currentDir = GetScriptFolder();
 var outputDir = Path.Combine(currentDir, "dist");
 var srcDir = Path.Combine(currentDir, "src");
 var staticsFolder = Path.Combine(srcDir, "static");
+var stylesFolder = Path.Combine(srcDir, "css");
 
 if (Args.Count == 0)
 {
@@ -42,7 +43,7 @@ if (Args.Contains("build"))
 {
     copyStatics();
     buildElm();
-    buildScss();
+    buildStyles();
 }
 
 if (Args.Contains("build-elm"))
@@ -105,8 +106,8 @@ void _onFileChanged(WatcherChangeTypes evt, FileSystemEventArgs args)
 
     if (path.Contains("src/elm") && (path.EndsWith(".elm") || path.EndsWith(".js")))
         buildElm();
-    else if (path.EndsWith(".scss"))
-        buildScss();
+    else if (path.EndsWith(".css"))
+        buildStyles();
     else if (path.Contains("src/static"))
         copyStatic(path);
     else
@@ -137,10 +138,18 @@ void generateElmApi()
     exec(workDir, @"C:\Program Files\nodejs\npx.cmd", "@dillonkearns/elm-graphql --introspection-file ../../../graphql_schema.json");
 }
 
-void buildScss()
+void buildStyles()
 {
-    log("Building Sass code...");
-    // TODO
+    var files = Directory.EnumerateFiles(stylesFolder, "*.css", SearchOption.AllDirectories);
+    var finalDir = Path.Combine(outputDir, "css");
+
+    log("Copying styles...");
+    foreach (var file in files)
+    {
+        var finalPath = Path.Combine(finalDir, Path.GetFileName(file));
+
+        File.Copy(file, finalPath, true);
+    }
 }
 
 void copyStatics()

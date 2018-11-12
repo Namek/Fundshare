@@ -238,7 +238,7 @@ let Mutation = Define.Object<Ref<Session>>("mutation", [
     do session := {
       token = None
       authorizedUserId = None }
-
+    // TODO fix: cookie is not unset here!
     ret
   )
   

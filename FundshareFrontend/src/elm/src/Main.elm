@@ -23,7 +23,7 @@ import Page.Transaction as Transaction
 import Page.TransactionHistory as TransactionHistory
 import RemoteData exposing (RemoteData)
 import Request.Common exposing (sendMutationRequest)
-import Request.Session exposing (SignInResult, checkSession)
+import Request.Session exposing (SignInResult, SignOutResult, checkSession, signOut)
 import Route exposing (Route, modifyUrl)
 import Task
 import Time
@@ -209,6 +209,7 @@ type Msg
     | UrlRequested Browser.UrlRequest
     | CheckAuthSession
     | CheckAuthSession_Response (RemoteData (Graphql.Http.Error (Maybe SignInResult)) (Maybe SignInResult))
+    | SignOut_Response (RemoteData (Graphql.Http.Error SignOutResult) SignOutResult)
     | LoginMsg Login.Msg
     | NewTransactionMsg NewTransaction.Msg
     | BalancesMsg Balances.Msg
@@ -240,6 +241,7 @@ update msg model =
                     ( { model | session = LoggedSession session }, Cmd.none )
 
                 SetSession Nothing ->
+                    -- TODO: logout
                     ( { model | session = GuestSession }, Cmd.none )
 
                 UpdateInboxSize inboxSize ->
@@ -316,6 +318,9 @@ update msg model =
             { model | session = GuestSession } |> noCmd
 
         CheckAuthSession_Response _ ->
+            model |> noCmd
+
+        SignOut_Response _ ->
             model |> noCmd
 
         _ ->
@@ -449,7 +454,10 @@ initRoute maybeRoute model =
 
         Just Route.Logout ->
             ( { model | session = GuestSession }
-            , Route.modifyUrl model Route.Login
+            , Cmd.batch
+                [ signOut () |> sendMutationRequest SignOut_Response
+                , Route.modifyUrl model Route.Login
+                ]
             )
 
         Just Route.NewTransaction ->

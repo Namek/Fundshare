@@ -70,7 +70,7 @@ amountToMoneyLeftPad includeSign integralTotalWidth amount =
             val |> modBy 100
 
         integralPartStr =
-            amountToMoneyChange False (Debug.log "i" integralPart)
+            amountToMoneyChange False integralPart
                 |> String.padLeft integralTotalWidth ' '
 
         fractionalPartStr =

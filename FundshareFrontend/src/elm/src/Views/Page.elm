@@ -48,11 +48,10 @@ frame : (GlobalMsg -> msg) -> Bool -> SessionState -> ActivePage -> Element msg 
 frame lift isLoggedIn session activePage pageContent =
     let
         content =
-            viewIf isLoggedIn <|
-                column [ width fill, spacing 10 ]
-                    [ Element.el [ centerX ] <| viewMenu session activePage
-                    , Element.el [ centerX ] pageContent
-                    ]
+            column [ width fill, spacing 10 ]
+                [ viewIf isLoggedIn <| Element.el [ centerX ] <| viewMenu session activePage
+                , Element.el [ centerX ] pageContent
+                ]
     in
     Element.el
         [ width fill ]

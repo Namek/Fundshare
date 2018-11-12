@@ -6,13 +6,14 @@ import Data.Person exposing (Person)
 import Data.Session exposing (Session)
 import Data.Transaction exposing (Transaction)
 import Dict exposing (Dict)
-import Element exposing (Element, centerX, column, link, paragraph, row, spacing, text)
+import Element exposing (Element, centerX, column, fill, link, paragraph, px, row, spacing, text, width)
 import Element.Font as Font
 import Graphql.Http
 import Html exposing (i)
+import Html.Attributes
 import List exposing (range)
 import List.Extra
-import Misc exposing (getUpdatedProperty, noCmd, styledButton, viewIf)
+import Misc exposing (attr, either, getUpdatedProperty, noCmd, styledButton, viewIf, viewLoadingBar)
 import Misc.Pagination as Pagination exposing (Pagination, hasNoMorePages)
 import RemoteData exposing (RemoteData)
 import Request.Common exposing (sendQueryRequest)
@@ -146,11 +147,18 @@ view ctx =
     let
         subCtx =
             subContext ctx .timeline Timeline_Msg
+
+        isAnythingLoaded =
+            Dict.size ctx.model.transactions.elements > 0
     in
-    Element.column [ spacing 15 ]
-        [ Timeline.view subCtx
-        , styledButton [ centerX ]
-            { onPress = Just <| ctx.lift LoadNextPage
-            , label = text "Load more..."
-            }
-        ]
+    if isAnythingLoaded then
+        Element.column [ spacing 15 ]
+            [ Timeline.view subCtx
+            , styledButton [ centerX ]
+                { onPress = Just <| ctx.lift LoadNextPage
+                , label = text "Load more..."
+                }
+            ]
+
+    else
+        viewLoadingBar
