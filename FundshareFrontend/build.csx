@@ -8,7 +8,7 @@ public static string GetScriptFolder([CallerFilePath] string path = null) =>
     Path.GetDirectoryName(path);
 
 var currentDir = GetScriptFolder();
-var outputDir = Path.Combine(currentDir, "dist");
+var outputDir = Path.Combine(currentDir, "public");
 var srcDir = Path.Combine(currentDir, "src");
 var staticsFolder = Path.Combine(srcDir, "static");
 var stylesFolder = Path.Combine(srcDir, "css");

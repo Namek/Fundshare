@@ -1,6 +1,30 @@
-## Dev
+# Build and host with Docker
 
-### Frontend
+Two options:
+
+1) Run only application (it will use local database):
+
+1. Set `DB.host = 'host.docker.internal'` inside `Config.prod.yaml`
+2. `docker build -t fundshare-app`
+3. `docker run -it -p 127.0.0.1:8080:5000 fundshare-app`
+
+http://127.0.0.1:8080 should be available then.
+
+OR
+
+2) Run application with a database:
+
+1. Set `DB.host = '127.0.0.1'` inside `Config.prod.yaml`
+2. `docker-compose build`
+3. `docker-compose up`
+
+ TODO import data
+
+
+
+# Develop
+
+## Frontend
 
 We need:
 
@@ -24,9 +48,10 @@ Of course you can call them all:
 
 
 
-### Backend
+## Backend
 
 We need: [.NET Core 2.1](https://www.microsoft.com/net/download) (either Runtime or SDK)
 
 To build and publish executable:
 `cd FundshareBackend && dotnet publish`
+

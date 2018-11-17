@@ -1,11 +1,13 @@
 ﻿General:
-  httpFilesPath: C:\Users\Namek\RiderProjects\Fundshare\FundshareFrontend\dist
+  httpFilesPath: ./FundshareFrontend/public
+  listenHost: '127.0.0.1'
+  listenPort: 5000
 
 DB:
-  host: localhost
+  host: database
   port: 5432
-  username: root
-  password: mypassword
+  username: postgres
+  password: postgres
   database: fundshare_dev
 
 Auth:
@@ -13,3 +15,7 @@ Auth:
   tokenIssuer: fundshare_web
   passwordSalt: r32jf90e8uijk2l1ed
   cookieAuthName: authorization
+
+Boot:
+  updateBalanceForAllUsers: true
+  outputSchemaPath: ..\graphql_schema.json

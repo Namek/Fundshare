@@ -1,6 +1,7 @@
 module Fundshare.Main
 
 open System
+open System.Collections.Generic
 open System.Net
 open Suave
 open Suave.Cookie
@@ -51,7 +52,7 @@ type OptionConverter() =
     serializer.Serialize(writer, value)
   override x.ReadJson(reader, t, existingValue, serializer) = failwith "Not supported"  
 
-type GraphQLServerReturn = { data : obj; errors: (Error list) option }
+type GraphQLServerReturn = { data : obj; errors: (NameValueLookup list) option }
 
 [<EntryPoint>]
 let main argv =
@@ -76,7 +77,7 @@ let main argv =
     match introspectionResult with
       | Direct (data, errors) -> json data.["data"]
       | _ -> ""
-  System.IO.File.WriteAllText(AppConfig.Boot.outputSchemaPath, schemaStr)
+  System.IO.File.WriteAllText(System.IO.Path.GetFullPath(AppConfig.Boot.outputSchemaPath), schemaStr)
   printfn "GraphQL schema was generated: %s" AppConfig.Boot.outputSchemaPath
 
 
@@ -179,7 +180,7 @@ let main argv =
                 data = data.["data"]
                 errors =
                   if data.ContainsKey("errors")
-                  then Some (data.["errors"] :?> Error list)
+                  then Some (data.["errors"] :?> NameValueLookup list)
                   else None
               }
 
@@ -214,9 +215,9 @@ let main argv =
     ] >=> noCache
 
   Console.WriteLine("Serving files from: " + AppConfig.General.httpFilesPath)
-  
+
   let config = { defaultConfig with
-    homeFolder = Some AppConfig.General.httpFilesPath
+    homeFolder = Some <| System.IO.Path.GetFullPath(AppConfig.General.httpFilesPath)
     hideHeader = true
     bindings = [ HttpBinding.create HTTP (IPAddress.Parse(AppConfig.General.listenHost)) (uint16 AppConfig.General.listenPort) ]
   }

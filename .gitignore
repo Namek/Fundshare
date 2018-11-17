@@ -2,6 +2,6 @@ obj/
 bin/
 .idea/
 .vs/
-Config.yaml
-dist/
+Config*.yaml
+public/
 elm-stuff/

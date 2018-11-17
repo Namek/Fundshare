@@ -242,7 +242,7 @@ let Mutation = Define.Object<Ref<Session>>("mutation", [
     ret
   )
   
-  Define.Field("checkSession", Nullable CheckSessionResult, "Check who are is signed in based on httponly safe cookies", [], fun ctx session ->
+  Define.Field("checkSession", Nullable CheckSessionResult, "Check who is signed in based on httponly safe cookies", [], fun ctx session ->
     (!session).authorizedUserId
     |> Option.map Repo.getUserById
     |> Option.flatten
