@@ -12,6 +12,7 @@ var outputDir = Path.Combine(currentDir, "public");
 var srcDir = Path.Combine(currentDir, "src");
 var staticsFolder = Path.Combine(srcDir, "static");
 var stylesFolder = Path.Combine(srcDir, "css");
+var generateDebugElm = false;
 
 if (Args.Count == 0)
 {
@@ -32,6 +33,11 @@ if (!Directory.Exists(outputDir))
     string odir = Path.GetFullPath(outputDir);
     log($"Creating directory: {odir}");
     Directory.CreateDirectory(odir);
+}
+
+if (Args.Contains("debug"))
+{
+    generateDebugElm = true;
 }
 
 if (Args.Contains("api"))
@@ -124,11 +130,20 @@ void _onFileChanged(WatcherChangeTypes evt, FileSystemEventArgs args)
 
 void buildElm()
 {
-    log("Building Elm code...");
+    var msg = "Building Elm code...";
     var input = Path.Combine(srcDir, "elm", "src", "Main.elm");
     var output = Path.Combine(outputDir, "js", "elm.js");
     var workDir = Path.Combine(currentDir, "src", "elm");
-    exec(workDir, "elm", $@"make {input} --output={output} --debug");
+    var args = $@"make {input} --output={output}";
+
+    if (generateDebugElm)
+    {
+        msg += " with debug!!";
+        args += " --debug";
+    }
+
+    log(msg);
+    exec(workDir, "elm", args);
     touchFile(output);
 }
 

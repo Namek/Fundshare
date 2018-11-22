@@ -97,7 +97,8 @@ let main argv =
             | _ -> None)
           |> Option.defaultValue None
 
-        if authorizedUserId.IsSome then do printfn "%d" authorizedUserId.Value
+        if AppConfig.General.debugLogging then do
+          if authorizedUserId.IsSome then do printfn "%d" authorizedUserId.Value
 
         let session : Session ref =
           { authorizedUserId = authorizedUserId
@@ -159,11 +160,15 @@ let main argv =
           try
             match query, variables with
             | Some query, Some variables ->
-                printfn "Received query: %s" query
-                printfn "Received variables: %A" variables
+                if AppConfig.General.debugLogging then do
+                  printfn "Received query: %s" query
+                  printfn "Received variables: %A" variables
+
                 executor.AsyncExecute(query, variables = variables, data = session)
             | Some query, _ ->
-                printfn "Received query: %s" query
+                if AppConfig.General.debugLogging then do
+                  printfn "Received query: %s" query
+
                 executor.AsyncExecute(query, data = session)
             | None, _ ->
                 executor.AsyncExecute(Introspection.introspectionQuery)
@@ -184,11 +189,15 @@ let main argv =
                   else None
               }
 
-              do printfn "Respond with: %s" resultJson |> ignore
+              if AppConfig.General.debugLogging then do
+                do printfn "Respond with: %s" resultJson |> ignore
+
               unsetInvalidCookie >=> Successful.OK resultJson >=> setAuthCookie session
             | Result.Ok response ->
               let resultJson = json response.Content
-              do printfn "Respond with: %s" resultJson |> ignore
+              if AppConfig.General.debugLogging then do
+                do printfn "Respond with: %s" resultJson |> ignore
+
               unsetInvalidCookie >=> Successful.OK resultJson >=> setAuthCookie session
             | Result.Error err ->
               do printfn "Error: %s" err

@@ -2,6 +2,7 @@
   httpFilesPath: ../../../../../FundshareFrontend/public
   listenHost: '0.0.0.0'
   listenPort: 5000
+  debugLogging: false
 
 DB:
   host: '127.0.0.1'

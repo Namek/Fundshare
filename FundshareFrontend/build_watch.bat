@@ -1,4 +1,4 @@
-dotnet script %~dp0\build.csx -- build watch
+dotnet script %~dp0\build.csx -- build watch debug
 
 @echo off
 rem do not pause if it's launched from command line
