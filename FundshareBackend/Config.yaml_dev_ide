@@ -1,12 +1,12 @@
 ﻿General:
-  httpFilesPath: ../../../../../FundshareFrontend/public
+  httpFilesPath: ../FundshareFrontend/public
   listenHost: '0.0.0.0'
   listenPort: 5000
   debugLogging: false
 
 DB:
   host: '127.0.0.1'
-  port: 5433
+  port: 5432
   username: postgres
   password: postgres
   database: fundshare_dev

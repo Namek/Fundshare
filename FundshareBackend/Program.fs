@@ -223,10 +223,11 @@ let main argv =
       RequestErrors.NOT_FOUND "Page not found." 
     ] >=> noCache
 
-  Console.WriteLine("Serving files from: " + AppConfig.General.httpFilesPath)
+  let httpFilesPath = System.IO.Path.GetFullPath(AppConfig.General.httpFilesPath)
+  Console.WriteLine("Serving files from: " + httpFilesPath)
 
   let config = { defaultConfig with
-    homeFolder = Some <| System.IO.Path.GetFullPath(AppConfig.General.httpFilesPath)
+    homeFolder = Some <| httpFilesPath
     hideHeader = true
     bindings = [ HttpBinding.create HTTP (IPAddress.Parse(AppConfig.General.listenHost)) (uint16 AppConfig.General.listenPort) ]
   }
