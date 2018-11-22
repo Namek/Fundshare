@@ -1,11 +1,11 @@
 ﻿General:
-  httpFilesPath: ./FundshareFrontend/public
-  listenHost: '127.0.0.1'
+  httpFilesPath: ../../../../../FundshareFrontend/public
+  listenHost: '0.0.0.0'
   listenPort: 5000
 
 DB:
-  host: database
-  port: 5432
+  host: '127.0.0.1'
+  port: 5433
   username: postgres
   password: postgres
   database: fundshare_dev
@@ -17,5 +17,5 @@ Auth:
   cookieAuthName: authorization
 
 Boot:
-  updateBalanceForAllUsers: true
+  updateBalanceForAllUsers: false
   outputSchemaPath: ..\graphql_schema.json

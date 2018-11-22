@@ -10,7 +10,7 @@ WORKDIR /app/
 COPY FundshareBackend/fsc.props FundshareBackend/*.fsproj ./
 RUN dotnet restore
 
-COPY FundshareBackend/Config.prod.yaml ./Config.yaml
+COPY FundshareBackend/Config.yaml ./Config.yaml
 COPY FundshareBackend/*.fs ./
 COPY FundshareBackend/Utils/*.fs ./Utils/
 RUN dotnet publish -c Release -o out
