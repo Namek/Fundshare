@@ -23,13 +23,13 @@
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Chiron" Version="6.2.1" />
+    <PackageReference Include="Chiron" Version="6.3.1" />
     <PackageReference Include="FSharp.Configuration" Version="1.5.0" />
-    <PackageReference Include="FSharp.Data.GraphQL.Server" Version="0.0.7-beta" />
+    <PackageReference Include="FSharp.Data.GraphQL.Server" Version="0.0.10-beta" />
     <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
     <PackageReference Include="Npgsql" Version="4.0.0" />
     <PackageReference Include="Paseto" Version="1.1.2" />
     <PackageReference Include="SqlFrags" Version="3.0.0" />
-    <PackageReference Include="suave" Version="2.4.0" />
+    <PackageReference Include="suave" Version="2.5.3" />
   </ItemGroup>
 </Project>
