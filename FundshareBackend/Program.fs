@@ -144,7 +144,7 @@ let main argv =
           with _ ->
             (None, None)
 
-        let unsetInvalidCookie =
+        let unsetInvalidCookie session =
           if token.IsSome && (!session).token.IsNone then
             Cookie.unsetCookie AppConfig.Auth.cookieAuthName
           else
@@ -192,13 +192,13 @@ let main argv =
               if AppConfig.General.debugLogging then do
                 do printfn "Respond with: %s" resultJson |> ignore
 
-              unsetInvalidCookie >=> Successful.OK resultJson >=> setAuthCookie session
+              unsetInvalidCookie session >=> Successful.OK resultJson >=> setAuthCookie session
             | Result.Ok response ->
               let resultJson = json response.Content
               if AppConfig.General.debugLogging then do
                 do printfn "Respond with: %s" resultJson |> ignore
 
-              unsetInvalidCookie >=> Successful.OK resultJson >=> setAuthCookie session
+              unsetInvalidCookie session >=> Successful.OK resultJson >=> setAuthCookie session
             | Result.Error err ->
               do printfn "Error: %s" err
               Successful.OK err
