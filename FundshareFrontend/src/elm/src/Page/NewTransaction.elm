@@ -6,7 +6,7 @@ import Data.Context exposing (..)
 import Data.Person exposing (Person, PersonId)
 import Data.Session exposing (Session)
 import Data.Transaction exposing (TransactionId)
-import Element exposing (Element, alignLeft, alignRight, centerX, centerY, column, el, explain, fill, fillPortion, height, padding, paddingXY, paragraph, px, rgb255, rgba255, row, spaceEvenly, spacing, text, width, wrappedRow)
+import Element exposing (Element, alignLeft, alignRight, below, centerX, centerY, column, el, explain, fill, fillPortion, height, inFront, moveDown, moveLeft, moveUp, padding, paddingXY, paragraph, px, rgb255, rgba255, row, shrink, spaceEvenly, spacing, text, width, wrappedRow)
 import Element.Background as Bg
 import Element.Border as Border
 import Element.Font as Font
@@ -20,7 +20,7 @@ import List
 import List.Extra
 import Maybe.Extra exposing (isJust, isNothing)
 import Misc exposing (attr, attrWhen, either, match, moneyRegex, noCmd, userSelectNone, viewIcon, viewIconButton, viewIf)
-import Misc.Colors exposing (blue500, rgbHex, teal100, teal500, teal700, white)
+import Misc.Colors as Colors exposing (blue500, rgbHex, teal100, teal500, teal700, white)
 import Regex
 import RemoteData exposing (RemoteData)
 import Request.AddTransaction exposing (..)
@@ -342,6 +342,12 @@ view ctx =
             , Font.color white
             , Border.shadow { offset = ( 0, 2 ), size = 0, blur = 10, color = rgba255 0 0 0 0.4 }
             , paddingXY 22 18
+            , inFront <|
+                column [ width fill, moveDown 10, moveLeft 22 ]
+                    [ column [ alignRight ] [ viewSave ctx ] ]
+            , below <|
+                viewIf (model.saveState == Saving) <|
+                    row [ moveUp 5, height (px 10), width fill ] [ Misc.viewLoadingBar ]
             ]
             [ text "New transaction" ]
         , row
@@ -357,8 +363,6 @@ view ctx =
                 ]
             , el [ alignRight ] <| viewUsualTags ctx
             ]
-        , viewSave ctx
-        , viewSaveResult ctx |> viewIf (model.saveState /= Composing)
         ]
 
 
@@ -526,53 +530,26 @@ viewUsualTag ctx idx ( tagName, iconName ) =
 viewSave : Context msg -> Element msg
 viewSave ctx =
     let
-        {- TODO: Save transfer/shared payment -}
+        { model } =
+            ctx
+
         btnText =
             "Save"
     in
-    row [ padding 20 ]
-        [ Input.button
-            [ Bg.color blue500
-            , Font.color white
-            , Border.rounded 2
-            , paddingXY 12 8
-            ]
-            { onPress =
-                (isFormFilled ctx.model
-                    && (not <| isFormDisabled ctx.model)
-                )
-                    |> either
-                        (Just <| ctx.lift SaveTransaction)
-                        Nothing
-            , label = text btnText
-            }
+    Input.button
+        [ Bg.color blue500
+        , Font.color white
+        , paddingXY 12 6
+        , Border.rounded 2
+        , Border.width 1
+        , Border.color Colors.gray50
         ]
-
-
-viewSaveResult : Context msg -> Element msg
-viewSaveResult ctx =
-    let
-        { model } =
-            ctx
-    in
-    row
-        [ paddingXY 20 39 |> attrWhen (model.saveState /= Saving)
-        ]
-        [ case model.saveState of
-            Composing ->
-                text ""
-
-            Saving ->
-                paragraph [] [ text "Saving..." ]
-
-            SaveError ->
-                paragraph
-                    [ Font.bold, Font.color (rgb255 229 57 53) ]
-                    [ text "Some error occured, please try again or contact Administrator." ]
-
-            Saved result ->
-                Input.button []
-                    { onPress = Just <| ctx.lift OpenSavedTransaction
-                    , label = text "Open Payment"
-                    }
-        ]
+        { onPress =
+            (isFormFilled ctx.model
+                && (not <| isFormDisabled ctx.model)
+            )
+                |> either
+                    (Just <| ctx.lift SaveTransaction)
+                    Nothing
+        , label = text btnText
+        }

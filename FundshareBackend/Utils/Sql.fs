@@ -102,8 +102,8 @@ module Sql =
                   |> dict
                   |> Dictionary
                 upcast value
-            | QIntArray arr -> upcast arr
-            | QStringArray arr -> upcast arr
+            | QIntArray arr -> upcast (List.toArray arr)
+            | QStringArray arr -> upcast (List.toArray arr)
             | QNull -> null
             | QOther x -> x
 

@@ -2,7 +2,7 @@ module Views.ChipsTextfield exposing (Config, Model, Msg, init, update, view)
 
 import Cmd.Extra
 import Data.Context exposing (ContextData)
-import Element exposing (Color, Element, centerY, fill, focused, height, maximum, mouseDown, mouseOver, padding, paddingEach, paddingXY, px, row, spacing, text, width, wrappedRow)
+import Element exposing (Color, Element, centerY, fill, focused, height, maximum, minimum, mouseDown, mouseOver, padding, paddingEach, paddingXY, px, row, shrink, spacing, text, width, wrappedRow)
 import Element.Background as Bg
 import Element.Border as Border
 import Element.Font as Font
@@ -25,7 +25,7 @@ type alias Model =
 type alias Config =
     { isEnabled : Bool
     , label : String
-    , textWhenDisabled : String
+    , textWhenDisabledAndEmpty : String
     }
 
 
@@ -101,11 +101,11 @@ view ctx cfg =
             ctx
     in
     wrappedRow
-        [ width (fill |> maximum 265), height (px 70), centerY, spacing 4 ]
+        [ width (fill |> maximum 265), height (shrink |> minimum 50), centerY, spacing 4 ]
         (List.append
             [ viewIf cfg.isEnabled (model.text |> viewTextfield ctx cfg)
-            , viewIf (not cfg.isEnabled)
-                (row [ paddingEach { edges | top = 20 } ] [ text cfg.textWhenDisabled ])
+            , viewIf (not cfg.isEnabled && List.isEmpty model.chips)
+                (row [ paddingEach { edges | top = 20 } ] [ text cfg.textWhenDisabledAndEmpty ])
             ]
             (viewTagList ctx cfg.isEnabled)
         )
@@ -118,11 +118,11 @@ viewTextfield ctx cfg text =
         , Element.htmlAttribute <| Html.Events.on "keydown" (Json.map (ctx.lift << OnTextfieldKeyDown) Html.Events.keyCode)
         ]
         (Input.text
-            [ width (px 100), attr "id" "input_add-tag" ]
+            [ width (px 100), height (px 30), attr "id" "input_add-tag" ]
             { label = Input.labelHidden "Tags"
             , text = text
             , onChange = ctx.lift << SetText
-            , placeholder = Just (Input.placeholder [] (Element.text "Add tag"))
+            , placeholder = Just (Input.placeholder [ paddingXY 12 4 ] (Element.text "Add tag"))
             }
         )
 

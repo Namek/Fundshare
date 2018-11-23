@@ -185,7 +185,7 @@ let Mutation = Define.Object<Ref<Session>>("mutation", [
       beneficientIds = ctx.Arg "beneficientIds"
       amount = ctx.Arg "amount"
       tags = ctx.Arg "tags"
-      description = ctx.TryArg "description"
+      description = ctx.TryArg "description" |> Option.flatten
     }
     
     let result = Repo.addTransaction args

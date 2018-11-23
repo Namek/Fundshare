@@ -198,7 +198,7 @@ viewLoadingBar =
         Html.div
             [ Html.Attributes.class "load-bar"
             , Html.Attributes.style "width" "100vw"
-            , Html.Attributes.style "max-width" "300px"
+            , Html.Attributes.style "max-width" "400px"
             ]
             [ Html.div [ Html.Attributes.class "bar" ] []
             , Html.div [ Html.Attributes.class "bar" ] []

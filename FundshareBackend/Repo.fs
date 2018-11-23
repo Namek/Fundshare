@@ -129,7 +129,6 @@ let calcTransactionBalanceCorrections transaction : BalanceCorrection list =
       else { user1Id = b.user2Id; user2Id = b.user1Id; num = -b.num; den = b.den }
     )
     
-    
 
 let calculateBalanceFor2Users (user1Id : int) (user2Id : int) : BalanceDao =
   let transactions : Transaction list  =
@@ -318,21 +317,19 @@ let addTransaction (args : Input_AddTransaction) : Result<UserTransaction, Strin
   connect()
   |> Sql.executeQueries
     [ ScalarQuery (
-        "INSERT INTO \"public.users\" (author_id, payor_id, beneficient_ids, acceptance_ids, tags, description, inserted_at, updated_at)
-         VALUES (@aid, @tt, @pid, @bids, @aids, @tags, @descr, @timeNow, @timeNow) RETURNING id",
-        [ "aid", QInt args.authorId
+        "INSERT INTO public.transactions
+           (amount, author_id, payor_id, beneficient_ids, acceptance_ids, tags, description, inserted_at, updated_at)
+         VALUES (@amount, @aid, @pid, @bids, @aids, @tags, @descr, @timeNow, @timeNow) RETURNING id",
+        [ "amount", QInt args.amount
+          "aid", QInt args.authorId
           "pid", QInt args.payorId
           "bids", QIntArray args.beneficientIds
           "aids", QIntArray acceptanceIds
           "tags", QStringArray args.tags
-          "descr", Option.map QString args.description |> Option.defaultWith (fun () -> QNull)
-          "timeNow", QDate <| now ])
-
-        // TODO !
-      NonQuery ("UPDATE balance", [])
-    ]
+          "descr", args.description |> Option.map QString |> Option.defaultWith (fun () -> QNull)
+          "timeNow", QDate <| now ] ) ]
   |> function
-    | Ok [ScalarResult (QInt transactionId); NonQueryResult q2] ->
+    | Ok [ScalarResult (QInt transactionId) ] ->
         { id = transactionId
           authorId = args.authorId
           amount = args.amount
@@ -345,6 +342,13 @@ let addTransaction (args : Input_AddTransaction) : Result<UserTransaction, Strin
           beneficients = None } |> Ok
         
     | Error err -> Error (err.ToString())
+  |> (fun ret ->
+    // TODO in some future you may want to improve performance of this update query.
+    // It's actually quite costly to calculate balance based on all transactions when we add just one transaction.
+    do updateBalanceForUsers (args.payorId :: args.authorId :: args.beneficientIds) |> ignore
+
+    ret
+  )
 
 
 let getUserById (id : int) : User option =
