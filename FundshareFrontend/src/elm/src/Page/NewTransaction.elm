@@ -6,7 +6,7 @@ import Data.Context exposing (..)
 import Data.Person exposing (Person, PersonId)
 import Data.Session exposing (Session)
 import Data.Transaction exposing (TransactionId)
-import Element exposing (Element, alignLeft, alignRight, below, centerX, centerY, column, el, explain, fill, fillPortion, height, inFront, moveDown, moveLeft, moveUp, padding, paddingXY, paragraph, px, rgb255, rgba255, row, shrink, spaceEvenly, spacing, text, width, wrappedRow)
+import Element exposing (Element, alignLeft, alignRight, below, centerX, centerY, column, el, explain, fill, fillPortion, focused, height, inFront, mouseDown, moveDown, moveLeft, moveUp, padding, paddingXY, paragraph, px, rgb255, rgba255, row, shrink, spaceEvenly, spacing, text, width, wrappedRow)
 import Element.Background as Bg
 import Element.Border as Border
 import Element.Font as Font
@@ -19,7 +19,7 @@ import Json.Encode
 import List
 import List.Extra
 import Maybe.Extra exposing (isJust, isNothing)
-import Misc exposing (attr, attrWhen, either, match, moneyRegex, noCmd, userSelectNone, viewIcon, viewIconButton, viewIf)
+import Misc exposing (attr, attrWhen, either, match, moneyRegex, noCmd, noShadow, userSelectNone, viewIcon, viewIconButton, viewIf)
 import Misc.Colors as Colors exposing (blue500, rgbHex, teal100, teal500, teal700, white)
 import Misc.SuccessAnimation exposing (successAnim)
 import Regex
@@ -270,7 +270,11 @@ update ctx msg =
                     model |> noCmd |> noCmd
 
         AddAnotherOne ->
-            initModel session |> noCmd |> noCmd
+            let
+                newModel =
+                    initModel session
+            in
+            { newModel | people = model.people } |> noCmd |> noCmd
 
 
 {-| IDs useful for focusing visual elements.
@@ -299,7 +303,16 @@ amountStrToInt str =
 
 isFormFilled : Model -> Bool
 isFormFilled model =
-    amountStrToInt model.amount /= 0
+    model.payor
+        |> Maybe.map
+            (\payorId ->
+                if amountStrToInt model.amount /= 0 && (Set.size model.beneficients > 0) then
+                    not <| Set.size model.beneficients == 1 && Set.member payorId model.beneficients
+
+                else
+                    False
+            )
+        |> Maybe.withDefault False
 
 
 isFormDisabled : Model -> Bool
@@ -573,6 +586,9 @@ viewSave ctx =
 
         btnText =
             "Save"
+
+        isEnabled =
+            isFormFilled ctx.model && (not <| isFormDisabled ctx.model)
     in
     Input.button
         [ Bg.color blue500
@@ -580,12 +596,14 @@ viewSave ctx =
         , paddingXY 12 6
         , Border.rounded 2
         , Border.width 1
-        , Border.color Colors.gray50
+        , Border.color Colors.gray50 |> attrWhen isEnabled
+        , mouseDown [ noShadow ]
+        , mouseDown [ Font.color teal100 ] |> attrWhen isEnabled
+        , focused [ noShadow ]
+        , Font.color Colors.blueGray900 |> attrWhen (not isEnabled)
         ]
         { onPress =
-            (isFormFilled ctx.model
-                && (not <| isFormDisabled ctx.model)
-            )
+            isEnabled
                 |> either
                     (Just <| ctx.lift SaveTransaction)
                     Nothing
