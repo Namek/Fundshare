@@ -21,6 +21,7 @@ import List.Extra
 import Maybe.Extra exposing (isJust, isNothing)
 import Misc exposing (attr, attrWhen, either, match, moneyRegex, noCmd, userSelectNone, viewIcon, viewIconButton, viewIf)
 import Misc.Colors as Colors exposing (blue500, rgbHex, teal100, teal500, teal700, white)
+import Misc.SuccessAnimation exposing (successAnim)
 import Regex
 import RemoteData exposing (RemoteData)
 import Request.AddTransaction exposing (..)
@@ -58,16 +59,21 @@ init : Session -> ( Model, Cmd Msg )
 init session =
     let
         model =
-            { paymentDescription = ""
-            , amount = ""
-            , payor = Just session.id
-            , beneficients = Set.empty
-            , people = []
-            , tags = ChipsTextfield.init
-            , saveState = Composing
-            }
+            initModel session
     in
     ( model, Cmd.Extra.perform RefreshPeopleList )
+
+
+initModel : Session -> Model
+initModel session =
+    { paymentDescription = ""
+    , amount = ""
+    , payor = Just session.id
+    , beneficients = Set.empty
+    , people = []
+    , tags = ChipsTextfield.init
+    , saveState = Composing
+    }
 
 
 type Msg
@@ -85,6 +91,7 @@ type Msg
     | SaveTransaction
     | SaveTransaction_Response (RemoteData (Graphql.Http.Error TransactionId) TransactionId)
     | OpenSavedTransaction
+    | AddAnotherOne
 
 
 type alias Context msg =
@@ -242,18 +249,15 @@ update ctx msg =
                     model |> noCmd |> noCmd
 
         SaveTransaction_Response result ->
-            (case result of
+            case result of
                 RemoteData.Failure error ->
-                    { model | saveState = SaveError }
+                    { model | saveState = SaveError } |> noCmd |> noCmd
 
                 RemoteData.Success res ->
-                    { model | saveState = Saved (SaveResult res) }
+                    { model | saveState = Saved (SaveResult res) } |> noCmd |> noCmd
 
                 _ ->
-                    model
-            )
-                |> noCmd
-                |> noCmd
+                    model |> noCmd |> noCmd
 
         OpenSavedTransaction ->
             case model.saveState of
@@ -264,6 +268,9 @@ update ctx msg =
 
                 _ ->
                     model |> noCmd |> noCmd
+
+        AddAnotherOne ->
+            initModel session |> noCmd |> noCmd
 
 
 {-| IDs useful for focusing visual elements.
@@ -325,6 +332,34 @@ view ctx =
     let
         { model } =
             ctx
+    in
+    case model.saveState of
+        Saved result ->
+            column [ paddingXY 0 30, spacing 20, centerX ]
+                [ row [ centerX ] [ Element.html <| successAnim { diameter = 150, fillColor = "teal", strokeColor = "green" } ]
+                , Input.button
+                    [ Bg.color Colors.white
+                    , Font.color Colors.black
+                    , paddingXY 12 6
+                    , Border.rounded 3
+                    , Border.width 1
+                    , Border.color Colors.teal500
+                    , centerX
+                    ]
+                    { onPress = Just <| ctx.lift AddAnotherOne
+                    , label = text "Success! One more?"
+                    }
+                ]
+
+        _ ->
+            viewForm ctx
+
+
+viewForm : Context msg -> Element msg
+viewForm ctx =
+    let
+        { model } =
+            ctx
 
         formDisabled =
             isFormDisabled model
@@ -336,6 +371,9 @@ view ctx =
         , Border.color <| teal700
         , Border.solid
         , Border.width 1
+        , attrWhen (model.saveState == Saving) <|
+            inFront <|
+                column [ width fill, height fill, Bg.color <| Colors.rgbaHex 0 0.7 ] []
         ]
         [ paragraph
             [ Bg.color teal500

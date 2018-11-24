@@ -10,6 +10,7 @@ body {
     border: 0;
 }
 
+
 .load-bar {
     position: relative;
     height: 6px;
@@ -40,4 +41,71 @@ body {
     from {left: 50%; width: 0;z-index:100;}
     33.3333% {left: 0; width: 100%;z-index: 10;}
     to {left: 0; width: 100%;}
+}
+
+
+@keyframes scaleAnimation {
+  0% {
+    opacity: 0;
+    -webkit-transform: scale(1.5);
+            transform: scale(1.5);
+  }
+  100% {
+    opacity: 1;
+    -webkit-transform: scale(1);
+            transform: scale(1);
+  }
+}
+@keyframes drawCircle {
+  0% {
+    stroke-dashoffset: 201px;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes drawCheck {
+  0% {
+    stroke-dashoffset: 106px;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes fadeOut {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+.successAnimationCircle {
+  stroke-dasharray: 201px 201px;
+}
+.successAnimationCheck {
+  stroke-dasharray: 106px 106px;
+}
+.successAnimationResult {
+  opacity: 0;
+}
+.successAnimation.animated {
+  animation: 1s ease-out 0s 1 both scaleAnimation;
+}
+.successAnimation.animated .successAnimationCircle {
+  animation: 1s cubic-bezier(0.77, 0, 0.175, 1) 0s 1 both drawCircle, 0.3s linear 0.9s 1 both fadeOut;
+}
+.successAnimation.animated .successAnimationCheck {
+  animation: 1s cubic-bezier(0.77, 0, 0.175, 1) 0s 1 both drawCheck, 0.3s linear 0.9s 1 both fadeOut;
+}
+.successAnimation.animated .successAnimationResult {
+  animation: 0.3s linear 0.9s both fadeIn;
 }
