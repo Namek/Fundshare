@@ -46,10 +46,10 @@ calculateTimeDistance :
 calculateTimeDistance includeSeconds d1 d2 =
     let
         seconds =
-            Time.posixToMillis d1 - Time.posixToMillis d2
+            (Time.posixToMillis d1 - Time.posixToMillis d2) // 1000
 
         minutes =
-            round <| toFloat seconds / 60
+            abs <| (round <| toFloat seconds / 60)
     in
     if includeSeconds && minutes < 2 then
         upToOneMinute seconds
