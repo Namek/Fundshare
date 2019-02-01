@@ -16,6 +16,7 @@ Auth:
   tokenIssuer: fundshare_web
   passwordSalt: r32jf90e8uijk2l1ed
   cookieAuthName: authorization
+  cookieMinutes: 20160
 
 Boot:
   updateBalanceForAllUsers: false

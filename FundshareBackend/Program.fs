@@ -152,7 +152,11 @@ let main argv =
 
         let setAuthCookie session =
           if (!session).token.IsSome then
-            Cookie.setCookie <| HttpCookie.createKV AppConfig.Auth.cookieAuthName (!session).token.Value
+            let cookie =
+              { (HttpCookie.createKV AppConfig.Auth.cookieAuthName (!session).token.Value)
+                with expires =
+                  Some <| DateTimeOffset.Now.AddMinutes(AppConfig.Auth.cookieMinutes |> float) }
+            cookie |> Cookie.setCookie
           else
             WebPart.succeed
 
