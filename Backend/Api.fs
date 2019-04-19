@@ -1,4 +1,4 @@
-module Fundshare.Api
+module Backend.Api
 
 open System
 open FSharp.Data.GraphQL
@@ -6,11 +6,11 @@ open FSharp.Data.GraphQL.Parser
 open FSharp.Data.GraphQL.Types
 open FSharp.Data.GraphQL.Execution
 open FSharp.Data.GraphQL.Linq
-open Fundshare
+open Backend
 
 open Paseto.Authentication
-open Fundshare.DataStructures
-open FundshareBackend.Utils
+open Backend.DataStructures
+open Backend.Utils
 open YoLo
 
 

@@ -1,8 +1,8 @@
-module Fundshare.Repo
+module Backend.Repo
 
-open Fundshare
+open Backend
 open System
-open Fundshare.DataStructures
+open Backend.DataStructures
 open Utils.Sql
 open SqlFrags.SqlGen.Frags
 open SqlFrags.SqlGen

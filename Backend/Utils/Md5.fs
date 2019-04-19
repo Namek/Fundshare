@@ -1,4 +1,4 @@
-module FundshareBackend.Utils.Md5
+module Backend.Utils.Md5
 
 let hash (input : string) =
     use md5 = System.Security.Cryptography.MD5.Create()

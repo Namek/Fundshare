@@ -1,6 +1,6 @@
 // original source: https://github.com/Zaid-Ajaj/Npgsql.FSharp/blob/master/src/Sql.fs
 // mod: added transactions
-module Fundshare.Utils.Sql
+module Backend.Utils.Sql
 
 open System
 open Npgsql

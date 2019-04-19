@@ -1,0 +1,26 @@
+﻿[<AutoOpen>]
+module Backend.AppConfig
+
+module General =
+  let httpFilesPath = "./public"
+  let listenHost = "0.0.0.0"
+  let listenPort = 5000
+  let debugLogging = false
+
+module DB =
+  let host = "database"
+  let port = 5432
+  let username = "postgres"
+  let password = "postgres"
+  let database = "fundshare_prod"
+
+module Auth =
+  let tokenEncryptionKey = "707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f"
+  let tokenIssuer = "fundshare_web"
+  let passwordSalt = "r32jf90e8uijk2l1ed"
+  let cookieAuthName = "authorization"
+  let cookieMinutes = 20160
+
+module Boot =
+  let updateBalanceForAllUsers = false
+  let outputSchemaPath = "./graphql_schema.json"

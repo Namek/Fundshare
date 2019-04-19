@@ -2,7 +2,7 @@ obj/
 bin/
 .idea/
 .vs/
-Config.yaml
+Backend/AppConfig.fs
 public/
 elm-stuff/
 *.user

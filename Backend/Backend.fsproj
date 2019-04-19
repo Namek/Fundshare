@@ -1,19 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <Import Project="./fsc.props" />
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp2.1</TargetFramework>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
-    <DefineConstants>TRACE;DEBUG;NETCOREAPP;NETCOREAPP2_1;DEBUG;</DefineConstants>
-    <OutputPath>bin\Debug\netcoreapp2.1\</OutputPath>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
-    <OutputPath>bin\Release\netcoreapp2.1\</OutputPath>
-    <DefineConstants>TRACE;RELEASE;NETCOREAPP;NETCOREAPP2_1</DefineConstants>
+    <Name>Backend</Name>
+    <ProjectGuid>{62783400-47A5-4FE9-8724-6DC6A562FB88}</ProjectGuid>
   </PropertyGroup>
   <ItemGroup>
-    <Content Include="Config.yaml" />
     <Compile Include="AppConfig.fs" />
     <Compile Include="Utils\Md5.fs" />
     <Compile Include="Utils\Sql.fs" />
@@ -21,15 +13,13 @@
     <Compile Include="Repo.fs" />
     <Compile Include="Api.fs" />
     <Compile Include="Program.fs" />
-  </ItemGroup>
-  <ItemGroup>
+    <PackageReference Include="FSharp.Core" Version="4.5.0" />
     <PackageReference Include="Chiron" Version="6.3.1" />
-    <PackageReference Include="FSharp.Configuration" Version="1.5.0" />
-    <PackageReference Include="FSharp.Data.GraphQL.Server" Version="0.0.10-beta" />
-    <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
+    <PackageReference Include="FSharp.Data.GraphQL.Server" Version="0.0.18-beta" />
+    <PackageReference Include="Newtonsoft.Json" Version="12.0.1" />
     <PackageReference Include="Npgsql" Version="4.0.0" />
     <PackageReference Include="Paseto" Version="1.1.2" />
     <PackageReference Include="SqlFrags" Version="3.0.0" />
-    <PackageReference Include="suave" Version="2.5.3" />
+    <PackageReference Include="suave" Version="2.5.4" />
   </ItemGroup>
 </Project>

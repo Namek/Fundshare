@@ -7,17 +7,17 @@ RUN curl -sL https://github.com/elm/compiler/releases/download/0.19.0/binaries-f
     ln -sfn /root/.dotnet/tools/dotnet-script /bin/dotnet-script
 
 WORKDIR /app/
-COPY FundshareBackend/fsc.props FundshareBackend/*.fsproj ./
+COPY Backend/*.fsproj ./
 RUN dotnet restore
 
-COPY FundshareBackend/Config.yaml ./Config.yaml
-COPY FundshareBackend/*.fs ./
-COPY FundshareBackend/Utils/*.fs ./Utils/
+COPY Backend/AppConfig.fs ./AppConfig.fs
+COPY Backend/*.fs ./
+COPY Backend/Utils/*.fs ./Utils/
 RUN dotnet publish -c Release -o out
 
 WORKDIR /frontend/
-COPY FundshareFrontend/src/ ./src
-COPY FundshareFrontend/build.csx ./
+COPY Frontend/src/ ./src
+COPY Frontend/build.csx ./
 RUN rm -rf ./src/elm/elm-stuff && \
     dotnet script build.csx build
 
@@ -31,5 +31,5 @@ COPY --from=build /app/out ./
 COPY --from=build /frontend/public ./public/
 
 EXPOSE 5000
-ENTRYPOINT ["dotnet", "FundshareBackend.dll"]
+ENTRYPOINT ["dotnet", "Backend.dll"]
 

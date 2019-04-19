@@ -1,4 +1,4 @@
-module Fundshare.DataStructures
+module Backend.DataStructures
 
 open System
 

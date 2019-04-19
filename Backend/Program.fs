@@ -1,4 +1,4 @@
-module Fundshare.Main
+module Backend.Main
 
 open System
 open System.Collections.Generic
@@ -13,7 +13,7 @@ open Chiron
 open FSharp.Data.GraphQL
 open FSharp.Data.GraphQL.Types
 open FSharp.Data.GraphQL.Execution
-open Fundshare.Api
+open Backend.Api
 
 
 let tryParse fieldName (data : byte array) =
