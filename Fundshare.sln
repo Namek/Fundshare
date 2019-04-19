@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FundshareBackend", "FundshareBackend\FundshareBackend.fsproj", "{0EE27E8E-0EBD-47C0-93B5-CBB6FB38BB0C}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Backend", "Backend\Backend.fsproj", "{0EE27E8E-0EBD-47C0-93B5-CBB6FB38BB0C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
