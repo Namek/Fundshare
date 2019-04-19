@@ -5,3 +5,4 @@ bin/
 Config.yaml
 public/
 elm-stuff/
+*.user
