@@ -2,44 +2,38 @@
 -- https://github.com/dillonkearns/elm-graphql
 
 
-module Api.Object.SignInResult exposing (email, id, inboxSize, name, selection)
+module Api.Object.SignInResult exposing (email, id, inboxSize, name)
 
 import Api.InputObject
 import Api.Interface
 import Api.Object
 import Api.Scalar
+import Api.ScalarCodecs
 import Api.Union
-import Graphql.Field as Field exposing (Field)
 import Graphql.Internal.Builder.Argument as Argument exposing (Argument)
 import Graphql.Internal.Builder.Object as Object
 import Graphql.Internal.Encode as Encode exposing (Value)
+import Graphql.Operation exposing (RootMutation, RootQuery, RootSubscription)
 import Graphql.OptionalArgument exposing (OptionalArgument(..))
 import Graphql.SelectionSet exposing (SelectionSet)
 import Json.Decode as Decode
 
 
-{-| Select fields to build up a SelectionSet for this object.
--}
-selection : (a -> constructor) -> SelectionSet (a -> constructor) Api.Object.SignInResult
-selection constructor =
-    Object.selection constructor
-
-
-email : Field String Api.Object.SignInResult
+email : SelectionSet String Api.Object.SignInResult
 email =
-    Object.fieldDecoder "email" [] Decode.string
+    Object.selectionForField "String" "email" [] Decode.string
 
 
-id : Field Int Api.Object.SignInResult
+id : SelectionSet Int Api.Object.SignInResult
 id =
-    Object.fieldDecoder "id" [] Decode.int
+    Object.selectionForField "Int" "id" [] Decode.int
 
 
-inboxSize : Field Int Api.Object.SignInResult
+inboxSize : SelectionSet Int Api.Object.SignInResult
 inboxSize =
-    Object.fieldDecoder "inboxSize" [] Decode.int
+    Object.selectionForField "Int" "inboxSize" [] Decode.int
 
 
-name : Field String Api.Object.SignInResult
+name : SelectionSet String Api.Object.SignInResult
 name =
-    Object.fieldDecoder "name" [] Decode.string
+    Object.selectionForField "String" "name" [] Decode.string

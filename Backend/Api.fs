@@ -81,6 +81,15 @@ let rec User = Define.Object<User>("User", fieldsFn = fun () -> [
       let limit = ctx.Arg "limit"
       Repo.getUserTransactions user.id None offset limit
   )
+  Define.Field("inboxTransactions", ListOf UserTransaction, "Transactions that this user can accept or modify.",
+    [ Define.Input("offset", Nullable Int, Some 0)
+      Define.Input("limit", Nullable Int, None)
+    ],
+    fun ctx user ->
+      let offset = ctx.Arg "offset"
+      let limit = ctx.Arg "limit"
+      Repo.getUserInboxTransactions user.id offset limit
+  )
 ])
 and UserTransaction = Define.Object<UserTransaction>("UserTransaction", fieldsFn = fun () -> [
   Define.AutoField("id", Int)
@@ -172,7 +181,7 @@ let Query = Define.Object<Ref<Session>>("query", [
   
 let Mutation = Define.Object<Ref<Session>>("mutation", [
   Define.Field("addTransaction", UserTransaction,
-    "Remember transaction between payor and beneficients, then update balance between them", [
+    "Remember transaction between payor and beneficients, then update the balance", [
       Define.Input("payorId", Int)
       Define.Input("beneficientIds", ListOf Int)
       Define.Input("amount", Int)

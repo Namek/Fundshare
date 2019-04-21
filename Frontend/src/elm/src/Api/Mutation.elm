@@ -2,14 +2,14 @@
 -- https://github.com/dillonkearns/elm-graphql
 
 
-module Api.Mutation exposing (AcceptTransactionsRequiredArguments, AddTransactionOptionalArguments, AddTransactionRequiredArguments, RegisterUserRequiredArguments, SignInRequiredArguments, acceptTransactions, addTransaction, checkSession, registerUser, selection, signIn, signOut)
+module Api.Mutation exposing (AcceptTransactionsRequiredArguments, AddTransactionOptionalArguments, AddTransactionRequiredArguments, RegisterUserRequiredArguments, SignInRequiredArguments, acceptTransactions, addTransaction, checkSession, registerUser, signIn, signOut)
 
 import Api.InputObject
 import Api.Interface
 import Api.Object
 import Api.Scalar
+import Api.ScalarCodecs
 import Api.Union
-import Graphql.Field as Field exposing (Field)
 import Graphql.Internal.Builder.Argument as Argument exposing (Argument)
 import Graphql.Internal.Builder.Object as Object
 import Graphql.Internal.Encode as Encode exposing (Value)
@@ -19,23 +19,15 @@ import Graphql.SelectionSet exposing (SelectionSet)
 import Json.Decode as Decode exposing (Decoder)
 
 
-{-| Select fields to build up a top-level mutation. The request can be sent with
-functions from `Graphql.Http`.
--}
-selection : (a -> constructor) -> SelectionSet (a -> constructor) RootMutation
-selection constructor =
-    Object.selection constructor
-
-
 type alias AcceptTransactionsRequiredArguments =
     { transactionIds : List Int }
 
 
 {-| Accept transactions added by someone else
 -}
-acceptTransactions : AcceptTransactionsRequiredArguments -> SelectionSet decodesTo Api.Object.AcceptTransactionsResult -> Field (Maybe decodesTo) RootMutation
+acceptTransactions : AcceptTransactionsRequiredArguments -> SelectionSet decodesTo Api.Object.AcceptTransactionsResult -> SelectionSet (Maybe decodesTo) RootMutation
 acceptTransactions requiredArgs object_ =
-    Object.selectionField "acceptTransactions" [ Argument.required "transactionIds" requiredArgs.transactionIds (Encode.int |> Encode.list) ] object_ (identity >> Decode.nullable)
+    Object.selectionForCompositeField "acceptTransactions" [ Argument.required "transactionIds" requiredArgs.transactionIds (Encode.int |> Encode.list) ] object_ (identity >> Decode.nullable)
 
 
 type alias AddTransactionOptionalArguments =
@@ -43,12 +35,16 @@ type alias AddTransactionOptionalArguments =
 
 
 type alias AddTransactionRequiredArguments =
-    { payorId : Int, beneficientIds : List Int, amount : Int, tags : List String }
+    { payorId : Int
+    , beneficientIds : List Int
+    , amount : Int
+    , tags : List String
+    }
 
 
 {-| Remember transaction between payor and beneficients, then update balance between them
 -}
-addTransaction : (AddTransactionOptionalArguments -> AddTransactionOptionalArguments) -> AddTransactionRequiredArguments -> SelectionSet decodesTo Api.Object.UserTransaction -> Field decodesTo RootMutation
+addTransaction : (AddTransactionOptionalArguments -> AddTransactionOptionalArguments) -> AddTransactionRequiredArguments -> SelectionSet decodesTo Api.Object.UserTransaction -> SelectionSet decodesTo RootMutation
 addTransaction fillInOptionals requiredArgs object_ =
     let
         filledInOptionals =
@@ -58,29 +54,34 @@ addTransaction fillInOptionals requiredArgs object_ =
             [ Argument.optional "description" filledInOptionals.description Encode.string ]
                 |> List.filterMap identity
     in
-    Object.selectionField "addTransaction" (optionalArgs ++ [ Argument.required "payorId" requiredArgs.payorId Encode.int, Argument.required "beneficientIds" requiredArgs.beneficientIds (Encode.int |> Encode.list), Argument.required "amount" requiredArgs.amount Encode.int, Argument.required "tags" requiredArgs.tags (Encode.string |> Encode.list) ]) object_ identity
+    Object.selectionForCompositeField "addTransaction" (optionalArgs ++ [ Argument.required "payorId" requiredArgs.payorId Encode.int, Argument.required "beneficientIds" requiredArgs.beneficientIds (Encode.int |> Encode.list), Argument.required "amount" requiredArgs.amount Encode.int, Argument.required "tags" requiredArgs.tags (Encode.string |> Encode.list) ]) object_ identity
 
 
-{-| Check who are is signed in based on httponly safe cookies
+{-| Check who is signed in based on httponly safe cookies
 -}
-checkSession : SelectionSet decodesTo Api.Object.CheckSessionResult -> Field (Maybe decodesTo) RootMutation
+checkSession : SelectionSet decodesTo Api.Object.CheckSessionResult -> SelectionSet (Maybe decodesTo) RootMutation
 checkSession object_ =
-    Object.selectionField "checkSession" [] object_ (identity >> Decode.nullable)
+    Object.selectionForCompositeField "checkSession" [] object_ (identity >> Decode.nullable)
 
 
 type alias RegisterUserRequiredArguments =
-    { email : String, name : String, passwordHash : String }
+    { email : String
+    , name : String
+    , passwordHash : String
+    }
 
 
 {-| Register a new user
 -}
-registerUser : RegisterUserRequiredArguments -> SelectionSet decodesTo Api.Object.RegisterUserResult -> Field decodesTo RootMutation
+registerUser : RegisterUserRequiredArguments -> SelectionSet decodesTo Api.Object.RegisterUserResult -> SelectionSet decodesTo RootMutation
 registerUser requiredArgs object_ =
-    Object.selectionField "registerUser" [ Argument.required "email" requiredArgs.email Encode.string, Argument.required "name" requiredArgs.name Encode.string, Argument.required "passwordHash" requiredArgs.passwordHash Encode.string ] object_ identity
+    Object.selectionForCompositeField "registerUser" [ Argument.required "email" requiredArgs.email Encode.string, Argument.required "name" requiredArgs.name Encode.string, Argument.required "passwordHash" requiredArgs.passwordHash Encode.string ] object_ identity
 
 
 type alias SignInRequiredArguments =
-    { email : String, passwordHash : String }
+    { email : String
+    , passwordHash : String
+    }
 
 
 {-| Sign in user of given email with a password
@@ -88,13 +89,13 @@ type alias SignInRequiredArguments =
   - passwordHash - md5 hashed password where salt (added on the right) is login email
 
 -}
-signIn : SignInRequiredArguments -> SelectionSet decodesTo Api.Object.SignInResult -> Field decodesTo RootMutation
+signIn : SignInRequiredArguments -> SelectionSet decodesTo Api.Object.SignInResult -> SelectionSet decodesTo RootMutation
 signIn requiredArgs object_ =
-    Object.selectionField "signIn" [ Argument.required "email" requiredArgs.email Encode.string, Argument.required "passwordHash" requiredArgs.passwordHash Encode.string ] object_ identity
+    Object.selectionForCompositeField "signIn" [ Argument.required "email" requiredArgs.email Encode.string, Argument.required "passwordHash" requiredArgs.passwordHash Encode.string ] object_ identity
 
 
 {-| Sign out current user
 -}
-signOut : SelectionSet decodesTo Api.Object.SignOutResult -> Field decodesTo RootMutation
+signOut : SelectionSet decodesTo Api.Object.SignOutResult -> SelectionSet decodesTo RootMutation
 signOut object_ =
-    Object.selectionField "signOut" [] object_ identity
+    Object.selectionForCompositeField "signOut" [] object_ identity

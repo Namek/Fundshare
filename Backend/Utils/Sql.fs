@@ -159,10 +159,11 @@ module Sql =
           //if session.NeedPrepare then do command.Prepare()
         
       try
-        let result = match sqlQuery with
-        | NonQuery _ -> NonQueryResult <| command.ExecuteNonQuery()
-        | ScalarQuery _ -> ScalarResult <| (command.ExecuteScalar() |> readValue)
-        | TableQuery _ -> TableResult <| (command.ExecuteReader() |> readTable)
+        let result =
+          match sqlQuery with
+            | NonQuery _ -> NonQueryResult <| command.ExecuteNonQuery()
+            | ScalarQuery _ -> ScalarResult <| (command.ExecuteScalar() |> readValue)
+            | TableQuery _ -> TableResult <| (command.ExecuteReader() |> readTable)
         do Debug.Print (result.ToString())
         result
       with | ex ->

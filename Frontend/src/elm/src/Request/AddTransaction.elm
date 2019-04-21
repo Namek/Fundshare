@@ -35,12 +35,7 @@ addTransaction newTransaction =
             , tags = newTransaction.tags |> Maybe.withDefault []
             }
     in
-    Mutation.selection identity
-        |> with
-            (Mutation.addTransaction
-                optionalArgs
-                requiredArgs
-                (UserTransaction.selection identity
-                    |> with UserTransaction.id
-                )
-            )
+    Mutation.addTransaction
+        optionalArgs
+        requiredArgs
+        UserTransaction.id

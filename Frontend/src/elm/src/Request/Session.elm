@@ -8,7 +8,6 @@ import Data.Session exposing (Session)
 import Graphql.Operation exposing (RootMutation, RootQuery)
 import Graphql.SelectionSet as SelectionSet exposing (SelectionSet, with)
 import MD5
-import RemoteData exposing (RemoteData)
 
 
 type alias SignInResult =
@@ -31,38 +30,29 @@ signIn credentials =
             , passwordHash = credentials.password |> MD5.hex
             }
     in
-    Mutation.selection identity
-        |> with
-            (Mutation.signIn input
-                (SignInResult.selection Session
-                    |> with SignInResult.id
-                    |> with SignInResult.email
-                    |> with SignInResult.name
-                    |> with SignInResult.inboxSize
-                )
-            )
+    Mutation.signIn input
+        (SelectionSet.succeed Session
+            |> with SignInResult.id
+            |> with SignInResult.email
+            |> with SignInResult.name
+            |> with SignInResult.inboxSize
+        )
 
 
 checkSession : () -> SelectionSet (Maybe SignInResult) RootMutation
 checkSession () =
-    Mutation.selection identity
-        |> with
-            (Mutation.checkSession
-                (CheckSessionResult.selection Session
-                    |> with CheckSessionResult.id
-                    |> with CheckSessionResult.email
-                    |> with CheckSessionResult.name
-                    |> with CheckSessionResult.inboxSize
-                )
-            )
+    Mutation.checkSession
+        (SelectionSet.succeed Session
+            |> with CheckSessionResult.id
+            |> with CheckSessionResult.email
+            |> with CheckSessionResult.name
+            |> with CheckSessionResult.inboxSize
+        )
 
 
 signOut : () -> SelectionSet SignOutResult RootMutation
 signOut () =
-    Mutation.selection identity
-        |> with
-            (Mutation.signOut
-                (SignOutResult.selection SignOutResult
-                    |> with SignOutResult.userId
-                )
-            )
+    Mutation.signOut
+        (SelectionSet.succeed SignOutResult
+            |> with SignOutResult.userId
+        )

@@ -2,29 +2,23 @@
 -- https://github.com/dillonkearns/elm-graphql
 
 
-module Api.Object.SignOutResult exposing (selection, userId)
+module Api.Object.SignOutResult exposing (userId)
 
 import Api.InputObject
 import Api.Interface
 import Api.Object
 import Api.Scalar
+import Api.ScalarCodecs
 import Api.Union
-import Graphql.Field as Field exposing (Field)
 import Graphql.Internal.Builder.Argument as Argument exposing (Argument)
 import Graphql.Internal.Builder.Object as Object
 import Graphql.Internal.Encode as Encode exposing (Value)
+import Graphql.Operation exposing (RootMutation, RootQuery, RootSubscription)
 import Graphql.OptionalArgument exposing (OptionalArgument(..))
 import Graphql.SelectionSet exposing (SelectionSet)
 import Json.Decode as Decode
 
 
-{-| Select fields to build up a SelectionSet for this object.
--}
-selection : (a -> constructor) -> SelectionSet (a -> constructor) Api.Object.SignOutResult
-selection constructor =
-    Object.selection constructor
-
-
-userId : Field (Maybe Int) Api.Object.SignOutResult
+userId : SelectionSet (Maybe Int) Api.Object.SignOutResult
 userId =
-    Object.fieldDecoder "userId" [] (Decode.int |> Decode.nullable)
+    Object.selectionForField "(Maybe Int)" "userId" [] (Decode.int |> Decode.nullable)

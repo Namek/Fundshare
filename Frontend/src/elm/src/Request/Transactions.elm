@@ -2,6 +2,7 @@ module Request.Transactions exposing
     ( AcceptTransactionsResult
     , TransactionList
     , acceptTransactions
+    , getUserInboxTransactions
     , getUserTransactions
     )
 
@@ -10,9 +11,7 @@ import Api.Object.AcceptTransactionsResult as AcceptTransactionsResult
 import Api.Object.User as User
 import Api.Object.UserTransaction as UserTransaction
 import Api.Query as Query
-import Api.Scalar
 import Data.Transaction exposing (Transaction, TransactionId)
-import Graphql.Field as Field
 import Graphql.Operation exposing (RootMutation, RootQuery)
 import Graphql.OptionalArgument exposing (OptionalArgument(..))
 import Graphql.SelectionSet as SelectionSet exposing (SelectionSet, with)
@@ -61,20 +60,54 @@ getUserTransactions offset limit =
         defaultResult =
             { offset = offset, limit = 0, transactions = [] }
     in
-    Query.selection (Maybe.withDefault defaultResult)
+    SelectionSet.succeed (Maybe.withDefault defaultResult)
         |> with
             (Query.currentUser
-                (User.selection identity
-                    |> with
-                        (User.transactions (always params) transaction
-                            |> Field.map (\t -> { defaultResult | limit = limit, transactions = t })
-                        )
+                (User.transactions (always params) transaction
+                    |> SelectionSet.map (\t -> { defaultResult | limit = limit, transactions = t })
+                )
+            )
+
+
+{-| Query:
+
+    query currentUserTransactions {
+      currentUser {
+        inboxTransactions {
+          id
+          amount
+          description
+          tags
+          beneficientIds
+          acceptanceIds
+          insertedAt
+        }
+      }
+    }
+
+-}
+getUserInboxTransactions : SelectionSet TransactionList RootQuery
+getUserInboxTransactions =
+    let
+        params =
+            { offset = Absent
+            , limit = Absent
+            }
+
+        defaultResult =
+            { offset = 0, limit = 0, transactions = [] }
+    in
+    SelectionSet.succeed (Maybe.withDefault defaultResult)
+        |> with
+            (Query.currentUser
+                (User.inboxTransactions (always params) transaction
+                    |> SelectionSet.map (\t -> { defaultResult | transactions = t, limit = List.length t + 1 })
                 )
             )
 
 
 transaction =
-    UserTransaction.selection Transaction
+    SelectionSet.succeed Transaction
         |> with UserTransaction.id
         |> with UserTransaction.amount
         |> with UserTransaction.description
@@ -82,15 +115,15 @@ transaction =
         |> with UserTransaction.payorId
         |> with UserTransaction.beneficientIds
         |> with UserTransaction.acceptanceIds
-        |> with (UserTransaction.insertedAt |> Field.map decodeDate)
+        |> with (UserTransaction.insertedAt |> SelectionSet.map decodeDate)
 
 
 acceptTransactions : List TransactionId -> SelectionSet AcceptTransactionsResult RootMutation
 acceptTransactions transactionIds =
-    Mutation.selection (Maybe.withDefault { acceptedIds = [], failedIds = transactionIds })
+    SelectionSet.succeed (Maybe.withDefault { acceptedIds = [], failedIds = transactionIds })
         |> with
             (Mutation.acceptTransactions { transactionIds = transactionIds }
-                (AcceptTransactionsResult.selection AcceptTransactionsResult
+                (SelectionSet.succeed AcceptTransactionsResult
                     |> with AcceptTransactionsResult.acceptedIds
                     |> with AcceptTransactionsResult.failedIds
                 )

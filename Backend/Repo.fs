@@ -160,8 +160,8 @@ let calculateTotalBalanceFromTransactionsFor2Users (expectedUser1Id : int) (expe
 
 let calculateBalanceFor2Users (user1Id : int) (user2Id : int) : BalanceDao =
   let transactions : Transaction list  =
-    Sql.executeQuery (TableQuery (
-      "SELECT author_id, payor_id, beneficient_ids, acceptance_ids, amount, updated_at
+    Sql.executeQuery (TableQuery
+      ("SELECT author_id, payor_id, beneficient_ids, acceptance_ids, amount, updated_at
        FROM public.transactions
        WHERE payor_id = @u1 OR payor_id = @u2 OR @u1 = any(beneficient_ids) OR @u2 = any(beneficient_ids)",
       [ "u1", QInt user1Id; "u2", QInt user2Id ] )) (connect())
@@ -455,9 +455,14 @@ let getUserTransactions (userId : int) (where : string option) (offset : int opt
   let uid = userId.ToString()
   let qwhere =
     "(payor_id = " + uid + " OR " + uid + " = any(beneficient_ids))"
-    + (where |> transformOrEmpty (fun w -> " AND " + w))
+    + (where |> transformOrEmpty (fun w -> " AND (" + w + ")"))
 
   getTransactions (Some qwhere) (Some "inserted_at DESC, id DESC") offset limit
+
+let getUserInboxTransactions (userId : int) (offset : int option) (limit : int option) : UserTransaction list =
+  let uid = userId.ToString()
+  let qwhere = uid + " != all(acceptance_ids)" 
+  getUserTransactions userId (Some qwhere) offset limit
  
 // returns IDs of updated transactions
 let acceptTransactions (userId : int) (transactionIds : int list) : int list =
@@ -495,8 +500,8 @@ let acceptTransactions (userId : int) (transactionIds : int list) : int list =
   
 let getUserBalances userId : BalanceToOtherUser list =
   connect()
-  |> Sql.executeQueryAndGetRows (TableQuery (
-    "(SELECT user2_id as other_user_id, balance_num, balance_den, user1_has_more as sign, shared_payment_count,
+  |> Sql.executeQueryAndGetRows (TableQuery
+    ("(SELECT user2_id as other_user_id, balance_num, balance_den, user1_has_more as sign, shared_payment_count,
      	transfer_count, last_update_at,
      	authored_by_user1_count as authored_by_me_count,
      	(shared_payment_count + transfer_count - authored_by_user1_count) as authored_by_other_user_count,

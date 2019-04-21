@@ -2,56 +2,73 @@
 -- https://github.com/dillonkearns/elm-graphql
 
 
-module Api.Object.User exposing (TransactionsOptionalArguments, balances, email, id, name, selection, transactions)
+module Api.Object.User exposing (InboxTransactionsOptionalArguments, TransactionsOptionalArguments, balances, email, id, inboxTransactions, name, transactions)
 
 import Api.InputObject
 import Api.Interface
 import Api.Object
 import Api.Scalar
+import Api.ScalarCodecs
 import Api.Union
-import Graphql.Field as Field exposing (Field)
 import Graphql.Internal.Builder.Argument as Argument exposing (Argument)
 import Graphql.Internal.Builder.Object as Object
 import Graphql.Internal.Encode as Encode exposing (Value)
+import Graphql.Operation exposing (RootMutation, RootQuery, RootSubscription)
 import Graphql.OptionalArgument exposing (OptionalArgument(..))
 import Graphql.SelectionSet exposing (SelectionSet)
 import Json.Decode as Decode
 
 
-{-| Select fields to build up a SelectionSet for this object.
--}
-selection : (a -> constructor) -> SelectionSet (a -> constructor) Api.Object.User
-selection constructor =
-    Object.selection constructor
-
-
-balances : SelectionSet decodesTo Api.Object.BalanceToOtherUser -> Field (List decodesTo) Api.Object.User
+balances : SelectionSet decodesTo Api.Object.BalanceToOtherUser -> SelectionSet (List decodesTo) Api.Object.User
 balances object_ =
-    Object.selectionField "balances" [] object_ (identity >> Decode.list)
+    Object.selectionForCompositeField "balances" [] object_ (identity >> Decode.list)
 
 
-email : Field String Api.Object.User
+email : SelectionSet String Api.Object.User
 email =
-    Object.fieldDecoder "email" [] Decode.string
+    Object.selectionForField "String" "email" [] Decode.string
 
 
-id : Field Int Api.Object.User
+id : SelectionSet Int Api.Object.User
 id =
-    Object.fieldDecoder "id" [] Decode.int
+    Object.selectionForField "Int" "id" [] Decode.int
 
 
-name : Field String Api.Object.User
+type alias InboxTransactionsOptionalArguments =
+    { offset : OptionalArgument Int
+    , limit : OptionalArgument Int
+    }
+
+
+{-| Transactions that this user can accept or modify.
+-}
+inboxTransactions : (InboxTransactionsOptionalArguments -> InboxTransactionsOptionalArguments) -> SelectionSet decodesTo Api.Object.UserTransaction -> SelectionSet (List decodesTo) Api.Object.User
+inboxTransactions fillInOptionals object_ =
+    let
+        filledInOptionals =
+            fillInOptionals { offset = Absent, limit = Absent }
+
+        optionalArgs =
+            [ Argument.optional "offset" filledInOptionals.offset Encode.int, Argument.optional "limit" filledInOptionals.limit Encode.int ]
+                |> List.filterMap identity
+    in
+    Object.selectionForCompositeField "inboxTransactions" optionalArgs object_ (identity >> Decode.list)
+
+
+name : SelectionSet String Api.Object.User
 name =
-    Object.fieldDecoder "name" [] Decode.string
+    Object.selectionForField "String" "name" [] Decode.string
 
 
 type alias TransactionsOptionalArguments =
-    { offset : OptionalArgument Int, limit : OptionalArgument Int }
+    { offset : OptionalArgument Int
+    , limit : OptionalArgument Int
+    }
 
 
 {-| Transactions for which this user was a payor or a beneficient
 -}
-transactions : (TransactionsOptionalArguments -> TransactionsOptionalArguments) -> SelectionSet decodesTo Api.Object.UserTransaction -> Field (List decodesTo) Api.Object.User
+transactions : (TransactionsOptionalArguments -> TransactionsOptionalArguments) -> SelectionSet decodesTo Api.Object.UserTransaction -> SelectionSet (List decodesTo) Api.Object.User
 transactions fillInOptionals object_ =
     let
         filledInOptionals =
@@ -61,4 +78,4 @@ transactions fillInOptionals object_ =
             [ Argument.optional "offset" filledInOptionals.offset Encode.int, Argument.optional "limit" filledInOptionals.limit Encode.int ]
                 |> List.filterMap identity
     in
-    Object.selectionField "transactions" optionalArgs object_ (identity >> Decode.list)
+    Object.selectionForCompositeField "transactions" optionalArgs object_ (identity >> Decode.list)

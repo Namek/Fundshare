@@ -2,79 +2,73 @@
 -- https://github.com/dillonkearns/elm-graphql
 
 
-module Api.Object.BalanceToOtherUser exposing (authoredByMeCount, authoredByOtherUserCount, iHaveMore, inboxForMeCount, inboxForOtherUserCount, lastUpdateAt, otherUser, otherUserId, selection, sharedPaymentCount, transferCount, value)
+module Api.Object.BalanceToOtherUser exposing (authoredByMeCount, authoredByOtherUserCount, iHaveMore, inboxForMeCount, inboxForOtherUserCount, lastUpdateAt, otherUser, otherUserId, sharedPaymentCount, transferCount, value)
 
 import Api.InputObject
 import Api.Interface
 import Api.Object
 import Api.Scalar
+import Api.ScalarCodecs
 import Api.Union
-import Graphql.Field as Field exposing (Field)
 import Graphql.Internal.Builder.Argument as Argument exposing (Argument)
 import Graphql.Internal.Builder.Object as Object
 import Graphql.Internal.Encode as Encode exposing (Value)
+import Graphql.Operation exposing (RootMutation, RootQuery, RootSubscription)
 import Graphql.OptionalArgument exposing (OptionalArgument(..))
 import Graphql.SelectionSet exposing (SelectionSet)
 import Json.Decode as Decode
 
 
-{-| Select fields to build up a SelectionSet for this object.
--}
-selection : (a -> constructor) -> SelectionSet (a -> constructor) Api.Object.BalanceToOtherUser
-selection constructor =
-    Object.selection constructor
-
-
-authoredByMeCount : Field Int Api.Object.BalanceToOtherUser
+authoredByMeCount : SelectionSet Int Api.Object.BalanceToOtherUser
 authoredByMeCount =
-    Object.fieldDecoder "authoredByMeCount" [] Decode.int
+    Object.selectionForField "Int" "authoredByMeCount" [] Decode.int
 
 
-authoredByOtherUserCount : Field Int Api.Object.BalanceToOtherUser
+authoredByOtherUserCount : SelectionSet Int Api.Object.BalanceToOtherUser
 authoredByOtherUserCount =
-    Object.fieldDecoder "authoredByOtherUserCount" [] Decode.int
+    Object.selectionForField "Int" "authoredByOtherUserCount" [] Decode.int
 
 
-iHaveMore : Field Bool Api.Object.BalanceToOtherUser
+iHaveMore : SelectionSet Bool Api.Object.BalanceToOtherUser
 iHaveMore =
-    Object.fieldDecoder "iHaveMore" [] Decode.bool
+    Object.selectionForField "Bool" "iHaveMore" [] Decode.bool
 
 
-inboxForMeCount : Field Int Api.Object.BalanceToOtherUser
+inboxForMeCount : SelectionSet Int Api.Object.BalanceToOtherUser
 inboxForMeCount =
-    Object.fieldDecoder "inboxForMeCount" [] Decode.int
+    Object.selectionForField "Int" "inboxForMeCount" [] Decode.int
 
 
-inboxForOtherUserCount : Field Int Api.Object.BalanceToOtherUser
+inboxForOtherUserCount : SelectionSet Int Api.Object.BalanceToOtherUser
 inboxForOtherUserCount =
-    Object.fieldDecoder "inboxForOtherUserCount" [] Decode.int
+    Object.selectionForField "Int" "inboxForOtherUserCount" [] Decode.int
 
 
-lastUpdateAt : Field Api.Scalar.Date Api.Object.BalanceToOtherUser
+lastUpdateAt : SelectionSet Api.ScalarCodecs.Date Api.Object.BalanceToOtherUser
 lastUpdateAt =
-    Object.fieldDecoder "lastUpdateAt" [] (Object.scalarDecoder |> Decode.map Api.Scalar.Date)
+    Object.selectionForField "ScalarCodecs.Date" "lastUpdateAt" [] (Api.ScalarCodecs.codecs |> Api.Scalar.unwrapCodecs |> .codecDate |> .decoder)
 
 
-otherUser : SelectionSet decodesTo Api.Object.User -> Field decodesTo Api.Object.BalanceToOtherUser
+otherUser : SelectionSet decodesTo Api.Object.User -> SelectionSet decodesTo Api.Object.BalanceToOtherUser
 otherUser object_ =
-    Object.selectionField "otherUser" [] object_ identity
+    Object.selectionForCompositeField "otherUser" [] object_ identity
 
 
-otherUserId : Field Int Api.Object.BalanceToOtherUser
+otherUserId : SelectionSet Int Api.Object.BalanceToOtherUser
 otherUserId =
-    Object.fieldDecoder "otherUserId" [] Decode.int
+    Object.selectionForField "Int" "otherUserId" [] Decode.int
 
 
-sharedPaymentCount : Field Int Api.Object.BalanceToOtherUser
+sharedPaymentCount : SelectionSet Int Api.Object.BalanceToOtherUser
 sharedPaymentCount =
-    Object.fieldDecoder "sharedPaymentCount" [] Decode.int
+    Object.selectionForField "Int" "sharedPaymentCount" [] Decode.int
 
 
-transferCount : Field Int Api.Object.BalanceToOtherUser
+transferCount : SelectionSet Int Api.Object.BalanceToOtherUser
 transferCount =
-    Object.fieldDecoder "transferCount" [] Decode.int
+    Object.selectionForField "Int" "transferCount" [] Decode.int
 
 
-value : Field Float Api.Object.BalanceToOtherUser
+value : SelectionSet Float Api.Object.BalanceToOtherUser
 value =
-    Object.fieldDecoder "value" [] Decode.float
+    Object.selectionForField "Float" "value" [] Decode.float

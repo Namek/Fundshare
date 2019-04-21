@@ -2,34 +2,28 @@
 -- https://github.com/dillonkearns/elm-graphql
 
 
-module Api.Object.AcceptTransactionsResult exposing (acceptedIds, failedIds, selection)
+module Api.Object.AcceptTransactionsResult exposing (acceptedIds, failedIds)
 
 import Api.InputObject
 import Api.Interface
 import Api.Object
 import Api.Scalar
+import Api.ScalarCodecs
 import Api.Union
-import Graphql.Field as Field exposing (Field)
 import Graphql.Internal.Builder.Argument as Argument exposing (Argument)
 import Graphql.Internal.Builder.Object as Object
 import Graphql.Internal.Encode as Encode exposing (Value)
+import Graphql.Operation exposing (RootMutation, RootQuery, RootSubscription)
 import Graphql.OptionalArgument exposing (OptionalArgument(..))
 import Graphql.SelectionSet exposing (SelectionSet)
 import Json.Decode as Decode
 
 
-{-| Select fields to build up a SelectionSet for this object.
--}
-selection : (a -> constructor) -> SelectionSet (a -> constructor) Api.Object.AcceptTransactionsResult
-selection constructor =
-    Object.selection constructor
-
-
-acceptedIds : Field (List Int) Api.Object.AcceptTransactionsResult
+acceptedIds : SelectionSet (List Int) Api.Object.AcceptTransactionsResult
 acceptedIds =
-    Object.fieldDecoder "acceptedIds" [] (Decode.int |> Decode.list)
+    Object.selectionForField "(List Int)" "acceptedIds" [] (Decode.int |> Decode.list)
 
 
-failedIds : Field (List Int) Api.Object.AcceptTransactionsResult
+failedIds : SelectionSet (List Int) Api.Object.AcceptTransactionsResult
 failedIds =
-    Object.fieldDecoder "failedIds" [] (Decode.int |> Decode.list)
+    Object.selectionForField "(List Int)" "failedIds" [] (Decode.int |> Decode.list)

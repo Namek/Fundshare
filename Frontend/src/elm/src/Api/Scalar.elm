@@ -2,7 +2,13 @@
 -- https://github.com/dillonkearns/elm-graphql
 
 
-module Api.Scalar exposing (Date(..), Id(..), Uri(..))
+module Api.Scalar exposing (Codecs, Date(..), Id(..), Uri(..), defaultCodecs, defineCodecs, unwrapCodecs, unwrapEncoder)
+
+import Graphql.Codec exposing (Codec)
+import Graphql.Internal.Builder.Object as Object
+import Graphql.Internal.Encode
+import Json.Decode as Decode exposing (Decoder)
+import Json.Encode as Encode
 
 
 type Date
@@ -15,3 +21,56 @@ type Id
 
 type Uri
     = Uri String
+
+
+defineCodecs :
+    { codecDate : Codec valueDate
+    , codecId : Codec valueId
+    , codecUri : Codec valueUri
+    }
+    -> Codecs valueDate valueId valueUri
+defineCodecs definitions =
+    Codecs definitions
+
+
+unwrapCodecs :
+    Codecs valueDate valueId valueUri
+    ->
+        { codecDate : Codec valueDate
+        , codecId : Codec valueId
+        , codecUri : Codec valueUri
+        }
+unwrapCodecs (Codecs unwrappedCodecs) =
+    unwrappedCodecs
+
+
+unwrapEncoder getter (Codecs unwrappedCodecs) =
+    (unwrappedCodecs |> getter |> .encoder) >> Graphql.Internal.Encode.fromJson
+
+
+type Codecs valueDate valueId valueUri
+    = Codecs (RawCodecs valueDate valueId valueUri)
+
+
+type alias RawCodecs valueDate valueId valueUri =
+    { codecDate : Codec valueDate
+    , codecId : Codec valueId
+    , codecUri : Codec valueUri
+    }
+
+
+defaultCodecs : RawCodecs Date Id Uri
+defaultCodecs =
+    { codecDate =
+        { encoder = \(Date raw) -> Encode.string raw
+        , decoder = Object.scalarDecoder |> Decode.map Date
+        }
+    , codecId =
+        { encoder = \(Id raw) -> Encode.string raw
+        , decoder = Object.scalarDecoder |> Decode.map Id
+        }
+    , codecUri =
+        { encoder = \(Uri raw) -> Encode.string raw
+        , decoder = Object.scalarDecoder |> Decode.map Uri
+        }
+    }

@@ -5,8 +5,7 @@ import Api.Object.BalanceToOtherUser as BalanceToOtherUser
 import Api.Object.User as User
 import Api.Query as Query
 import Data.Balance exposing (Balance)
-import Graphql.Field as Field
-import Graphql.Internal.Builder.Object exposing (fieldDecoder)
+import Graphql.Internal.Builder.Object exposing (selectionForCompositeField)
 import Graphql.Operation exposing (RootMutation, RootQuery)
 import Graphql.SelectionSet as SelectionSet exposing (SelectionSet, with)
 import Json.Decode as Decode
@@ -16,7 +15,7 @@ import Time exposing (Posix)
 
 {-| Query:
 
-    currentUser currentUserBalances {
+    currentUser balancesOfCurrentUser {
       balances {
         otherUser {
           userId
@@ -34,32 +33,30 @@ import Time exposing (Posix)
 -}
 getBalances : SelectionSet (List Balance) RootQuery
 getBalances =
-    Query.selection (Maybe.withDefault [])
+    SelectionSet.succeed (Maybe.withDefault [])
         |> with
             (Query.currentUser
-                (User.selection identity
-                    |> with (User.balances userBalances)
-                )
+                (User.balances userBalances)
             )
 
 
 userBalances : SelectionSet Balance Api.Object.BalanceToOtherUser
 userBalances =
-    BalanceToOtherUser.selection QBalance
+    SelectionSet.succeed QBalance
         |> with BalanceToOtherUser.value
         |> with BalanceToOtherUser.iHaveMore
         |> with (BalanceToOtherUser.otherUser otherUser)
         |> with BalanceToOtherUser.sharedPaymentCount
         |> with BalanceToOtherUser.transferCount
         |> with BalanceToOtherUser.inboxForMeCount
-        |> with (BalanceToOtherUser.lastUpdateAt |> Field.map decodeDate)
+        |> with (BalanceToOtherUser.lastUpdateAt |> SelectionSet.map decodeDate)
         |> SelectionSet.map queryToBalance
 
 
 otherUser : SelectionSet QOtherUser Api.Object.User
 otherUser =
-    User.selection QOtherUser
-        |> with (fieldDecoder "id" [] Decode.int)
+    SelectionSet.succeed QOtherUser
+        |> with (selectionForCompositeField "id" [] User.id (always Decode.int))
         |> with User.name
 
 
