@@ -4,7 +4,7 @@ import Cmd.Extra
 import Data.Context exposing (ContextData, GlobalMsg, Logged)
 import Data.Person exposing (Person)
 import Data.Session exposing (Session)
-import Data.Transaction exposing (Transaction, amountDifferenceForMyAccount, amountToMoney, amountToMoneyChange, amountToMoneyLeftPad)
+import Data.Transaction exposing (Transaction, amountDifferenceForMyAccount, amountToMoney, amountToMoneyChange, amountToMoneyChangeLeftPad)
 import Date exposing (Date)
 import Dict exposing (Dict)
 import Element exposing (Element, above, alignRight, alignTop, behindContent, below, centerX, centerY, column, fill, height, inFront, link, mouseOver, moveDown, moveLeft, moveRight, padding, paddingEach, paddingXY, paragraph, px, row, spacing, text, width)
@@ -301,7 +301,7 @@ viewDay ctx dayView =
                         , Font.color <| either Colors.green800 Colors.red500 (daySum > 0)
                         , paddingEach { edges | left = 7 }
                         ]
-                        (text <| amountToMoneyLeftPad True maxIntegralDigits daySum ++ " zł")
+                        (text <| amountToMoneyChangeLeftPad True maxIntegralDigits daySum ++ " zł")
                     )
 
              else
@@ -353,7 +353,7 @@ viewTransaction ctx isExpanded tv =
                     , width (px <| transactionMoneyColumnWidth)
                     ]
                     [ diff
-                        |> amountToMoneyLeftPad True (isExpanded |> either 0 maxIntegralDigits)
+                        |> amountToMoneyChangeLeftPad True (isExpanded |> either 0 maxIntegralDigits)
                         |> text
                     , viewIf isExpanded <| text " zł"
                     ]

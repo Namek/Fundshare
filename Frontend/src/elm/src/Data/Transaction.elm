@@ -4,7 +4,7 @@ module Data.Transaction exposing
     , amountDifferenceForMyAccount
     , amountToMoney
     , amountToMoneyChange
-    , amountToMoneyLeftPad
+    , amountToMoneyChangeLeftPad
     , isTransactionInInboxForUser
     )
 
@@ -57,21 +57,26 @@ amountToMoneyChange includeSign amount =
         String.fromFloat (abs val)
 
 
-amountToMoneyLeftPad : Bool -> Int -> Int -> String
-amountToMoneyLeftPad includeSign integralTotalWidth amount =
+amountToMoneyChangeLeftPad : Bool -> Int -> Int -> String
+amountToMoneyChangeLeftPad includeSign totalWidthOfIntegralPartString amount =
     let
         val =
             abs amount
 
         integralPart =
-            (val // 100) * 100
+            val // 100
 
         fractionalPart =
             val |> modBy 100
 
+        charDiff =
+            includeSign |> either 1 0
+
         integralPartStr =
-            amountToMoneyChange False integralPart
-                |> String.padLeft integralTotalWidth ' '
+            amountToMoneyChange False (integralPart * 100)
+                |> String.padLeft
+                    (totalWidthOfIntegralPartString - charDiff)
+                    ' '
 
         fractionalPartStr =
             if fractionalPart >= 10 then
