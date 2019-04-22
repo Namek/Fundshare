@@ -2,7 +2,7 @@ module Views.Timeline exposing (Model, Msg, init, insertTransactionsToModel, upd
 
 import Cmd.Extra
 import Data.Context exposing (ContextData, GlobalMsg, Logged)
-import Data.Person exposing (Person)
+import Data.Person as Person exposing (Person)
 import Data.Session exposing (Session)
 import Data.Transaction exposing (Transaction, amountDifferenceForMyAccount, amountToMoney, amountToMoneyChange, amountToMoneyChangeLeftPad)
 import Date exposing (Date)
@@ -362,9 +362,7 @@ viewTransaction ctx isExpanded tv =
 
         personIdToName : Int -> String
         personIdToName pid =
-            List.Extra.find (\p -> p.id == pid) ctx.model.people
-                |> Maybe.andThen (Just << .name)
-                |> Maybe.withDefault ""
+            Person.personIdToName ctx.model.people pid
 
         viewDetails () =
             column [ paddingXY 0 7, spacing 7 ]
