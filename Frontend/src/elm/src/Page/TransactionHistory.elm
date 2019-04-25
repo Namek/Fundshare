@@ -37,7 +37,7 @@ init : Maybe Int -> Session -> ( Model, Cmd Msg )
 init pageNo session =
     let
         ( timeline, timelineMsg ) =
-            Timeline.init [] []
+            Timeline.init []
     in
     ( { transactions =
             { elements = Dict.empty

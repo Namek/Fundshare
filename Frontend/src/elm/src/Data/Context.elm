@@ -1,9 +1,9 @@
 module Data.Context exposing (ContextData, GlobalMsg(..), Logged, passContext, passContextWithoutSession, subContext)
 
+import Data.CommonData exposing (CommonData)
 import Data.Session exposing (..)
 import Date exposing (Date)
 import Route exposing (Route)
-import Time exposing (Posix)
 
 
 {-| Typical usage - a context type for specific Page:
@@ -26,7 +26,10 @@ type alias ContextData model localMsg rootMsg =
 
 -}
 type alias Logged ctx =
-    { ctx | session : Session }
+    { ctx
+        | session : Session
+        , commonData : CommonData
+    }
 
 
 passContext ctx modelGetter lift =
@@ -36,7 +39,7 @@ passContext ctx modelGetter lift =
     }
 
 
-{-| Supposed to use with `Logged ctx`
+{-| Supposed to be used with `Logged ctx`
 -}
 passContextWithoutSession ctx modelGetter lift =
     { model = modelGetter ctx.model
@@ -57,6 +60,7 @@ subContext ctx modelGetter subMsg =
     , lift = ctx.lift << subMsg
     , todayDate = ctx.todayDate
     , session = ctx.session
+    , commonData = ctx.commonData
     }
 
 

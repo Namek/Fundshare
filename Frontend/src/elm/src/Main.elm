@@ -3,7 +3,9 @@ module Main exposing (main)
 import Browser exposing (Document)
 import Browser.Navigation as Nav
 import Cmd.Extra
+import Data.CommonData exposing (CommonData)
 import Data.Context exposing (GlobalMsg(..))
+import Data.Person exposing (Person)
 import Data.Session as Session exposing (Session, SessionState(..))
 import Data.Transaction exposing (TransactionId)
 import Date exposing (Date)
@@ -22,7 +24,8 @@ import Page.NotFound as NotFound
 import Page.Transaction as Transaction
 import Page.TransactionHistory as TransactionHistory
 import RemoteData exposing (RemoteData)
-import Request.Common exposing (sendMutationRequest)
+import Request.Common exposing (sendMutationRequest, sendQueryRequest)
+import Request.People exposing (getPeople)
 import Request.Session exposing (SignInResult, SignOutResult, checkSession, signOut)
 import Route exposing (Route, modifyUrl)
 import Task
@@ -57,6 +60,7 @@ type alias Model =
     , lastLocation : Url
     , session : SessionState
     , todayDate : Date
+    , commonData : CommonData
     }
 
 
@@ -68,8 +72,11 @@ init { day, month, year } url navKey =
             { navKey = navKey
             , page = initialPage
             , lastLocation = url
-            , todayDate = Date.fromCalendarDate year (Date.numberToMonth month) day
             , session = GuestSession
+            , todayDate = Date.fromCalendarDate year (Date.numberToMonth month) day
+            , commonData =
+                { people = []
+                }
             }
     in
     ( model, Cmd.Extra.perform CheckAuthSession )
@@ -111,6 +118,15 @@ viewPage model page =
                     _ ->
                         Debug.todo "you have to be authorized!"
 
+        getAuthorizedCommonData =
+            \() ->
+                case model.session of
+                    LoggedSession _ ->
+                        model.commonData
+
+                    _ ->
+                        Debug.todo "you have to be authorized!"
+
         pageView =
             case page of
                 Blank ->
@@ -135,6 +151,7 @@ viewPage model page =
                         , lift = NewTransactionMsg
                         , todayDate = model.todayDate
                         , session = getAuthorizedSession ()
+                        , commonData = getAuthorizedCommonData ()
                         }
 
                 Balances subModel ->
@@ -143,6 +160,7 @@ viewPage model page =
                         , lift = BalancesMsg
                         , todayDate = model.todayDate
                         , session = getAuthorizedSession ()
+                        , commonData = getAuthorizedCommonData ()
                         }
 
                 Transaction paymentId subModel ->
@@ -151,6 +169,7 @@ viewPage model page =
                         , lift = TransactionMsg
                         , todayDate = model.todayDate
                         , session = getAuthorizedSession ()
+                        , commonData = getAuthorizedCommonData ()
                         }
 
                 Inbox subModel ->
@@ -159,6 +178,7 @@ viewPage model page =
                         , lift = InboxMsg
                         , todayDate = model.todayDate
                         , session = getAuthorizedSession ()
+                        , commonData = getAuthorizedCommonData ()
                         }
 
                 TransactionHistory subModel ->
@@ -167,6 +187,7 @@ viewPage model page =
                         , lift = TransactionHistoryMsg
                         , todayDate = model.todayDate
                         , session = getAuthorizedSession ()
+                        , commonData = getAuthorizedCommonData ()
                         }
 
         activePage =
@@ -209,6 +230,7 @@ type Msg
     | UrlRequested Browser.UrlRequest
     | CheckAuthSession
     | CheckAuthSession_Response (RemoteData (Graphql.Http.Error (Maybe SignInResult)) (Maybe SignInResult))
+    | GetCommonData_Response (RemoteData (Graphql.Http.Error (List Person)) (List Person))
     | SignOut_Response (RemoteData (Graphql.Http.Error SignOutResult) SignOutResult)
     | LoginMsg Login.Msg
     | NewTransactionMsg NewTransaction.Msg
@@ -249,7 +271,7 @@ update msg model =
                         updatedSession =
                             case model.session of
                                 LoggedSession session ->
-                                    LoggedSession <| { session | inboxSize = inboxSize }
+                                    LoggedSession { session | inboxSize = inboxSize }
 
                                 whatever ->
                                     whatever
@@ -290,22 +312,20 @@ update msg model =
             in
             ( model, cmd )
 
-        {- first thing that comes from this app to backend - decide whether user is still logged in -}
+        {- Auth session is the first thing that comes from this app to backend - decides whether user is still logged in.
+           Then, we request for some data common for all pages. If we'll get it, reroute to the first page.
+        -}
         CheckAuthSession_Response (RemoteData.Success maybeAuth) ->
             case maybeAuth of
-                Just auth ->
+                Just session ->
                     let
                         modelWithSession =
-                            { model | session = LoggedSession auth }
+                            { model | session = LoggedSession session }
 
-                        newRoute =
-                            Route.fromUrl model.lastLocation
-                                |> Maybe.withDefault Route.Balances
-
-                        rerouteCmd =
-                            Route.modifyUrl modelWithSession newRoute
+                        cmd =
+                            getPeople |> sendQueryRequest GetCommonData_Response
                     in
-                    ( modelWithSession, rerouteCmd )
+                    ( modelWithSession, cmd )
 
                 Nothing ->
                     {- no valid token, guest session -}
@@ -319,6 +339,39 @@ update msg model =
 
         CheckAuthSession_Response _ ->
             model |> noCmd
+
+        GetCommonData_Response result ->
+            let
+                maybeNewModel =
+                    result
+                        |> RemoteData.andThen
+                            (\people ->
+                                let
+                                    commonData =
+                                        model.commonData
+                                in
+                                RemoteData.Success <| { model | commonData = { commonData | people = people } }
+                            )
+
+                newModel =
+                    maybeNewModel |> RemoteData.withDefault model
+
+                cmd =
+                    if RemoteData.isSuccess maybeNewModel then
+                        let
+                            newRoute =
+                                Route.fromUrl model.lastLocation
+                                    |> Maybe.withDefault Route.Balances
+
+                            rerouteCmd =
+                                Route.modifyUrl newModel newRoute
+                        in
+                        rerouteCmd
+
+                    else
+                        Cmd.none
+            in
+            ( newModel, cmd )
 
         SignOut_Response _ ->
             model |> noCmd
@@ -348,6 +401,7 @@ updatePage page msg model =
             , lift = lift
             , todayDate = model.todayDate
             , session = session
+            , commonData = model.commonData
             }
 
         buildGuestCtx subModel lift =

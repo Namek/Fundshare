@@ -3,27 +3,18 @@ module Views.Timeline exposing (Model, Msg, init, insertTransactionsToModel, upd
 import Cmd.Extra
 import Data.Context exposing (ContextData, GlobalMsg, Logged)
 import Data.Person as Person exposing (Person)
-import Data.Session exposing (Session)
 import Data.Transaction exposing (Transaction, amountDifferenceForMyAccount, amountToMoney, amountToMoneyChange, amountToMoneyChangeLeftPad)
 import Date exposing (Date)
-import Dict exposing (Dict)
 import Element exposing (Element, above, alignRight, alignTop, behindContent, below, centerX, centerY, column, fill, height, inFront, link, mouseOver, moveDown, moveLeft, moveRight, padding, paddingEach, paddingXY, paragraph, px, row, spacing, text, width)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font exposing (center, justify)
 import Element.Input as Input
-import Graphql.Http
-import Html exposing (i)
-import List exposing (range)
+import List
 import List.Extra
 import Misc exposing (attrWhen, css, edges, either, getUpdatedProperty, noCmd, noShadow, userSelectNone, viewIf)
 import Misc.Colors as Colors exposing (red50)
 import Misc.DataExtra exposing (updateOrAddOrdered)
-import RemoteData exposing (RemoteData)
-import Request.Common exposing (sendQueryRequest)
-import Request.People exposing (getPeople)
-import Route
-import Set exposing (Set)
 import Time exposing (Posix)
 
 
@@ -33,7 +24,6 @@ import Time exposing (Posix)
 
 type alias Model =
     { timeline : Timeline
-    , people : List Person
     }
 
 
@@ -55,12 +45,10 @@ type alias TransactionView =
     }
 
 
-init : List Transaction -> List Person -> ( Model, Cmd Msg )
-init transactions people =
-    ( { timeline = insertTransactions { dayViews = [] } transactions
-      , people = people
-      }
-    , getPeople |> sendQueryRequest RefreshPeopleList_Response
+init : List Transaction -> ( Model, Cmd Msg )
+init transactions =
+    ( { timeline = insertTransactions { dayViews = [] } transactions }
+    , Cmd.none
     )
 
 
@@ -136,7 +124,6 @@ type alias Context msg =
 
 type Msg
     = NoOp
-    | RefreshPeopleList_Response (RemoteData (Graphql.Http.Error (List Person)) (List Person))
     | ToggleDayView DayView
 
 
@@ -149,15 +136,6 @@ update model msg =
     case msg of
         NoOp ->
             model |> noCmd
-
-        RefreshPeopleList_Response result ->
-            let
-                newModel =
-                    result
-                        |> RemoteData.andThen (\people -> RemoteData.Success { model | people = people })
-                        |> RemoteData.withDefault model
-            in
-            newModel |> noCmd
 
         ToggleDayView dayView ->
             let
@@ -362,7 +340,7 @@ viewTransaction ctx isExpanded tv =
 
         personIdToName : Int -> String
         personIdToName pid =
-            Person.personIdToName ctx.model.people pid
+            Person.personIdToName ctx.commonData.people pid
 
         viewDetails () =
             column [ paddingXY 0 7, spacing 7 ]
