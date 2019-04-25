@@ -327,13 +327,14 @@ viewTransaction ctx isExpanded tv =
                 []
                 [ Element.row
                     [ Font.family [ Font.monospace ]
-                    , Font.color <| either Colors.green800 Colors.red500 (diff > 0)
                     , width (px <| transactionMoneyColumnWidth)
                     ]
                     [ diff
                         |> amountToMoneyChangeLeftPad True (isExpanded |> either 0 maxIntegralDigits)
                         |> text
-                    , viewIf isExpanded <| text " zł"
+                        |> Element.el [ Font.color <| either Colors.green800 Colors.red500 (diff > 0) ]
+                    , viewIf (isExpanded && t.amount /= abs diff) <|
+                        (Element.el [ Font.color Colors.gray400 ] <| text <| " / " ++ String.fromFloat (amountToMoney t.amount))
                     ]
                 , viewIf isCollapsed <| viewTransactionTags ctx False tv
                 ]
@@ -348,7 +349,6 @@ viewTransaction ctx isExpanded tv =
                     [ text <| personIdToName t.payorId
                     , text <| " → "
                     , text <| String.join ", " <| List.map personIdToName t.beneficientIds
-                    , Element.el [ Font.size 10 ] <| text <| " (" ++ String.fromFloat (amountToMoney t.amount) ++ " zł)"
                     ]
                 , paragraph [ Font.size 13, Font.color Colors.gray500 ]
                     [ text <| Maybe.withDefault "" t.description ]
