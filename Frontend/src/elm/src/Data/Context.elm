@@ -67,4 +67,5 @@ subContext ctx modelGetter subMsg =
 type GlobalMsg
     = Navigate Route
     | SetSession (Maybe Session)
+      -- TODO: instead changing it directly, request a refresh from backend?
     | UpdateInboxSize Int

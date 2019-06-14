@@ -7,13 +7,9 @@ import Data.CommonData exposing (CommonData)
 import Data.Context exposing (GlobalMsg(..))
 import Data.Person exposing (Person)
 import Data.Session as Session exposing (Session, SessionState(..))
-import Data.Transaction exposing (TransactionId)
 import Date exposing (Date)
 import Element exposing (Element, paragraph, text)
 import Graphql.Http
-import Html exposing (Html)
-import Json.Decode as Decode exposing (Value)
-import Maybe.Extra
 import Misc exposing (noCmd)
 import Page.Balances as Balances
 import Page.Errored as Errored exposing (PageLoadError(..))
@@ -28,8 +24,6 @@ import Request.Common exposing (sendMutationRequest, sendQueryRequest)
 import Request.People exposing (getPeople)
 import Request.Session exposing (SignInResult, SignOutResult, checkSession, signOut)
 import Route exposing (Route, modifyUrl)
-import Task
-import Time
 import Url exposing (Url)
 import Views.Page as Page exposing (ActivePage(..), Page(..), frame)
 
@@ -253,6 +247,10 @@ pageErrored model errorMessage =
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
+    let
+        queryCommonData =
+            \() -> getPeople |> sendQueryRequest GetCommonData_Response
+    in
     case msg of
         HandleGlobalMsg globalMsg ->
             case globalMsg of
@@ -260,7 +258,7 @@ update msg model =
                     ( model, Route.modifyUrl model route )
 
                 SetSession (Just session) ->
-                    ( { model | session = LoggedSession session }, Cmd.none )
+                    ( { model | session = LoggedSession session }, queryCommonData () )
 
                 SetSession Nothing ->
                     -- TODO: logout
@@ -321,11 +319,8 @@ update msg model =
                     let
                         modelWithSession =
                             { model | session = LoggedSession session }
-
-                        cmd =
-                            getPeople |> sendQueryRequest GetCommonData_Response
                     in
-                    ( modelWithSession, cmd )
+                    ( modelWithSession, queryCommonData () )
 
                 Nothing ->
                     {- no valid token, guest session -}

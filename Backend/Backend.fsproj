@@ -13,7 +13,6 @@
     <Compile Include="Repo.fs" />
     <Compile Include="Api.fs" />
     <Compile Include="Program.fs" />
-    <PackageReference Include="FSharp.Core" Version="4.5.0" />
     <PackageReference Include="Chiron" Version="6.3.1" />
     <PackageReference Include="FSharp.Data.GraphQL.Server" Version="0.0.18-beta" />
     <PackageReference Include="Newtonsoft.Json" Version="12.0.1" />
