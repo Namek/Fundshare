@@ -12,7 +12,7 @@ import Element.Font as Font exposing (center, justify)
 import Element.Input as Input
 import List
 import List.Extra
-import Misc exposing (attrWhen, css, edges, either, getUpdatedProperty, noCmd, noShadow, userSelectNone, viewIf)
+import Misc exposing (attrWhen, css, dayRelative, edges, either, getUpdatedProperty, noCmd, noShadow, userSelectNone, viewIf)
 import Misc.Colors as Colors exposing (red50)
 import Misc.DataExtra exposing (updateOrAddOrdered)
 import Time exposing (Posix)
@@ -289,6 +289,8 @@ viewDay ctx dayView =
         ]
 
 
+{-| The graphical circle element on vertical line that represents timeline.
+-}
 viewDayPoint : Context msg -> Element msg
 viewDayPoint ctx =
     let
@@ -412,20 +414,3 @@ maxIntegralDigits =
 
 transactionMoneyColumnWidth =
     115
-
-
-dayRelative : Date -> Date -> String
-dayRelative today date =
-    let
-        diff =
-            Date.diff Date.Days date today
-    in
-    case diff of
-        0 ->
-            "Today"
-
-        1 ->
-            "Yesterday"
-
-        n ->
-            (n |> String.fromInt) ++ " days ago"

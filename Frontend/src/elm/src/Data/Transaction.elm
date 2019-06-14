@@ -5,6 +5,7 @@ module Data.Transaction exposing
     , amountToMoney
     , amountToMoneyChange
     , amountToMoneyChangeLeftPad
+    , amountToMoneyString
     , isTransactionInInboxForUser
     )
 
@@ -38,6 +39,34 @@ isTransactionInInboxForUser personId transaction =
 amountToMoney : Int -> Float
 amountToMoney amount =
     (amount |> toFloat) / 100
+
+
+amountToMoneyString : Int -> String
+amountToMoneyString amount =
+    let
+        val =
+            abs amount
+
+        integralPart =
+            val // 100
+
+        fractionalPart =
+            val |> modBy 100
+
+        integralPartStr =
+            String.fromInt integralPart
+
+        fractionalPartStr =
+            if fractionalPart >= 10 then
+                "." ++ String.fromInt fractionalPart
+
+            else if fractionalPart > 0 then
+                "." ++ String.fromInt fractionalPart ++ "0"
+
+            else
+                ""
+    in
+    integralPartStr ++ fractionalPartStr
 
 
 amountToMoneyChange : Bool -> Int -> String

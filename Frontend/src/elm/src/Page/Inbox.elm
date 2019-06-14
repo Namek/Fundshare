@@ -3,21 +3,24 @@ module Page.Inbox exposing (Model, Msg, init, reinit, update, view)
 import Array exposing (Array)
 import Cmd.Extra
 import Data.Context exposing (ContextData, GlobalMsg(..), Logged)
-import Data.Person exposing (PersonId)
+import Data.Person exposing (Person, PersonId, personIdToName)
 import Data.Session exposing (Session)
-import Data.Transaction exposing (Transaction, TransactionId, amountDifferenceForMyAccount, amountToMoney, isTransactionInInboxForUser)
-import Element exposing (Element, alignRight, centerY, column, el, fill, padding, paddingEach, paragraph, px, row, shrink, spacing, table, text, width)
+import Data.Transaction exposing (Transaction, TransactionId, amountDifferenceForMyAccount, amountToMoney, amountToMoneyChangeLeftPad, amountToMoneyString, isTransactionInInboxForUser)
+import Date
+import Element exposing (Element, above, alignBottom, alignRight, centerX, centerY, column, el, fill, height, inFront, minimum, padding, paddingEach, paddingXY, paragraph, px, row, shrink, spacing, table, text, width, wrappedRow)
+import Element.Background as Background
+import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
 import Graphql.Http as GqlHttp
 import Json.Decode as Json
 import List.Extra
-import Misc exposing (attrWhen, edges, either, noCmd, noShadow, styledButton, userSelectNone, viewIcon, viewLoadingBar)
-import Misc.Colors exposing (gray500)
+import Misc exposing (attrWhen, css, dayRelative, edges, either, noCmd, noShadow, styledButton, userSelectNone, viewIcon, viewIf, viewLoadingBar)
+import Misc.Colors as Colors
 import Misc.DataExtra exposing (toggle)
 import RemoteData exposing (RemoteData)
 import Request.Common exposing (..)
-import Request.Transactions exposing (AcceptTransactionsResult, TransactionList, acceptTransactions, getUserTransactions)
+import Request.Transactions exposing (AcceptTransactionsResult, TransactionList, acceptTransactions, getUserInboxTransactions)
 import Set exposing (Set)
 import Task
 import Time exposing (Posix, now)
@@ -79,10 +82,15 @@ type Msg
     = RefreshTransactions
     | RefreshTransactions_Response (RemoteData (GqlHttp.Error TransactionList) TransactionList)
     | SetDate (Result String Posix)
+      -- old view:
     | ToggleInboxTransaction TransactionId
     | ToggleCheckAllInboxTransactions
     | AcceptSelectedTransactions
     | AcceptSelectedTransactions_Response (RemoteData (GqlHttp.Error AcceptTransactionsResult) AcceptTransactionsResult)
+      -- new view:
+    | OpenTransactionEdit TransactionId
+    | AcceptTransaction TransactionId
+    | AcceptAllVisibleTransactions
 
 
 update : Context msg -> Msg -> ( ( Model, Cmd Msg ), Cmd GlobalMsg )
@@ -91,7 +99,7 @@ update { model, session } msg =
         RefreshTransactions ->
             let
                 cmd =
-                    getUserTransactions 0 1000
+                    getUserInboxTransactions
                         |> sendQueryRequest RefreshTransactions_Response
             in
             ( ( model, cmd ), Cmd.none )
@@ -173,6 +181,15 @@ update { model, session } msg =
                         |> noCmd
                         |> noCmd
 
+        OpenTransactionEdit transactionId ->
+            model |> noCmd |> noCmd
+
+        AcceptTransaction transactionId ->
+            model |> noCmd |> noCmd
+
+        AcceptAllVisibleTransactions ->
+            model |> noCmd |> noCmd
+
 
 
 -- VIEW --
@@ -184,7 +201,7 @@ view ctx =
         { model, session } =
             ctx
     in
-    column []
+    column [ Font.size 14 ]
         [ case model.inboxTransactions of
             Just inboxTransactions ->
                 hasAnyNewTransaction session.id inboxTransactions
@@ -195,8 +212,151 @@ view ctx =
         ]
 
 
+{-| List of all cards and UI on top
+-}
 viewInbox : Context msg -> List Transaction -> Element msg
 viewInbox ctx inboxTransactions =
+    let
+        { model, session } =
+            ctx
+
+        areAllSelected =
+            allSelected inboxTransactions model.selectedInboxTransactionIds
+    in
+    wrappedRow
+        [ css "justify-content" "center"
+        , paddingXY 15 15
+        , spacing 20
+        ]
+    <|
+        List.map (viewCard ctx) inboxTransactions
+
+
+viewCard : Context msg -> Transaction -> Element msg
+viewCard ctx transaction =
+    let
+        diff =
+            amountDifferenceForMyAccount ctx.session.id transaction
+
+        diffAmountEl =
+            diff
+                |> amountToMoneyChangeLeftPad True 0
+                |> text
+                |> Element.el [ Font.color <| either Colors.green800 Colors.red500 (diff > 0) ]
+
+        totalAmountEl =
+            viewIf (transaction.amount /= abs diff) <|
+                (Element.el [ Font.color Colors.gray400 ] <| text <| " / " ++ amountToMoneyString transaction.amount)
+
+        transactionDate =
+            Date.fromPosix Time.utc transaction.insertedAt
+
+        datetimeEl =
+            column
+                [ alignRight
+                , centerY
+                , paddingEach { edges | right = 5 }
+                , Font.size 11
+                , spacing 2
+                ]
+                [ text <| Date.toIsoString transactionDate
+                , Element.el [ Font.size 10, Font.color Colors.gray400 ] <| text <| "" ++ dayRelative ctx.todayDate transactionDate ++ ""
+                ]
+    in
+    column
+        [ width <| px 260
+        , height <| minimum 140 fill
+        , Border.widthXY 1 1
+        , Border.rounded 2
+        , Border.color Colors.teal200
+        , inFront <| Element.el [ alignBottom, width fill ] <| viewButtons ctx transaction
+        ]
+        [ row
+            [ Font.size 16
+            , width fill
+            , paddingEach { edges | left = 4, right = 10, top = 10, bottom = 8 }
+            , Border.widthEach { edges | bottom = 1 }
+            , Border.color Colors.teal400
+            , inFront <| datetimeEl
+            ]
+            [ diffAmountEl
+            , totalAmountEl
+            , Element.el [ Font.color Colors.gray400 ] <| text " zł"
+            ]
+        , viewDetails ctx transaction
+        ]
+
+
+viewDetails : Context msg -> Transaction -> Element msg
+viewDetails ctx t =
+    let
+        pidToName =
+            personIdToName ctx.commonData.people
+    in
+    column
+        [ paddingXY 10 7
+        , spacing 7
+        , width fill
+        , inFront <|
+            Element.el [ alignRight, paddingEach { edges | top = 5, right = 3 } ] <|
+                viewTransactionTags True t
+        ]
+        [ row
+            [ width fill ]
+            [ text <| pidToName t.payorId
+            , text <| " → "
+            , text <| String.join ", " <| List.map pidToName t.beneficientIds
+            ]
+        , paragraph
+            [ Font.size 13
+            , Font.color Colors.gray500
+
+            -- this padding is for `viewButtons` which is placed `inFront`
+            , paddingEach
+                { edges
+                    | bottom = 25
+                    , right = List.length t.tags > 1 |> either 80 0
+                }
+            ]
+            [ text <| Maybe.withDefault "" t.description ]
+        ]
+
+
+viewTransactionTags : Bool -> Transaction -> Element msg
+viewTransactionTags inColumn transaction =
+    (inColumn |> either column wrappedRow)
+        [ spacing 3 ]
+        (List.map (\tag -> viewTag tag) transaction.tags)
+
+
+viewTag : String -> Element msg
+viewTag tag =
+    Element.el
+        [ Border.rounded 3
+        , Background.color Colors.teal200
+        , Font.color Colors.white
+        , paddingXY 4 2
+        , Font.size 12
+        , alignRight
+        ]
+        (text tag)
+
+
+viewButtons ctx transaction =
+    row
+        [ Background.color Colors.teal200
+        , width fill
+        , paddingXY 5 5
+        ]
+        [ text "Edit" ]
+
+
+
+-- old view --
+
+
+viewInbox_old : Context msg -> List Transaction -> Element msg
+viewInbox_old ctx inboxTransactions =
     let
         { model, session } =
             ctx
@@ -222,7 +382,7 @@ viewInbox ctx inboxTransactions =
                         Input.button
                             [ userSelectNone
                             , noShadow
-                            , Font.color gray500 |> attrWhen (someSelected model && not areAllSelected)
+                            , Font.color Colors.gray500 |> attrWhen (someSelected model && not areAllSelected)
                             , width shrink
                             ]
                             { onPress = Just <| (ctx.lift <| ToggleCheckAllInboxTransactions)

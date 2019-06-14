@@ -2,6 +2,7 @@ module Misc exposing
     ( attr
     , attrWhen
     , css
+    , dayRelative
     , defaultShadow
     , delay
     , digitCount
@@ -23,6 +24,7 @@ module Misc exposing
     )
 
 import Bitwise exposing (and, shiftLeftBy, shiftRightBy)
+import Date exposing (Date)
 import Element exposing (Element, centerX, centerY, column, el, fill, focused, height, mouseDown, padding, px, rgb, rgb255, rgba, rgba255, row, shrink, spaceEvenly, text, width)
 import Element.Background as Bg
 import Element.Border as Border
@@ -266,3 +268,20 @@ digitCount number =
 
     else
         17
+
+
+dayRelative : Date -> Date -> String
+dayRelative today date =
+    let
+        diff =
+            Date.diff Date.Days date today
+    in
+    case diff of
+        0 ->
+            "Today"
+
+        1 ->
+            "Yesterday"
+
+        n ->
+            (n |> String.fromInt) ++ " days ago"
