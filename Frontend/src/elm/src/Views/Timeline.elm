@@ -1,21 +1,25 @@
-module Views.Timeline exposing (Model, Msg, init, insertTransactionsToModel, update, view)
+module Views.Timeline exposing (Model, Msg, init, update, view)
 
-import Cmd.Extra
 import Data.Context exposing (ContextData, GlobalMsg, Logged)
 import Data.Person as Person exposing (Person)
 import Data.Transaction exposing (Transaction, amountDifferenceForMyAccount, amountToMoney, amountToMoneyChange, amountToMoneyChangeLeftPad)
-import Date exposing (Date)
+import Date as Date exposing (Date)
+import Dict exposing (Dict)
 import Element exposing (Element, above, alignRight, alignTop, behindContent, below, centerX, centerY, column, fill, height, inFront, link, mouseOver, moveDown, moveLeft, moveRight, padding, paddingEach, paddingXY, paragraph, px, row, spacing, text, width)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font exposing (center, justify)
 import Element.Input as Input
+import Element.Lazy
 import List
-import List.Extra
 import Misc exposing (attrWhen, css, dayRelative, edges, either, getUpdatedProperty, noCmd, noShadow, userSelectNone, viewIf)
 import Misc.Colors as Colors exposing (red50)
 import Misc.DataExtra exposing (updateOrAddOrdered)
 import Time exposing (Posix)
+
+
+type alias Context msg =
+    Logged (ContextData Model Msg msg)
 
 
 
@@ -28,94 +32,90 @@ type alias Model =
 
 
 type alias Timeline =
-    { -- grouped and sorted by date DESC
-      dayViews : List DayView
+    { -- the key is Int made from Date, since Date cannot be a key in Dict
+      dayViewsExpanded : Dict Int Bool
     }
 
 
-type alias DayView =
-    { date : Date
-    , transactionViews : List TransactionView
-    , isExpanded : Bool
-    }
-
-
-type alias TransactionView =
-    { transaction : Transaction
-    }
-
-
-init : List Transaction -> ( Model, Cmd Msg )
-init transactions =
-    ( { timeline = insertTransactions { dayViews = [] } transactions }
+init : ( Model, Cmd Msg )
+init =
+    ( { timeline = emptyTimeline }
     , Cmd.none
     )
 
 
-insertTransactionsToModel : Model -> List Transaction -> Model
-insertTransactionsToModel model transactions =
-    let
-        updatedTimeline =
-            insertTransactions model.timeline transactions
-    in
-    { model | timeline = updatedTimeline }
+emptyTimeline : Timeline
+emptyTimeline =
+    { dayViewsExpanded = Dict.empty }
 
 
-insertTransactions : Timeline -> List Transaction -> Timeline
-insertTransactions timeline transactions =
+type alias DayView =
+    { date : Date
+    , isExpanded : Bool
+    , transactionsSorted : List Transaction
+    }
+
+
+prepareDayViews : List DayView -> Timeline -> List Transaction -> List DayView
+prepareDayViews currentDayViews timeline transactions =
     case transactions of
         [] ->
-            timeline
+            currentDayViews
 
         transaction :: rest ->
             let
                 dayDate =
                     transaction.insertedAt |> Date.fromPosix Time.utc
 
+                dayDateAsNumber =
+                    Date.toRataDie dayDate
+
                 transactionTime =
                     transaction.insertedAt |> Time.posixToMillis
 
                 updateDayView dayView =
                     let
-                        updatedTransactionViews : List TransactionView
-                        updatedTransactionViews =
-                            dayView.transactionViews
+                        updatedTransactions : List Transaction
+                        updatedTransactions =
+                            dayView.transactionsSorted
                                 |> updateOrAddOrdered
-                                    (\tv ->
+                                    (\t ->
                                         let
                                             cmp =
                                                 compare
                                                     transactionTime
-                                                    (tv.transaction.insertedAt |> Time.posixToMillis)
+                                                    (t.insertedAt |> Time.posixToMillis)
                                         in
                                         if cmp == EQ then
-                                            compare transaction.id tv.transaction.id
+                                            compare transaction.id t.id
 
                                         else
                                             cmp
                                     )
-                                    (\tv -> { tv | transaction = transaction })
-                                    (\() -> { transaction = transaction })
+                                    (\t -> transaction)
+                                    (\() -> transaction)
                     in
-                    { dayView | transactionViews = updatedTransactionViews }
+                    { dayView
+                        | transactionsSorted = updatedTransactions
+                        , isExpanded =
+                            Dict.get dayDateAsNumber timeline.dayViewsExpanded
+                                |> Maybe.withDefault True
+                    }
 
                 updatedDayViews : List DayView
                 updatedDayViews =
                     updateOrAddOrdered
                         (\dv -> Date.compare dv.date dayDate)
                         updateDayView
-                        (\() -> { date = dayDate, transactionViews = [], isExpanded = True })
-                        timeline.dayViews
-
-                updatedTimeline : Timeline
-                updatedTimeline =
-                    { dayViews = updatedDayViews }
+                        (\() ->
+                            { date = dayDate
+                            , transactionsSorted = []
+                            , isExpanded = True
+                            }
+                        )
+                        currentDayViews
             in
-            insertTransactions updatedTimeline rest
-
-
-type alias Context msg =
-    Logged (ContextData Model Msg msg)
+            prepareDayViews updatedDayViews timeline rest
 
 
 
@@ -142,30 +142,45 @@ update model msg =
                 timeline =
                     model.timeline
 
-                updatedDayViews =
-                    List.Extra.updateIf
-                        (\dv -> EQ == Date.compare dv.date dayView.date)
-                        (\dv -> { dv | isExpanded = not dv.isExpanded })
-                        timeline.dayViews
+                dateAsNumber : Int
+                dateAsNumber =
+                    Date.toRataDie dayView.date
 
-                updatedTimeline =
-                    { timeline | dayViews = updatedDayViews }
+                updatedDayViews =
+                    Dict.update dateAsNumber
+                        (\maybeIsExpanded ->
+                            case maybeIsExpanded of
+                                Just isExpanded ->
+                                    Just <| not isExpanded
+
+                                Nothing ->
+                                    Just True
+                        )
+                        timeline.dayViewsExpanded
             in
-            { model | timeline = updatedTimeline } |> noCmd
+            { model | timeline = { timeline | dayViewsExpanded = updatedDayViews } } |> noCmd
 
 
 
 -- VIEW --
 
 
-view : Context msg -> Element msg
-view ctx =
+view : Context msg -> List Transaction -> Element msg
+view ctx transactions =
+    Element.Lazy.lazy (view2 ctx) transactions
+
+
+view2 : Context msg -> List Transaction -> Element msg
+view2 ctx transactions =
     let
         { model } =
             ctx
 
+        dayViews =
+            prepareDayViews [] model.timeline transactions
+
         isFirstDayToday =
-            List.head model.timeline.dayViews
+            List.head dayViews
                 |> Maybe.andThen (\dv -> Just <| Date.compare dv.date ctx.todayDate == EQ)
                 |> Maybe.withDefault False
     in
@@ -191,7 +206,7 @@ view ctx =
                 else
                     Element.none
               ]
-            , List.map (viewDay ctx) model.timeline.dayViews
+            , List.map (viewDay ctx) dayViews
             ]
 
 
@@ -199,7 +214,7 @@ viewDay : Context msg -> DayView -> Element msg
 viewDay ctx dayView =
     let
         transactionViews =
-            dayView.transactionViews
+            dayView.transactionsSorted
     in
     row
         [ paddingEach { edges | top = eachDaySpacing }
@@ -257,7 +272,7 @@ viewDay ctx dayView =
                     daySum =
                         transactionViews
                             |> List.foldl
-                                (.transaction
+                                (identity
                                     >> amountDifferenceForMyAccount ctx.session.id
                                     >> (+)
                                 )
@@ -312,12 +327,9 @@ viewDayPoint ctx =
         (text "")
 
 
-viewTransaction : Context msg -> Bool -> TransactionView -> Element msg
-viewTransaction ctx isExpanded tv =
+viewTransaction : Context msg -> Bool -> Transaction -> Element msg
+viewTransaction ctx isExpanded t =
     let
-        t =
-            tv.transaction
-
         isCollapsed =
             not isExpanded
 
@@ -338,7 +350,7 @@ viewTransaction ctx isExpanded tv =
                     , viewIf (isExpanded && t.amount /= abs diff) <|
                         (Element.el [ Font.color Colors.gray400 ] <| text <| " / " ++ String.fromFloat (amountToMoney t.amount))
                     ]
-                , viewIf isCollapsed <| viewTransactionTags ctx False tv
+                , viewIf isCollapsed <| viewTransactionTags ctx False t
                 ]
 
         personIdToName : Int -> String
@@ -365,7 +377,7 @@ viewTransaction ctx isExpanded tv =
         , paddingXY 7 (either 7 0 <| isExpanded)
         , width (px 250) |> attrWhen isExpanded
         , userSelectNone
-        , inFront (Element.el [ alignRight, moveLeft 6, moveDown 4 ] <| viewTransactionTags ctx True tv) |> attrWhen isExpanded
+        , inFront (Element.el [ alignRight, moveLeft 6, moveDown 4 ] <| viewTransactionTags ctx True t) |> attrWhen isExpanded
         ]
         [ basics
         , if isExpanded then
@@ -376,15 +388,15 @@ viewTransaction ctx isExpanded tv =
         ]
 
 
-viewTransactionTags : Context msg -> Bool -> TransactionView -> Element msg
-viewTransactionTags ctx inColumn tv =
+viewTransactionTags : Context msg -> Bool -> Transaction -> Element msg
+viewTransactionTags ctx inColumn transaction =
     (inColumn |> either column row)
         [ spacing 3 ]
-        (List.map (\tag -> viewTag ctx tv tag) tv.transaction.tags)
+        (List.map viewTag transaction.tags)
 
 
-viewTag : Context msg -> TransactionView -> String -> Element msg
-viewTag ctx tv tag =
+viewTag : String -> Element msg
+viewTag tag =
     Element.el
         [ Border.rounded 3
         , Background.color Colors.teal200

@@ -2,17 +2,12 @@ module Page.TransactionHistory exposing (Model, Msg, init, reinit, update, view)
 
 import Cmd.Extra
 import Data.Context exposing (ContextData, GlobalMsg, Logged, subContext)
-import Data.Person exposing (Person)
 import Data.Session exposing (Session)
 import Data.Transaction exposing (Transaction)
 import Dict exposing (Dict)
 import Element exposing (Element, centerX, column, fill, link, paragraph, px, row, spacing, text, width)
 import Element.Font as Font
 import Graphql.Http
-import Html exposing (i)
-import Html.Attributes
-import List exposing (range)
-import List.Extra
 import Misc exposing (attr, either, getUpdatedProperty, noCmd, styledButton, viewIf, viewLoadingBar)
 import Misc.Pagination as Pagination exposing (Pagination, hasNoMorePages)
 import RemoteData exposing (RemoteData)
@@ -37,13 +32,9 @@ init : Maybe Int -> Session -> ( Model, Cmd Msg )
 init pageNo session =
     let
         ( timeline, timelineMsg ) =
-            Timeline.init []
+            Timeline.init
     in
-    ( { transactions =
-            { elements = Dict.empty
-            , lastRequest = Nothing
-            , resultsPerPage = 60
-            }
+    ( { transactions = Pagination.emptyPagination 60
       , isPageLoading = True
       , timeline = timeline
       }
@@ -110,19 +101,12 @@ update { model } msg =
                 { offset, limit, transactions } =
                     transactionList
 
-                modelTransactions =
-                    model.transactions
-
-                updatedElements =
-                    Pagination.setMultiple modelTransactions.elements offset transactions
-
                 updatedModelTransactions =
-                    { modelTransactions | elements = updatedElements }
+                    Pagination.setMultipleElements model.transactions offset transactions
             in
             { model
                 | isPageLoading = False
                 , transactions = updatedModelTransactions
-                , timeline = Timeline.insertTransactionsToModel model.timeline transactions
             }
                 |> noCmd
                 |> noCmd
@@ -150,10 +134,13 @@ view ctx =
 
         isAnythingLoaded =
             Dict.size ctx.model.transactions.elements > 0
+
+        transactions =
+            Pagination.getAllSortedByIndex ctx.model.transactions
     in
     if isAnythingLoaded then
         Element.column [ spacing 15 ]
-            [ Timeline.view subCtx
+            [ Timeline.view subCtx transactions
             , styledButton [ centerX ]
                 { onPress = Just <| ctx.lift LoadNextPage
                 , label = text "Load more..."

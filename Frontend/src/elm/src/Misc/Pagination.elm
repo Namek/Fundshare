@@ -6,19 +6,22 @@ module Misc.Pagination exposing
     , currentOffset
     , currentPageIndex
     , currentPageNo
+    , emptyPagination
     , furthestPageIndex
-    , getMultiple
+    , getAllSortedByIndex
     , hasNoMorePages
     , isPageLoaded
     , mapElements
-    , setMultiple
+    , setMultipleElements
     , viewPaginator
     )
 
 import Dict exposing (Dict)
 import Element exposing (Element, link, row, spacing, text)
 import Element.Font as Font
+import Maybe.Extra
 import Misc exposing (viewIf)
+import Misc.DictExtra as DictExtra
 import Route
 
 
@@ -26,8 +29,18 @@ import Route
 -}
 type alias Pagination data =
     { elements : Dict Int data
+    , indexRange : IndexRange
     , resultsPerPage : Int
     , lastRequest : Maybe PaginationRequest
+    }
+
+
+emptyPagination : Int -> Pagination data
+emptyPagination resultsPerPage =
+    { elements = Dict.empty
+    , indexRange = { from = -1, length = 0 }
+    , resultsPerPage = resultsPerPage
+    , lastRequest = Nothing
     }
 
 
@@ -35,6 +48,10 @@ type alias PaginationRequest =
     { offset : Int
     , limit : Int
     }
+
+
+type alias IndexRange =
+    { from : Int, length : Int }
 
 
 currentOffset : Pagination data -> Int
@@ -98,36 +115,29 @@ hasNoMorePages pagination =
     modBy pagination.resultsPerPage (Dict.size pagination.elements) /= 0
 
 
-setMultiple : Dict Int data -> Int -> List data -> Dict Int data
-setMultiple dict startIndex elements =
-    case elements of
-        [] ->
-            dict
+setMultipleElements : Pagination data -> Int -> List data -> Pagination data
+setMultipleElements pagination startIndex elements =
+    { pagination
+        | elements = DictExtra.setMultipleValues pagination.elements startIndex elements
+        , indexRange =
+            { from =
+                if pagination.indexRange.from >= 0 then
+                    min pagination.indexRange.from startIndex
 
-        x :: xs ->
-            let
-                newDict =
-                    Dict.insert startIndex x dict
-            in
-            setMultiple newDict (startIndex + 1) xs
+                else
+                    startIndex
+            , length =
+                max
+                    pagination.indexRange.length
+                    (startIndex + List.length elements)
+            }
+    }
 
 
-getMultiple : Dict Int data -> Int -> Int -> List (Maybe data)
-getMultiple dict startIndex limit =
-    let
-        inner leftLimit accList =
-            case leftLimit of
-                0 ->
-                    accList
-
-                offset ->
-                    let
-                        el =
-                            Dict.get (startIndex + offset) dict
-                    in
-                    inner (offset - 1) (el :: accList)
-    in
-    inner (max 0 <| limit - 1) []
+getAllSortedByIndex : Pagination data -> List data
+getAllSortedByIndex pagination =
+    DictExtra.getMultipleValues pagination.elements pagination.indexRange.from pagination.indexRange.length
+        |> Maybe.Extra.values
 
 
 mapElements : (data -> mapped) -> Pagination data -> List mapped
@@ -136,7 +146,7 @@ mapElements mapper pagination =
         offset =
             currentOffset pagination
     in
-    getMultiple pagination.elements offset pagination.resultsPerPage
+    DictExtra.getMultipleValues pagination.elements offset pagination.resultsPerPage
         |> List.filterMap
             (\maybeEl ->
                 case maybeEl of
@@ -157,7 +167,7 @@ isPageLoaded pageNo pagination =
         startIndex =
             (pageNo - 1) * limit
     in
-    getMultiple pagination.elements startIndex limit
+    DictExtra.getMultipleValues pagination.elements startIndex limit
         |> List.member Nothing
         |> not
 
