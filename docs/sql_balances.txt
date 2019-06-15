@@ -1,0 +1,24 @@
+-- total balance for uid=1
+select (
+    (select sum(amount) from transactions where payor_id = 1 and array[1,2] = beneficient_ids)/2
+  + (select sum(amount) from transactions where payor_id = 1 and array[2] = beneficient_ids)
+  - (select sum(amount) from transactions where payor_id = 2 and array[1,2] = beneficient_ids)/2
+  - (select sum(amount) from transactions where payor_id = 2 and array[1] = beneficient_ids)
+)
+
+-- all the rest (should be empty!)
+select * from transactions where
+	not (payor_id=1 and array[1,2] = beneficient_ids) and
+	not (payor_id=1 and array[2] = beneficient_ids) and
+	not (payor_id=2 and array[1,2] = beneficient_ids) and
+	not (payor_id=2 and array[1] = beneficient_ids);
+	
+-- deltas for uid=2
+select
+  (case
+	when (payor_id=1 and array[1,2] = beneficient_ids) then -amount/2
+	when payor_id=1 and array[2] = beneficient_ids then -amount
+	when payor_id=2 and array[1,2] = beneficient_ids then amount/2
+	when payor_id=2 and array[1] = beneficient_ids then amount
+  end)/100 as "delta z³", tags, description, inserted_at
+ from transactions;

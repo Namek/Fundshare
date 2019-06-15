@@ -36,7 +36,6 @@ let transformOrEmpty (transform : string -> string) (arg : string option) : stri
 
     
 type Fraction =
- private 
   { num : int
     den : int }
     
@@ -62,7 +61,6 @@ type BalanceCorrection =
     den : int }
   
 type Transaction =
- private
   { authorId : int
     payorId : int 
     beneficientIds : int list
@@ -110,25 +108,55 @@ let update (table : string) (where : string option) (values : (string * string) 
 // balance: how much the left is rebalanced to the right
 // e.g. if num/den > 0 then user2 (right) is in debt to user1 (left)
 let calcTransactionBalanceCorrections transaction : BalanceCorrection list =
-  let peopleCount =
-    transaction.payorId :: transaction.beneficientIds
-    |> List.distinct
-    |> List.length
-  
-  transaction.beneficientIds
+  let denominator =
+    List.length transaction.beneficientIds
+
+  let debtorIds =
+    transaction.beneficientIds
     |> List.filter (fun id -> id <> transaction.payorId)
+
+  debtorIds
     |> List.map (fun id ->
-      let b =
-        { user1Id = transaction.payorId
-          user2Id = id
-          num = transaction.amount
-          den = peopleCount }
-          
+      let uid1 = transaction.payorId
+      let uid2 = id
+
       // always contain {smaller_id, bigger_id} tuple for user ids
-      if b.user1Id < b.user2Id then b
-      else { user1Id = b.user2Id; user2Id = b.user1Id; num = -b.num; den = b.den }
+      if uid1 < uid2 then
+        { user1Id = uid1
+          user2Id = uid2
+          num = transaction.amount
+          den = denominator }
+      else
+        { user1Id = uid2
+          user2Id = uid1
+          num = -transaction.amount
+          den = denominator }
     )
     
+
+let calculateTotalBalanceFromTransactionsFor2Users (expectedUser1Id : int) (expectedUser2Id : int) (transactions : Transaction list) : Fraction =
+  let uid1 = Math.Min(expectedUser1Id, expectedUser2Id)
+  let uid2 = Math.Max(expectedUser1Id, expectedUser2Id)
+  
+  // transactions may contain other users than user1 and user2, so filter them out
+  let balanceCorrections : BalanceCorrection list =
+    transactions
+    |> List.fold (fun allCollected trans ->
+         List.concat [(calcTransactionBalanceCorrections trans); allCollected]) []
+    |> List.filter (fun balance ->
+         balance.user1Id = uid1 && balance.user2Id = uid2)
+    
+  let totalBalance : Fraction =
+    balanceCorrections
+    |> (List.fold (fun state correct ->
+        let d = lcm state.den correct.den
+        let n = state.num*(d/state.den) + correct.num*(d/correct.den)
+        let divisor = gcd n d
+        {num = n / divisor; den = d / divisor}
+      )
+      {num = 0; den = 1})
+
+  totalBalance
 
 let calculateBalanceFor2Users (user1Id : int) (user2Id : int) : BalanceDao =
   let transactions : Transaction list  =
@@ -189,24 +217,9 @@ let calculateBalanceFor2Users (user1Id : int) (user2Id : int) : BalanceDao =
       ) stats
     
   let (expectedUser1Id, expectedUser2Id) = if user1Id < user2Id then (user1Id, user2Id) else (user2Id, user1Id)
-  
-  // transactions may contain other users than user1 and user2, so filter them out
-  let balanceCorrections : BalanceCorrection list =
-    transactions
-    |> List.fold (fun allCollected trans ->
-         List.concat [(calcTransactionBalanceCorrections trans); allCollected]) []
-    |> List.filter (fun balance ->
-         balance.user1Id = expectedUser1Id && balance.user2Id = expectedUser2Id)
-    
+
   let totalBalance : Fraction =
-    balanceCorrections
-    |> (List.fold (fun state correct ->
-        let n = state.num*correct.den + correct.num*state.den
-        let d = state.den*correct.den
-        let divisor = gcd n d
-        {num = n / divisor; den = d / divisor}
-      )
-      {num = 0; den = 1})
+    transactions |> calculateTotalBalanceFromTransactionsFor2Users expectedUser1Id expectedUser2Id
       
   let (s1, s2, s3, s4, s5, s6, d) = stats
 
@@ -222,7 +235,6 @@ let calculateBalanceFor2Users (user1Id : int) (user2Id : int) : BalanceDao =
     inboxForUser2Count = s6
     lastUpdateAt = d   
   }
-  
 
 let calculateBalanceForUsers (userIds : int list) =
   let ids = List.distinct userIds
