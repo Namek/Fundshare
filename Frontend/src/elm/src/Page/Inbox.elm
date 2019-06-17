@@ -125,6 +125,7 @@ someSelected model =
 type Msg
     = MsgTable MsgTable
     | MsgCards MsgCards
+    | ToggleViewMode
       -- common messages
     | RefreshTransactions
     | RefreshTransactions_Response (RemoteData (GqlHttp.Error TransactionList) TransactionList)
@@ -190,7 +191,19 @@ update ctx topMsg =
 
         MsgCards msgCards ->
             -- TODO call updateCards
-            ( ( ctx.model, Cmd.none ), Cmd.none )
+            ( ( model, Cmd.none ), Cmd.none )
+
+        ToggleViewMode ->
+            let
+                newViewType =
+                    case ctx.model.viewType of
+                        Cards ->
+                            Table
+
+                        Table ->
+                            Cards
+            in
+            ( ( { model | viewType = newViewType }, Cmd.none ), Cmd.none )
 
 
 updateTable : Context msg -> MsgTable -> ( ( Model, Cmd Msg ), Cmd GlobalMsg )
@@ -341,7 +354,11 @@ view ctx =
                         |> viewInbox_cards
     in
     column [ Font.size 14 ]
-        [ case model.common.inboxTransactions of
+        [ Misc.styledButton [ centerX ]
+            { onPress = Just <| ctx.lift <| ToggleViewMode
+            , label = text "Toggle view mode"
+            }
+        , case model.common.inboxTransactions of
             Just inboxTransactions ->
                 hasAnyNewTransaction session.id inboxTransactions
                     |> either (viewInbox inboxTransactions) Element.none
