@@ -14,11 +14,11 @@ getMultipleValues dict startIndex limit =
                 offset ->
                     let
                         el =
-                            Dict.get (startIndex + offset) dict
+                            Dict.get (startIndex + offset - 1) dict
                     in
                     inner (offset - 1) (el :: accList)
     in
-    inner (max 0 <| limit - 1) []
+    inner limit []
 
 
 setMultipleValues : Dict Int data -> Int -> List data -> Dict Int data
