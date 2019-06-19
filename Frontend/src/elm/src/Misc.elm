@@ -14,6 +14,7 @@ module Misc exposing
     , moneyRegex
     , noCmd
     , noShadow
+    , pairToTriple
     , styledButton
     , userSelectNone
     , viewBadge
@@ -74,6 +75,11 @@ either a1 a2 cond =
 
     else
         a2
+
+
+pairToTriple : c -> ( a, b ) -> ( a, b, c )
+pairToTriple c ( a, b ) =
+    ( a, b, c )
 
 
 getUpdatedProperty : (record -> property) -> (property -> property) -> record -> property

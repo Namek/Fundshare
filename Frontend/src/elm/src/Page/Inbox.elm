@@ -54,7 +54,7 @@ type alias ModelTable =
 
 
 type alias ModelCards =
-    {}
+    { editingTransaction : Maybe { id : TransactionId } }
 
 
 type alias ModelCommon =
@@ -86,7 +86,7 @@ init session =
       , table =
             { selectedInboxTransactionIds = Set.empty
             }
-      , cards = {}
+      , cards = { editingTransaction = Nothing }
       }
     , initialCmds
     )
@@ -141,6 +141,8 @@ type MsgTable
 
 type MsgCards
     = OpenTransactionEdit TransactionId
+    | CancelTransactionEdit
+    | AcceptTransactionEdit
     | AcceptTransaction TransactionId
     | AcceptAllVisibleTransactions
 
@@ -182,16 +184,19 @@ update ctx topMsg =
         SetDate dateStringResult ->
             ( ( model, Cmd.none ), Cmd.none )
 
-        MsgTable msg ->
+        MsgTable msgTable ->
             let
                 ( ( newModel, cmds ), globalCmds ) =
-                    updateTable ctx msg
+                    updateTable ctx msgTable
             in
             ( ( newModel, cmds ), globalCmds )
 
         MsgCards msgCards ->
-            -- TODO call updateCards
-            ( ( model, Cmd.none ), Cmd.none )
+            let
+                ( ( newModel, cmds ), globalCmds ) =
+                    updateCards ctx msgCards
+            in
+            ( ( newModel, cmds ), globalCmds )
 
         ToggleViewMode ->
             let
@@ -303,14 +308,22 @@ updateCards { model, session } msg =
         lift =
             MsgCards
 
-        modelTable =
-            model.table
+        modelCards =
+            model.cards
 
         modelCommon =
             model.common
     in
     case msg of
         OpenTransactionEdit transactionId ->
+            { model | cards = { modelCards | editingTransaction = Just { id = transactionId } } }
+                |> noCmd
+                |> noCmd
+
+        CancelTransactionEdit ->
+            { model | cards = { modelCards | editingTransaction = Nothing } } |> noCmd |> noCmd
+
+        AcceptTransactionEdit ->
             model |> noCmd |> noCmd
 
         AcceptTransaction transactionId ->
@@ -379,13 +392,23 @@ viewInbox_cards ctx inboxTransactions =
         --        areAllSelected =
         --            allSelected inboxTransactions model.selectedInboxTransactionIds
     in
-    wrappedRow
-        [ css "justify-content" "center"
-        , paddingXY 15 15
-        , spacing 20
-        ]
-    <|
-        List.map (viewCard ctx) inboxTransactions
+    case model.editingTransaction of
+        Just edit ->
+            row [] []
+
+        Nothing ->
+            wrappedRow
+                [ css "justify-content" "center"
+                , paddingXY 15 15
+                , spacing 20
+                ]
+            <|
+                List.map (viewCard ctx) inboxTransactions
+
+
+viewTransactionEdit : ViewNew msg -> Element msg
+viewTransactionEdit ctx =
+    column [] [ text "transaction edit" ]
 
 
 viewCard : ViewNew msg -> Transaction -> Element msg

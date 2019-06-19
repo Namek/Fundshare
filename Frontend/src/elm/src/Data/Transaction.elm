@@ -1,5 +1,6 @@
 module Data.Transaction exposing
     ( Transaction
+    , TransactionEdit
     , TransactionId
     , amountDifferenceForMyAccount
     , amountToMoney
@@ -16,6 +17,8 @@ import Misc exposing (digitCount, either)
 import Time exposing (Posix)
 
 
+{-| Full transaction info from database
+-}
 type alias Transaction =
     { id : TransactionId
     , amount : Int
@@ -25,6 +28,17 @@ type alias Transaction =
     , beneficientIds : List PersonId
     , acceptanceIds : List PersonId
     , insertedAt : Posix
+    }
+
+
+{-| Transaction info containing only editable parts
+-}
+type alias TransactionEdit =
+    { amount : Int
+    , payorId : PersonId
+    , beneficientIds : List PersonId
+    , description : Maybe String
+    , tags : Maybe (List String)
     }
 
 

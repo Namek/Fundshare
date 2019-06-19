@@ -33,10 +33,10 @@ type alias Context msg =
     ContextData Model Msg msg
 
 
-init : Model
-init =
+init : List String -> Model
+init chipTexts =
     { text = ""
-    , chips = []
+    , chips = chipTexts
     , animatedChip = Nothing
     }
 
