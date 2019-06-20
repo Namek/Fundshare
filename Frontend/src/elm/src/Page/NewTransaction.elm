@@ -1,31 +1,23 @@
 module Page.NewTransaction exposing (Model, Msg, init, update, view)
 
-import Browser.Dom as Dom
 import Cmd.Extra
 import Data.Context exposing (..)
-import Data.Person exposing (Person, PersonId)
 import Data.Session exposing (Session)
 import Data.Transaction exposing (TransactionEdit, TransactionId)
 import Element exposing (Element, alignLeft, alignRight, below, centerX, centerY, column, el, explain, fill, fillPortion, focused, height, inFront, mouseDown, moveDown, moveLeft, moveUp, padding, paddingXY, paragraph, px, rgb255, rgba255, row, shrink, spaceEvenly, spacing, text, width, wrappedRow)
 import Element.Background as Bg
 import Element.Border as Border
 import Element.Font as Font
-import Element.Input as Input exposing (labelRight)
+import Element.Input as Input
 import Graphql.Http
-import Html.Attributes as Attr
-import Html.Events exposing (keyCode)
 import List
-import List.Extra
-import Maybe.Extra exposing (isJust, isNothing)
 import Misc exposing (attr, attrWhen, either, match, moneyRegex, noCmd, noShadow, userSelectNone, viewIcon, viewIconButton, viewIf)
-import Misc.Colors as Colors exposing (blue500, rgbHex, teal100, teal500, teal700, white)
+import Misc.Colors as Colors
 import Misc.SuccessAnimation exposing (successAnim)
 import RemoteData exposing (RemoteData)
 import Request.AddTransaction exposing (..)
 import Request.Common exposing (..)
-import Request.People exposing (..)
 import Route
-import Set exposing (Set)
 import Views.TransactionComposeForm as TransactionComposeForm exposing (Command(..), Event(..), ViewState(..))
 
 
@@ -50,11 +42,6 @@ type SaveState
     | Saved TransactionId
 
 
-
---type alias SaveResult =
---    { paymentId : TransactionId }
-
-
 init : Session -> ( Model, Cmd Msg )
 init session =
     let
@@ -66,14 +53,17 @@ init session =
 
 initModel : Session -> Model
 initModel session =
-    { form =
-        TransactionComposeForm.init
-            { description = ""
-            , amount = ""
-            , payor = Just session.id
-            , beneficients = Set.empty
-            , tags = []
+    let
+        transaction : TransactionEdit
+        transaction =
+            { description = Nothing
+            , amount = 0
+            , payorId = session.id
+            , beneficientIds = []
+            , tags = Nothing
             }
+    in
+    { form = TransactionComposeForm.init "New transaction" False transaction
     , saveState = Composing
     }
 
@@ -115,15 +105,15 @@ update ctx msg =
 
                 passEvents : List (Cmd Msg)
                 passEvents =
-                    List.foldl
-                        (\evt evts ->
-                            (case evt of
+                    List.map
+                        (\evt ->
+                            case evt of
                                 OnSaveTransaction t ->
                                     Cmd.Extra.perform <| SaveTransaction t
-                            )
-                                :: evts
+
+                                OnCloseClicked ->
+                                    Cmd.none
                         )
-                        []
                         events
 
                 cmds =

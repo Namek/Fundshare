@@ -24,6 +24,14 @@ type alias Context msg =
     Logged (ContextData Model Msg msg)
 
 
+type alias Model =
+    { transaction : TransactionComposed
+    , tags : ChipsTextfield.Model
+    , title : String
+    , isClosable : Bool
+    }
+
+
 type alias TransactionComposed =
     { description : String
     , amount : String
@@ -33,16 +41,27 @@ type alias TransactionComposed =
     }
 
 
-type alias Model =
-    { transaction : TransactionComposed
-    , tags : ChipsTextfield.Model
-    }
+init : String -> Bool -> TransactionEdit -> Model
+init title isClosable transaction =
+    let
+        composed : TransactionComposed
+        composed =
+            { description = transaction.description |> Maybe.withDefault ""
+            , amount =
+                if transaction.amount >= 0 then
+                    transaction.amount |> amountIntToStr
 
-
-init : TransactionComposed -> Model
-init transaction =
-    { transaction = transaction
-    , tags = ChipsTextfield.init transaction.tags
+                else
+                    ""
+            , payor = Just transaction.payorId
+            , beneficients = Set.fromList transaction.beneficientIds
+            , tags = transaction.tags |> Maybe.withDefault []
+            }
+    in
+    { transaction = composed
+    , tags = ChipsTextfield.init composed.tags
+    , title = title
+    , isClosable = isClosable
     }
 
 
@@ -52,6 +71,7 @@ type Command
 
 type Event
     = OnSaveTransaction TransactionEdit
+    | OnCloseClicked
 
 
 command : Command -> Msg
@@ -71,6 +91,7 @@ type Msg
     | TagsMsg ChipsTextfield.Msg
     | ToggleTag String
     | SaveTransaction
+    | CloseClicked
 
 
 update : Context msg -> Msg -> ( ( Model, Cmd Msg ), Cmd GlobalMsg, List Event )
@@ -217,6 +238,9 @@ update ctx msg =
             in
             model |> noCmd |> noCmd |> withEvts events
 
+        CloseClicked ->
+            model |> noCmd |> noCmd |> withEvts [ OnCloseClicked ]
+
 
 withEvts : List Event -> ( a, Cmd msg ) -> ( a, Cmd msg, List Event )
 withEvts evt ( model, cmds ) =
@@ -252,6 +276,29 @@ amountStrToInt str =
             0
 
 
+amountIntToStr : Int -> String
+amountIntToStr int =
+    let
+        part1Int =
+            int // 100
+
+        part1 =
+            part1Int |> String.fromInt
+
+        part2 =
+            int - (part1Int * 100) |> String.fromInt
+    in
+    case ( part1, part2 ) of
+        ( "0", "0" ) ->
+            ""
+
+        ( _, "0" ) ->
+            part1
+
+        _ ->
+            part1 ++ "." ++ part2
+
+
 isFormFilled : Model -> Bool
 isFormFilled model =
     let
@@ -271,26 +318,6 @@ isFormFilled model =
 
 
 
---
---isFormDisabled : Model -> Bool
---isFormDisabled model =
---    not <| isFormEnabled model
---
---
---isFormEnabled : Model -> Bool
---isFormEnabled model =
---    case model.saveState of
---        Composing ->
---            True
---
---        Saving ->
---            False
---
---        SaveError ->
---            True
---
---        Saved ->
---            False
 -- VIEW
 
 
@@ -302,6 +329,10 @@ type ViewState
 
 viewForm : Context msg -> ViewState -> Element msg
 viewForm ctx viewState =
+    let
+        isCloseButtonVisible =
+            ctx.model.isClosable && viewState == EditComposing
+    in
     column
         [ width fill
         , userSelectNone
@@ -319,13 +350,14 @@ viewForm ctx viewState =
             , Border.shadow { offset = ( 0, 2 ), size = 0, blur = 10, color = rgba255 0 0 0 0.4 }
             , paddingXY 22 18
             , inFront <|
-                column [ width fill, moveDown 10, moveLeft 22 ]
-                    [ column [ alignRight ] [ viewSave ctx viewState ] ]
+                viewIf isCloseButtonVisible <|
+                    column [ width fill, moveDown 16, moveLeft 22 ]
+                        [ column [ alignRight ] [ viewCancel ctx ] ]
             , below <|
                 viewIf (viewState == EditSaving) <|
                     row [ moveUp 5, height (px 10), width fill ] [ Misc.viewLoadingBar ]
             ]
-            [ text "New transaction" ]
+            [ text ctx.model.title ]
         , row
             [ width fill
             , spacing 30
@@ -339,6 +371,8 @@ viewForm ctx viewState =
                 ]
             , el [ alignRight ] <| viewUsualTags ctx
             ]
+        , column [ width <| px 100, centerX, paddingXY 0 15 ]
+            [ viewSave ctx viewState ]
         ]
 
 
@@ -526,11 +560,24 @@ viewSave ctx viewState =
         , mouseDown [ Font.color teal100 ] |> attrWhen isEnabled
         , focused [ noShadow ]
         , Font.color Colors.blueGray900 |> attrWhen (not isEnabled)
+        , width fill
         ]
         { onPress =
             isEnabled
                 |> either
                     (Just <| ctx.lift SaveTransaction)
                     Nothing
-        , label = text btnText
+        , label = el [ centerX ] <| text btnText
+        }
+
+
+viewCancel : Context msg -> Element msg
+viewCancel ctx =
+    let
+        btnText =
+            "×"
+    in
+    Input.button []
+        { onPress = Just <| ctx.lift CloseClicked
+        , label = el [ Font.size 25, Font.color Colors.gray300 ] <| text btnText
         }

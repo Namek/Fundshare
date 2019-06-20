@@ -1,12 +1,11 @@
 module Page.Inbox exposing (Model, Msg, init, reinit, update, view)
 
-import Array exposing (Array)
 import Cmd.Extra
 import Data.CommonData exposing (CommonData)
 import Data.Context exposing (ContextData, GlobalMsg(..), Logged)
 import Data.Person exposing (Person, PersonId, personIdToName)
 import Data.Session exposing (Session)
-import Data.Transaction exposing (Transaction, TransactionId, amountDifferenceForMyAccount, amountToMoney, amountToMoneyChangeLeftPad, amountToMoneyString, isTransactionInInboxForUser)
+import Data.Transaction exposing (Transaction, TransactionEdit, TransactionId, amountDifferenceForMyAccount, amountToMoney, amountToMoneyChangeLeftPad, amountToMoneyString, isTransactionInInboxForUser)
 import Date exposing (Date)
 import Element exposing (Element, above, alignBottom, alignRight, centerX, centerY, column, el, fill, height, inFront, minimum, padding, paddingEach, paddingXY, paragraph, px, rgba, row, shrink, spaceEvenly, spacing, table, text, width, wrappedRow)
 import Element.Background as Background
@@ -14,7 +13,6 @@ import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input exposing (button)
 import Graphql.Http as GqlHttp
-import Json.Decode as Json
 import List.Extra
 import Misc exposing (attrWhen, css, dayRelative, edges, either, noCmd, noShadow, styledButton, userSelectNone, viewIcon, viewIf, viewLoadingBar)
 import Misc.Colors as Colors
@@ -25,6 +23,7 @@ import Request.Transactions exposing (AcceptTransactionsResult, TransactionList,
 import Set exposing (Set)
 import Task
 import Time exposing (Posix, now)
+import Views.TransactionComposeForm as TransactionComposeForm exposing (Event(..), ViewState(..))
 
 
 type alias Context msg =
@@ -54,11 +53,19 @@ type alias ModelTable =
 
 
 type alias ModelCards =
-    { editingTransaction : Maybe { id : TransactionId } }
+    { editingTransaction : Maybe EditingTransaction }
 
 
 type alias ModelCommon =
     { inboxTransactions : Maybe (List Transaction) }
+
+
+type alias EditingTransaction =
+    { id : TransactionId
+    , form : TransactionComposeForm.Model
+
+    --    , saveState : SaveState
+    }
 
 
 type alias ViewCtx parentMsg localMsg localModel =
@@ -141,8 +148,9 @@ type MsgTable
 
 type MsgCards
     = OpenTransactionEdit TransactionId
+    | GotComposingFormMsg TransactionComposeForm.Msg
     | CancelTransactionEdit
-    | AcceptTransactionEdit
+    | SaveTransaction TransactionEdit
     | AcceptTransaction TransactionId
     | AcceptAllVisibleTransactions
 
@@ -303,8 +311,11 @@ updateTable { model, session } msg =
 
 
 updateCards : Context msg -> MsgCards -> ( ( Model, Cmd Msg ), Cmd GlobalMsg )
-updateCards { model, session } msg =
+updateCards ctx msg =
     let
+        { model } =
+            ctx
+
         lift =
             MsgCards
 
@@ -316,14 +327,83 @@ updateCards { model, session } msg =
     in
     case msg of
         OpenTransactionEdit transactionId ->
-            { model | cards = { modelCards | editingTransaction = Just { id = transactionId } } }
+            let
+                transaction : Maybe Transaction
+                transaction =
+                    model.common.inboxTransactions
+                        |> Maybe.andThen (\ts -> List.Extra.find (\t -> t.id == transactionId) ts)
+
+                edit : Maybe EditingTransaction
+                edit =
+                    transaction
+                        |> Maybe.map
+                            (\t ->
+                                let
+                                    te : TransactionEdit
+                                    te =
+                                        { description = t.description
+                                        , amount = t.amount
+                                        , payorId = t.payorId
+                                        , tags = Just t.tags
+                                        , beneficientIds = t.beneficientIds
+                                        }
+
+                                    dateStr =
+                                        t.insertedAt |> Date.fromPosix Time.utc |> Date.toIsoString
+                                in
+                                { id = transactionId, form = TransactionComposeForm.init ("Edit transaction: " ++ dateStr) True te }
+                            )
+            in
+            { model | cards = { modelCards | editingTransaction = edit } }
                 |> noCmd
                 |> noCmd
 
         CancelTransactionEdit ->
             { model | cards = { modelCards | editingTransaction = Nothing } } |> noCmd |> noCmd
 
-        AcceptTransactionEdit ->
+        GotComposingFormMsg subMsg ->
+            modelCards.editingTransaction
+                |> Maybe.andThen
+                    (\edit ->
+                        let
+                            subCtx =
+                                { model = edit.form
+                                , lift = GotComposingFormMsg
+                                , todayDate = ctx.todayDate
+                                , commonData = ctx.commonData
+                                , session = ctx.session
+                                }
+
+                            ( ( newModelForm, nextSubMsg ), globalMsg, events ) =
+                                TransactionComposeForm.update subCtx subMsg
+
+                            newEdit =
+                                { edit | form = newModelForm }
+
+                            newModelCards =
+                                { modelCards | editingTransaction = Just newEdit }
+
+                            passEvents : List (Cmd Msg)
+                            passEvents =
+                                List.map
+                                    (\evt ->
+                                        case evt of
+                                            OnSaveTransaction t ->
+                                                (SaveTransaction t |> lift) |> Cmd.Extra.perform
+
+                                            OnCloseClicked ->
+                                                CancelTransactionEdit |> lift |> Cmd.Extra.perform
+                                    )
+                                    events
+
+                            cmds =
+                                Cmd.batch <| Cmd.map (lift << GotComposingFormMsg) nextSubMsg :: passEvents
+                        in
+                        Just <| ({ model | cards = newModelCards } |> Cmd.Extra.with cmds |> Cmd.Extra.with globalMsg)
+                    )
+                |> Maybe.withDefault (model |> noCmd |> noCmd)
+
+        SaveTransaction transactionEdit ->
             model |> noCmd |> noCmd
 
         AcceptTransaction transactionId ->
@@ -366,11 +446,12 @@ view ctx =
                     }
                         |> viewInbox_cards
     in
-    column [ Font.size 14 ]
+    column []
         [ Misc.styledButton [ centerX ]
             { onPress = Just <| ctx.lift <| ToggleViewMode
             , label = text "Toggle view mode"
             }
+            |> viewIf (model.cards.editingTransaction == Nothing)
         , case model.common.inboxTransactions of
             Just inboxTransactions ->
                 hasAnyNewTransaction session.id inboxTransactions
@@ -386,15 +467,12 @@ view ctx =
 viewInbox_cards : ViewNew msg -> List Transaction -> Element msg
 viewInbox_cards ctx inboxTransactions =
     let
-        { model, session } =
+        { model } =
             ctx
-
-        --        areAllSelected =
-        --            allSelected inboxTransactions model.selectedInboxTransactionIds
     in
     case model.editingTransaction of
         Just edit ->
-            row [] []
+            viewTransactionEdit ctx edit
 
         Nothing ->
             wrappedRow
@@ -406,9 +484,18 @@ viewInbox_cards ctx inboxTransactions =
                 List.map (viewCard ctx) inboxTransactions
 
 
-viewTransactionEdit : ViewNew msg -> Element msg
-viewTransactionEdit ctx =
-    column [] [ text "transaction edit" ]
+viewTransactionEdit : ViewNew msg -> EditingTransaction -> Element msg
+viewTransactionEdit ctx edit =
+    let
+        formCtx =
+            { model = edit.form
+            , commonData = ctx.commonData
+            , todayDate = ctx.todayDate
+            , lift = ctx.lift << GotComposingFormMsg
+            , session = ctx.session
+            }
+    in
+    TransactionComposeForm.viewForm formCtx EditComposing
 
 
 viewCard : ViewNew msg -> Transaction -> Element msg
@@ -444,7 +531,7 @@ viewCard ctx transaction =
     in
     column
         [ width <| px 260
-        , height <| minimum 140 fill
+        , height <| minimum 160 fill
         , Border.rounded 2
         , Background.color Colors.teal700
         , Border.shadow { offset = ( 3, 3 ), size = 1, blur = 20, color = rgba 0 0 0 0.2 }
