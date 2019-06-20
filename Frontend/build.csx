@@ -144,7 +144,9 @@ void buildElm()
 
     log(msg);
     exec(workDir, "elm", args);
-    touchFile(output);
+    
+    if (File.Exists(output))
+        touchFile(output);
 }
 
 void generateElmApi()
@@ -202,13 +204,16 @@ void exec(String workDir, String cmd, String args = "")
         FileName = cmd,
         Arguments = args,
         WorkingDirectory = workDir,
-        RedirectStandardError = true
+        RedirectStandardError = true,
+        RedirectStandardOutput = true
     };
 
     var proc = Process.Start(procInfo);
-    proc.WaitForExit();
     var err = proc.StandardError.ReadToEnd();
+    var output = proc.StandardOutput.ReadToEnd();
+    proc.WaitForExit();
     Console.Write(err);
+    Console.Write(output);
 
     // this is specific to Elm compiler
     var matches = Regex.Matches(err, "-- CORRUPT BINARY - ([^\n]+)");
