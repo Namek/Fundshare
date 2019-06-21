@@ -69,3 +69,5 @@ type GlobalMsg
     | SetSession (Maybe Session)
       -- TODO: instead changing it directly, request a refresh from backend?
     | UpdateInboxSize Int
+      -- it's useful to hide scrollbars in the window for a modal window
+    | SetScrollbarsVisibility Bool

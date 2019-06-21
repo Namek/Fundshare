@@ -11,10 +11,10 @@ import Element exposing (Element, above, alignBottom, alignRight, centerX, cente
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
-import Element.Input as Input exposing (button)
+import Element.Input as Input
 import Graphql.Http as GqlHttp
 import List.Extra
-import Misc exposing (attrWhen, css, dayRelative, edges, either, noCmd, noShadow, styledButton, userSelectNone, viewIcon, viewIf, viewLoadingBar)
+import Misc exposing (attrWhen, css, dayRelative, edges, either, noCmd, noShadow, styledButton, userSelectNone, viewIcon, viewIf, viewLoadingBar, viewModal)
 import Misc.Colors as Colors
 import Misc.DataExtra exposing (toggle)
 import RemoteData exposing (RemoteData)
@@ -22,7 +22,7 @@ import Request.Common exposing (..)
 import Request.Transactions exposing (AcceptTransactionsResult, TransactionList, acceptTransactions, getUserInboxTransactions)
 import Set exposing (Set)
 import Task
-import Time exposing (Posix, now)
+import Time exposing (Posix)
 import Views.TransactionComposeForm as TransactionComposeForm exposing (Event(..), ViewState(..))
 
 
@@ -108,6 +108,8 @@ initialCmds : Cmd Msg
 initialCmds =
     Cmd.batch
         [ Cmd.Extra.perform RefreshTransactions
+
+        --        , Cmd.Extra.perform <| SetScrollbarsVisibility True
         , Task.attempt SetDate Time.now
         ]
 
@@ -356,10 +358,12 @@ updateCards ctx msg =
             in
             { model | cards = { modelCards | editingTransaction = edit } }
                 |> noCmd
-                |> noCmd
+                |> Cmd.Extra.with (Cmd.Extra.perform <| SetScrollbarsVisibility False)
 
         CancelTransactionEdit ->
-            { model | cards = { modelCards | editingTransaction = Nothing } } |> noCmd |> noCmd
+            { model | cards = { modelCards | editingTransaction = Nothing } }
+                |> noCmd
+                |> Cmd.Extra.with (Cmd.Extra.perform <| SetScrollbarsVisibility True)
 
         GotComposingFormMsg subMsg ->
             modelCards.editingTransaction
@@ -451,7 +455,6 @@ view ctx =
             { onPress = Just <| ctx.lift <| ToggleViewMode
             , label = text "Toggle view mode"
             }
-            |> viewIf (model.cards.editingTransaction == Nothing)
         , case model.common.inboxTransactions of
             Just inboxTransactions ->
                 hasAnyNewTransaction session.id inboxTransactions
@@ -470,18 +473,20 @@ viewInbox_cards ctx inboxTransactions =
         { model } =
             ctx
     in
-    case model.editingTransaction of
-        Just edit ->
-            viewTransactionEdit ctx edit
+    wrappedRow
+        [ css "justify-content" "center"
+        , paddingXY 15 15
+        , spacing 20
+        , above <|
+            case model.editingTransaction of
+                Just edit ->
+                    viewTransactionEdit ctx edit
 
-        Nothing ->
-            wrappedRow
-                [ css "justify-content" "center"
-                , paddingXY 15 15
-                , spacing 20
-                ]
-            <|
-                List.map (viewCard ctx) inboxTransactions
+                Nothing ->
+                    Element.none
+        ]
+    <|
+        List.map (viewCard ctx) inboxTransactions
 
 
 viewTransactionEdit : ViewNew msg -> EditingTransaction -> Element msg
@@ -495,7 +500,7 @@ viewTransactionEdit ctx edit =
             , session = ctx.session
             }
     in
-    TransactionComposeForm.viewForm formCtx EditComposing
+    viewModal [ TransactionComposeForm.viewForm formCtx EditComposing ]
 
 
 viewCard : ViewNew msg -> Transaction -> Element msg

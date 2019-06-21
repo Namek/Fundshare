@@ -10,7 +10,7 @@ import Data.Session as Session exposing (Session, SessionState(..))
 import Date exposing (Date)
 import Element exposing (Element, paragraph, text)
 import Graphql.Http
-import Misc exposing (noCmd)
+import Misc exposing (css, noCmd)
 import Page.Balances as Balances
 import Page.Errored as Errored exposing (PageLoadError(..))
 import Page.Inbox as Inbox
@@ -52,6 +52,7 @@ type alias Model =
     { navKey : Nav.Key
     , page : Page
     , lastLocation : Url
+    , hideScrollbars : Bool
     , session : SessionState
     , todayDate : Date
     , commonData : CommonData
@@ -66,6 +67,7 @@ init { day, month, year } url navKey =
             { navKey = navKey
             , page = initialPage
             , lastLocation = url
+            , hideScrollbars = False
             , session = GuestSession
             , todayDate = Date.fromCalendarDate year (Date.numberToMonth month) day
             , commonData =
@@ -87,9 +89,17 @@ initialPage =
 
 view : Model -> Document Msg
 view model =
+    let
+        bodyAttrs =
+            if model.hideScrollbars then
+                [ css "overflow" "hidden", css "height" "100%", css "width" "100%" ]
+
+            else
+                []
+    in
     { title = "Fundshare"
     , body =
-        [ Element.layout [] (model.page |> viewPage model)
+        [ Element.layout bodyAttrs (model.page |> viewPage model)
         ]
     }
 
@@ -275,6 +285,9 @@ update msg model =
                                     whatever
                     in
                     { model | session = updatedSession } |> noCmd
+
+                SetScrollbarsVisibility visible ->
+                    { model | hideScrollbars = not visible } |> noCmd
 
         -- it's called when user first enters URL of website or back/forward is clicked
         UrlChanged url ->

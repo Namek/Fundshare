@@ -336,6 +336,7 @@ viewForm ctx viewState =
     column
         [ width fill
         , userSelectNone
+        , Bg.color white
         , Border.rounded 2
         , Border.color <| teal700
         , Border.solid

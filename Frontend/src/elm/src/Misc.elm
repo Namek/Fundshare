@@ -22,13 +22,16 @@ module Misc exposing
     , viewIconButton
     , viewIf
     , viewLoadingBar
+    , viewModal
     )
 
+import Basics.Extra exposing (uncurry)
 import Bitwise exposing (and, shiftLeftBy, shiftRightBy)
 import Date exposing (Date)
 import Element exposing (Element, centerX, centerY, column, el, fill, focused, height, mouseDown, padding, px, rgb, rgb255, rgba, rgba255, row, shrink, spaceEvenly, text, width)
 import Element.Background as Bg
 import Element.Border as Border
+import Element.Events
 import Element.Font as Font
 import Element.Input as Input
 import Html
@@ -291,3 +294,22 @@ dayRelative today date =
 
         n ->
             (n |> String.fromInt) ++ " days ago"
+
+
+viewModal : List (Element msg) -> Element msg
+viewModal els =
+    let
+        attrsCss =
+            List.map (uncurry css)
+                [ ( "position", "fixed" )
+                , ( "top", "0px" )
+                , ( "left", "0px" )
+                , ( "width", "100%" )
+                , ( "height", "100%" )
+                , ( "background-color", "rgba(0,0,0,0.7)" )
+                , ( "display", "grid" )
+                , ( "justify-content", "center" )
+                , ( "overflow", "auto" )
+                ]
+    in
+    row attrsCss [ column [] els ]
