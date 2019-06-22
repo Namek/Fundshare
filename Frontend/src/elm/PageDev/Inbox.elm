@@ -2,11 +2,15 @@ module PageDev.Inbox exposing (Model, Msg, main, view)
 
 import Browser
 import Cmd.Extra
+import Data.Transaction exposing (Transaction)
 import Html exposing (Html)
-import Page.Inbox as ThePage exposing (Msg(..))
+import List.Extra
+import Page.Inbox as ThePage exposing (Msg(..), MsgCards(..))
 import PageDev.Data.Transactions as Transactions
 import PageDev.DevCommon as Dev exposing (Msg(..))
+import Process
 import RemoteData
+import Task
 
 
 main : Program () Model Msg
@@ -36,11 +40,44 @@ handlePageCmd model pageCmdMsg =
         RefreshTransactions ->
             let
                 answerWithTransactionList =
-                    Cmd.Extra.perform <|
-                        GotPageMsg <|
-                            RefreshTransactions_Response (RemoteData.succeed Transactions.transactionList)
+                    (Cmd.Extra.perform << GotPageMsg) <|
+                        RefreshTransactions_Response (RemoteData.succeed Transactions.transactionList)
             in
             Just ( model, Cmd.batch [ answerWithTransactionList ] )
+
+        MsgCards (SaveTransaction id data) ->
+            Transactions.transactions
+                |> List.Extra.find (\t -> t.id == id)
+                |> Maybe.map
+                    (\transaction ->
+                        let
+                            -- simulate a change in database
+                            editedTransaction : Transaction
+                            editedTransaction =
+                                { transaction
+                                    | amount = data.amount
+                                    , payorId = data.payorId
+                                    , description = data.description
+                                    , beneficientIds = data.beneficientIds
+                                    , tags = data.tags |> Maybe.withDefault []
+                                }
+
+                            answerWithEditedTransaction =
+                                -- simulate some time delay to let the animation show off
+                                Process.sleep 1000
+                                    |> Task.perform
+                                        (always <|
+                                            (GotPageMsg << MsgCards) <|
+                                                SaveTransaction_Response (RemoteData.succeed editedTransaction)
+                                        )
+
+                            -- let the SaveTransaction cmd itself update the subModel for saving animation
+                            ( ( newSubModel, localCmds ), globalCmds ) =
+                                ThePage.update (Dev.makeCtx model) pageCmdMsg
+                        in
+                        Just ( { model | subModel = newSubModel }, Cmd.batch [ answerWithEditedTransaction ] )
+                    )
+                |> Maybe.withDefault Nothing
 
         _ ->
             Nothing

@@ -335,7 +335,7 @@ viewForm ctx viewState =
         , userSelectNone
         , Bg.color white
         , Border.rounded 2
-        , Border.color <| teal700
+        , Border.color teal700 |> attrWhen (viewState /= EditSaving)
         , Border.solid
         , Border.width 1
         , attrWhen (viewState == EditSaving) <|
@@ -557,7 +557,7 @@ viewSave ctx viewState =
         , mouseDown [ noShadow ]
         , mouseDown [ Font.color teal100 ] |> attrWhen isEnabled
         , focused [ noShadow ]
-        , Font.color Colors.blueGray900 |> attrWhen (not isEnabled)
+        , Font.color Colors.blueGray900 |> attrWhen (not isEnabled && (viewState /= EditSaving))
         , width fill
         ]
         { onPress =

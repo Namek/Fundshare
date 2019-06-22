@@ -1,4 +1,4 @@
-module Page.Inbox exposing (Context, Model, Msg(..), init, reinit, update, view)
+module Page.Inbox exposing (Context, Model, Msg(..), MsgCards(..), init, reinit, update, view)
 
 import Cmd.Extra
 import Data.CommonData exposing (CommonData)
@@ -21,7 +21,6 @@ import RemoteData exposing (RemoteData)
 import Request.Common exposing (..)
 import Request.Transactions exposing (AcceptTransactionsResult, TransactionList, acceptTransactions, getUserInboxTransactions)
 import Set exposing (Set)
-import Task
 import Time exposing (Posix)
 import Views.TransactionComposeForm as TransactionComposeForm exposing (Event(..), ViewState(..))
 
@@ -63,8 +62,7 @@ type alias ModelCommon =
 type alias EditingTransaction =
     { id : TransactionId
     , form : TransactionComposeForm.Model
-
-    --    , saveState : SaveState
+    , viewState : ViewState
     }
 
 
@@ -147,7 +145,8 @@ type MsgCards
     = OpenTransactionEdit TransactionId
     | GotComposingFormMsg TransactionComposeForm.Msg
     | CancelTransactionEdit
-    | SaveTransaction TransactionEdit
+    | SaveTransaction TransactionId TransactionEdit
+    | SaveTransaction_Response (RemoteData (GqlHttp.Error String) Transaction)
     | AcceptTransaction TransactionId
     | AcceptAllVisibleTransactions
 
@@ -344,8 +343,15 @@ updateCards ctx msg =
 
                                     dateStr =
                                         t.insertedAt |> Date.fromPosix Time.utc |> Date.toIsoString
+
+                                    et : EditingTransaction
+                                    et =
+                                        { id = transactionId
+                                        , form = TransactionComposeForm.init ("Edit transaction: " ++ dateStr) True te
+                                        , viewState = EditComposing
+                                        }
                                 in
-                                { id = transactionId, form = TransactionComposeForm.init ("Edit transaction: " ++ dateStr) True te }
+                                et
                             )
             in
             { model | cards = { modelCards | editingTransaction = edit } }
@@ -385,7 +391,7 @@ updateCards ctx msg =
                                     (\evt ->
                                         case evt of
                                             OnSaveTransaction t ->
-                                                (SaveTransaction t |> lift) |> Cmd.Extra.perform
+                                                (SaveTransaction edit.id t |> lift) |> Cmd.Extra.perform
 
                                             OnCloseClicked ->
                                                 CancelTransactionEdit |> lift |> Cmd.Extra.perform
@@ -399,8 +405,43 @@ updateCards ctx msg =
                     )
                 |> Maybe.withDefault (model |> noCmd |> noCmd)
 
-        SaveTransaction transactionEdit ->
-            model |> noCmd |> noCmd
+        SaveTransaction transactionId transactionEdit ->
+            modelCards.editingTransaction
+                |> Maybe.andThen
+                    (\edit ->
+                        let
+                            newEdit =
+                                { edit | viewState = EditSaving }
+
+                            newModelCards =
+                                { modelCards | editingTransaction = Just newEdit }
+
+                            cmds =
+                                -- TODO request saving transaction on real backend
+                                Cmd.batch []
+                        in
+                        Just <| ({ model | cards = newModelCards } |> Cmd.Extra.with cmds |> Cmd.Extra.pure)
+                    )
+                |> Maybe.withDefault (model |> noCmd |> noCmd)
+
+        SaveTransaction_Response result ->
+            result
+                |> RemoteData.map
+                    (\editedTransaction ->
+                        let
+                            newTransactions =
+                                modelCommon.inboxTransactions
+                                    |> Maybe.andThen (Just << List.Extra.updateIf (\t -> t.id == editedTransaction.id) (\t -> editedTransaction))
+
+                            newModelCommon =
+                                { modelCommon | inboxTransactions = newTransactions }
+
+                            newModelCards =
+                                { modelCards | editingTransaction = Nothing }
+                        in
+                        { model | common = newModelCommon, cards = newModelCards } |> noCmd |> noCmd
+                    )
+                |> RemoteData.withDefault (model |> noCmd |> noCmd)
 
         AcceptTransaction transactionId ->
             model |> noCmd |> noCmd
@@ -492,7 +533,7 @@ viewTransactionEdit ctx edit =
             , session = ctx.session
             }
     in
-    viewModal [ TransactionComposeForm.viewForm formCtx EditComposing ]
+    viewModal [ TransactionComposeForm.viewForm formCtx edit.viewState ]
 
 
 viewCard : ViewNew msg -> Transaction -> Element msg
