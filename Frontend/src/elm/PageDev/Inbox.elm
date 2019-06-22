@@ -2,7 +2,6 @@ module PageDev.Inbox exposing (Model, Msg, main, view)
 
 import Browser
 import Cmd.Extra
-import Element
 import Html exposing (Html)
 import Page.Inbox as ThePage exposing (Msg(..))
 import PageDev.Data.Transactions as Transactions
@@ -53,5 +52,5 @@ handleGlobalCmd model globalCmdMsg =
 
 view : Model -> Html Msg
 view model =
-    Element.layout [] <|
+    Dev.view <|
         ThePage.view (Dev.makeCtx model)

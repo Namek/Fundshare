@@ -1,9 +1,13 @@
-module PageDev.DevCommon exposing (Model, Msg(..), init, makeCtx, update)
+module PageDev.DevCommon exposing (Model, Msg(..), init, makeCtx, update, view)
 
 import Data.CommonData exposing (CommonData)
 import Data.Context exposing (GlobalMsg)
 import Data.Session exposing (Session)
 import Date exposing (Date)
+import Element exposing (Element, column)
+import Html exposing (Html)
+import Html.Attributes exposing (property)
+import Json.Encode
 import Time exposing (Month(..))
 
 
@@ -121,3 +125,20 @@ update subUpdate handlePageCmdMsg handleGlobalCmdMsg msg model =
 
                 Nothing ->
                     ( model, Cmd.none )
+
+
+view : Element msg -> Html msg
+view el =
+    let
+        str =
+            Json.Encode.string
+
+        linkStylesheet href =
+            Html.node "link" [ property "rel" (str "stylesheet"), property "href" (str href) ] []
+    in
+    Element.layout [] <|
+        column []
+            [ Element.html <| linkStylesheet "/css/app.css"
+            , Element.html <| linkStylesheet "/css/fontello-embedded.css"
+            , el
+            ]
