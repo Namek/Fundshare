@@ -131,7 +131,7 @@ void _onFileChanged(WatcherChangeTypes evt, FileSystemEventArgs args)
 void buildElm()
 {
     var msg = "Building Elm code...";
-    var input = Path.Combine(srcDir, "elm", "src", "Main.elm");
+    var input = Path.Combine(srcDir, "elm", "Main.elm");
     var output = Path.Combine(outputDir, "js", "elm.js");
     var workDir = Path.Combine(currentDir, "src", "elm");
     var args = $@"make {input} --output={output}";
@@ -151,8 +151,9 @@ void buildElm()
 
 void generateElmApi()
 {
+	// This creates the src\elm\Api folder
     var workDir = Path.Combine(currentDir, "src", "elm");
-    exec(workDir, @"C:\Program Files\nodejs\npx.cmd", "@dillonkearns/elm-graphql --introspection-file ../../../graphql_schema.json");
+    exec(workDir, @"C:\Program Files\nodejs\npx.cmd", "@dillonkearns/elm-graphql --introspection-file ../../../graphql_schema.json --output .");
 }
 
 void buildStyles()

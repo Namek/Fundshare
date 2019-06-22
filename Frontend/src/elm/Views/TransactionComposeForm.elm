@@ -221,8 +221,6 @@ update ctx msg =
                         ( Just payorId, amount ) ->
                             { amount = amount
                             , description = Just transaction.description
-
-                            -- , insertedAt = Nothing
                             , payorId = payorId
                             , beneficientIds = Set.toList transaction.beneficients
                             , tags = Just model.tags.chips
@@ -234,7 +232,6 @@ update ctx msg =
                         |> Maybe.map OnSaveTransaction
                         |> Maybe.map (\val -> [ val ])
                         |> Maybe.withDefault []
-                        |> Debug.log "events"
             in
             model |> noCmd |> noCmd |> withEvts events
 

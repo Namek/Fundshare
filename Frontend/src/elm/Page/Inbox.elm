@@ -571,7 +571,7 @@ viewDetails ctx t =
         [ Element.el [ alignRight ] <|
             viewTransactionTags True t
         , row
-            [ width fill ]
+            [ width fill, Font.size 14 ]
             [ text <| pidToName t.payorId
             , text <| " → "
             , text <| String.join ", " <| List.map pidToName t.beneficientIds
