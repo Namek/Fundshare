@@ -11,8 +11,6 @@ module Data.Transaction exposing
     )
 
 import Data.Person exposing (PersonId)
-import Date exposing (Date)
-import List.Extra
 import Misc exposing (digitCount, either)
 import Time exposing (Posix)
 

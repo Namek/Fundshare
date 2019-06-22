@@ -1,4 +1,4 @@
-module Page.Inbox exposing (Model, Msg, init, reinit, update, view)
+module Page.Inbox exposing (Context, Model, Msg(..), init, reinit, update, view)
 
 import Cmd.Extra
 import Data.CommonData exposing (CommonData)
@@ -107,11 +107,7 @@ reinit model session =
 initialCmds : Cmd Msg
 initialCmds =
     Cmd.batch
-        [ Cmd.Extra.perform RefreshTransactions
-
-        --        , Cmd.Extra.perform <| SetScrollbarsVisibility True
-        , Task.attempt SetDate Time.now
-        ]
+        [ Cmd.Extra.perform RefreshTransactions ]
 
 
 hasAnyNewTransaction : PersonId -> List Transaction -> Bool
@@ -138,7 +134,6 @@ type Msg
       -- common messages
     | RefreshTransactions
     | RefreshTransactions_Response (RemoteData (GqlHttp.Error TransactionList) TransactionList)
-    | SetDate (Result String Posix)
 
 
 type MsgTable
@@ -189,9 +184,6 @@ update ctx topMsg =
                 |> noCmd
 
         RefreshTransactions_Response _ ->
-            ( ( model, Cmd.none ), Cmd.none )
-
-        SetDate dateStringResult ->
             ( ( model, Cmd.none ), Cmd.none )
 
         MsgTable msgTable ->
