@@ -59,7 +59,7 @@ handlePageCmd model pageCmdMsg =
                                     , payorId = data.payorId
                                     , description = data.description
                                     , beneficientIds = data.beneficientIds
-                                    , tags = data.tags |> Maybe.withDefault []
+                                    , tags = data.tags
                                 }
 
                             answerWithEditedTransaction =

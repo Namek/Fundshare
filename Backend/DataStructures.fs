@@ -40,6 +40,13 @@ and Input_AddTransaction = {
   tags : string list
   description : string option
 }
+and Input_EditTransaction = {
+  payorId : int option
+  beneficientIds : (int list) option
+  amount : int option
+  tags : (string list) option
+  description : string option
+}
 and Balance = {
   user1Id : int
   user2Id : int

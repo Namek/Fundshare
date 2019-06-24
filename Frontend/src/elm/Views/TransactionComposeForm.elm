@@ -55,7 +55,7 @@ init title isClosable transaction =
                     ""
             , payor = Just transaction.payorId
             , beneficients = Set.fromList transaction.beneficientIds
-            , tags = transaction.tags |> Maybe.withDefault []
+            , tags = transaction.tags
             }
     in
     { transaction = composed
@@ -223,7 +223,7 @@ update ctx msg =
                             , description = Just transaction.description
                             , payorId = payorId
                             , beneficientIds = Set.toList transaction.beneficients
-                            , tags = Just model.tags.chips
+                            , tags = model.tags.chips
                             }
                                 |> Just
 

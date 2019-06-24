@@ -6,6 +6,7 @@ open Backend.DataStructures
 open Utils.Sql
 open SqlFrags.SqlGen.Frags
 open SqlFrags.SqlGen
+open Backend
 
 
   
@@ -325,7 +326,7 @@ let getAllUsers() : User list =
       
 let addTransaction (args : Input_AddTransaction) : Result<UserTransaction, String> =
   let now = DateTime.Now
-  let acceptanceIds = [args.authorId]
+  let acceptanceIds = [args.authorId; args.payorId] |> List.distinct
 
   ( if List.isEmpty args.beneficientIds then
       Error "At least one beneficient has to be specified."
@@ -364,11 +365,10 @@ let addTransaction (args : Input_AddTransaction) : Result<UserTransaction, Strin
   |> (fun ret ->
     // TODO in some future you may want to improve performance of this update query.
     // It's actually quite costly to calculate balance based on all transactions when we add just one transaction.
-    do updateBalanceForUsers (args.payorId :: args.authorId :: args.beneficientIds) |> ignore
+    do updateBalanceForUsers (args.payorId :: args.beneficientIds) |> ignore
 
     ret
   )
-
 
 let getUserById (id : int) : User option =
   connect()
@@ -463,6 +463,67 @@ let getUserInboxTransactions (userId : int) (offset : int option) (limit : int o
   let uid = userId.ToString()
   let qwhere = uid + " != all(acceptance_ids)" 
   getUserTransactions userId (Some qwhere) offset limit
+
+
+let editTransaction (transactionId : int) (args : Input_EditTransaction) (userModifyingId : int) : Result<UserTransaction, String> =
+  let transaction =
+    match getTransactions (Some <| "id = " + transactionId.ToString()) None None (Some 1) with
+    | [transaction] -> transaction
+    | _ -> failwith "transaction was not found"
+
+  let beneficientIds = args.beneficientIds |> Option.defaultValue transaction.beneficientIds
+  let payorId = args.payorId |> Option.defaultValue transaction.payorId
+  let now = DateTime.Now
+  let acceptanceIds = [userModifyingId]
+
+  ( if List.isEmpty beneficientIds then
+      Error "At least one beneficient has to be specified."
+    else
+      Ok true )
+  |> Result.bind (fun _ ->
+    let maybe fieldName fieldType = Option.map (fun value -> (fieldName, fieldType value))
+    let (sqlStringFieldNames, values) =
+      [ maybe "amount" QInt args.amount
+        maybe "payor_id" QInt args.payorId
+        maybe "beneficient_ids" QIntArray args.beneficientIds
+        Some ("acceptance_ids", QIntArray acceptanceIds)
+        maybe "tags" QStringArray args.tags
+        maybe "description" QString args.description
+        Some ("updated_at", QDate now)
+        ]
+      |> List.choose id
+      |> List.fold (fun (str, values) (fieldName, value) ->
+        let isFirst : bool = (String.length str) = 0 
+        // the pattern would be: amount = @amount, payor_id = @payor_id, ...
+        (fieldName + " = @" + fieldName + (if isFirst then "" else ", ") + str, (fieldName, value) :: values)
+      ) ("", [])
+
+    connect()
+    |> Sql.executeQueries
+      [ ScalarQuery ("UPDATE public.transactions SET " + sqlStringFieldNames + " WHERE id=" + transactionId.ToString(), values) ]
+  )
+  |> function
+    | Ok [ScalarResult (QNull) ] ->
+        { id = transactionId
+          authorId = transaction.authorId
+          amount = args.amount |> Option.defaultValue transaction.amount
+          payorId = payorId
+          beneficientIds = beneficientIds
+          acceptanceIds = acceptanceIds
+          tags = args.tags |> Option.defaultValue transaction.tags
+          description = args.description
+          insertedAt = now
+          beneficients = None } |> Ok
+        
+    | Error err -> Error (err.ToString())
+  |> (fun ret ->
+    // TODO in some future you may want to improve performance of this update query.
+    // It's actually quite costly to calculate balance based on all transactions when we modify just one transaction.
+    if args.amount <> None || args.beneficientIds <> None || args.payorId <> None then
+      do updateBalanceForUsers (payorId :: beneficientIds) |> ignore
+    
+    ret
+  )
  
 // returns IDs of updated transactions
 let acceptTransactions (userId : int) (transactionIds : int list) : int list =

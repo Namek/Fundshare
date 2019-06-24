@@ -60,7 +60,7 @@ initModel session =
             , amount = 0
             , payorId = session.id
             , beneficientIds = []
-            , tags = Nothing
+            , tags = []
             }
     in
     { form = TransactionComposeForm.init "New transaction" False transaction
@@ -125,7 +125,12 @@ update ctx msg =
             let
                 newTransaction : NewTransaction
                 newTransaction =
-                    transactionEdit
+                    { amount = transactionEdit.amount
+                    , beneficientIds = transactionEdit.beneficientIds
+                    , description = transactionEdit.description
+                    , payorId = transactionEdit.payorId
+                    , tags = Just transactionEdit.tags
+                    }
 
                 sendReqCmd =
                     newTransaction

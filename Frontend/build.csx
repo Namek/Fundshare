@@ -153,7 +153,7 @@ void generateElmApi()
 {
 	// This creates the src\elm\Api folder
     var workDir = Path.Combine(currentDir, "src", "elm");
-    exec(workDir, @"C:\Program Files\nodejs\npx.cmd", "@dillonkearns/elm-graphql --introspection-file ../../../graphql_schema.json --output .");
+    exec(workDir, @"C:\Program Files\nodejs\npx.cmd", "@dillonkearns/elm-graphql@3.6.2 --introspection-file ../../../graphql_schema.json --output .");
 }
 
 void buildStyles()

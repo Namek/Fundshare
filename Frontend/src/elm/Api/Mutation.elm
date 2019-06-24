@@ -2,7 +2,7 @@
 -- https://github.com/dillonkearns/elm-graphql
 
 
-module Api.Mutation exposing (AcceptTransactionsRequiredArguments, AddTransactionOptionalArguments, AddTransactionRequiredArguments, RegisterUserRequiredArguments, SignInRequiredArguments, acceptTransactions, addTransaction, checkSession, registerUser, signIn, signOut)
+module Api.Mutation exposing (AcceptTransactionsRequiredArguments, AddTransactionOptionalArguments, AddTransactionRequiredArguments, EditTransactionOptionalArguments, EditTransactionRequiredArguments, RegisterUserRequiredArguments, SignInRequiredArguments, acceptTransactions, addTransaction, checkSession, editTransaction, registerUser, signIn, signOut)
 
 import Api.InputObject
 import Api.Interface
@@ -42,7 +42,7 @@ type alias AddTransactionRequiredArguments =
     }
 
 
-{-| Remember transaction between payor and beneficients, then update balance between them
+{-| Remember transaction between payor and beneficients, then update the balance
 -}
 addTransaction : (AddTransactionOptionalArguments -> AddTransactionOptionalArguments) -> AddTransactionRequiredArguments -> SelectionSet decodesTo Api.Object.UserTransaction -> SelectionSet decodesTo RootMutation
 addTransaction fillInOptionals requiredArgs object_ =
@@ -62,6 +62,34 @@ addTransaction fillInOptionals requiredArgs object_ =
 checkSession : SelectionSet decodesTo Api.Object.CheckSessionResult -> SelectionSet (Maybe decodesTo) RootMutation
 checkSession object_ =
     Object.selectionForCompositeField "checkSession" [] object_ (identity >> Decode.nullable)
+
+
+type alias EditTransactionOptionalArguments =
+    { payorId : OptionalArgument Int
+    , beneficientIds : OptionalArgument (List Int)
+    , amount : OptionalArgument Int
+    , tags : OptionalArgument (List String)
+    , description : OptionalArgument String
+    }
+
+
+type alias EditTransactionRequiredArguments =
+    { id : Int }
+
+
+{-| Edit the transaction, change the acceptance ids (who will see the transaction in Inbox), then update the balance
+-}
+editTransaction : (EditTransactionOptionalArguments -> EditTransactionOptionalArguments) -> EditTransactionRequiredArguments -> SelectionSet decodesTo Api.Object.UserTransaction -> SelectionSet decodesTo RootMutation
+editTransaction fillInOptionals requiredArgs object_ =
+    let
+        filledInOptionals =
+            fillInOptionals { payorId = Absent, beneficientIds = Absent, amount = Absent, tags = Absent, description = Absent }
+
+        optionalArgs =
+            [ Argument.optional "payorId" filledInOptionals.payorId Encode.int, Argument.optional "beneficientIds" filledInOptionals.beneficientIds (Encode.int |> Encode.list), Argument.optional "amount" filledInOptionals.amount Encode.int, Argument.optional "tags" filledInOptionals.tags (Encode.string |> Encode.list), Argument.optional "description" filledInOptionals.description Encode.string ]
+                |> List.filterMap identity
+    in
+    Object.selectionForCompositeField "editTransaction" (optionalArgs ++ [ Argument.required "id" requiredArgs.id Encode.int ]) object_ identity
 
 
 type alias RegisterUserRequiredArguments =

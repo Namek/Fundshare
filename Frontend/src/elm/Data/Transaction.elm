@@ -36,7 +36,7 @@ type alias TransactionEdit =
     , payorId : PersonId
     , beneficientIds : List PersonId
     , description : Maybe String
-    , tags : Maybe (List String)
+    , tags : List String
     }
 
 

@@ -4,6 +4,7 @@ module Request.Transactions exposing
     , acceptTransactions
     , getUserInboxTransactions
     , getUserTransactions
+    , transaction
     )
 
 import Api.Mutation as Mutation

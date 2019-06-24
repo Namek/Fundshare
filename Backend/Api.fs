@@ -188,21 +188,49 @@ let Mutation = Define.Object<Ref<Session>>("mutation", [
       Define.Input("tags", ListOf String)
       Define.Input("description", Nullable String)
     ], fun ctx session ->
+    let userId = (!session).authorizedUserId |> Option.defaultValue 0
     let args : Input_AddTransaction = {
-      authorId = (!session).authorizedUserId |> Option.defaultValue 0
+      authorId = userId
       payorId = ctx.Arg "payorId"
       beneficientIds = ctx.Arg "beneficientIds"
       amount = ctx.Arg "amount"
       tags = ctx.Arg "tags"
       description = ctx.TryArg "description" |> Option.flatten
     }
-    
-    let result = Repo.addTransaction args
-    match result with
-    | Ok transaction ->
-        do Repo.updateBalanceForUsers (args.payorId :: args.authorId :: args.beneficientIds) |> ignore
-        transaction
+
+    match Repo.addTransaction args with
+    | Ok transaction -> transaction
     | Error err -> failwith err
+  )
+
+  Define.Field("editTransaction", UserTransaction,
+    "Edit the transaction, change the acceptance ids (who will see the transaction in Inbox), then update the balance", [
+       Define.Input("id", Int)
+       Define.Input("payorId", Nullable Int)
+       Define.Input("beneficientIds", Nullable (ListOf Int))
+       Define.Input("amount", Nullable Int)
+       Define.Input("tags", Nullable (ListOf String))
+       Define.Input("description", Nullable String)
+    ], fun ctx session ->
+    let userId = (!session).authorizedUserId |> Option.defaultValue 0
+    let id : int = ctx.Arg "id"
+    let payorId : int option = ctx.TryArg "payorId" |> Option.flatten
+    let beneficientIds : int list option = ctx.TryArg "beneficientIds" |> Option.flatten |> Option.map Seq.toList
+    let tags : string list option = ctx.TryArg "tags" |> Option.flatten |> Option.map Seq.toList
+    let args : Input_EditTransaction = {
+      payorId = ctx.TryArg "payorId" |> Option.flatten
+      beneficientIds = ctx.TryArg "beneficientIds" |> Option.flatten |> Option.map Seq.toList
+      amount = ctx.TryArg "amount" |> Option.flatten
+      tags = ctx.TryArg "tags" |> Option.flatten |> Option.map Seq.toList
+      description = ctx.TryArg "description"|> Option.flatten
+    }
+    match args with
+    | { payorId = None; beneficientIds = None; amount = None; tags = None; description = None } ->
+      failwith "No data, no modification"
+    | _ ->
+      match Repo.editTransaction id args userId with
+      | Ok transaction -> transaction
+      | Error err -> failwith err
   )
   
   Define.Field("registerUser", RegisterUserResult, "Register a new user", [

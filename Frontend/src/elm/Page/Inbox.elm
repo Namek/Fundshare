@@ -19,6 +19,7 @@ import Misc.Colors as Colors
 import Misc.DataExtra exposing (toggle)
 import RemoteData exposing (RemoteData)
 import Request.Common exposing (..)
+import Request.EditTransaction exposing (editTransaction)
 import Request.Transactions exposing (AcceptTransactionsResult, TransactionList, acceptTransactions, getUserInboxTransactions)
 import Set exposing (Set)
 import Time exposing (Posix)
@@ -146,7 +147,7 @@ type MsgCards
     | GotComposingFormMsg TransactionComposeForm.Msg
     | CancelTransactionEdit
     | SaveTransaction TransactionId TransactionEdit
-    | SaveTransaction_Response (RemoteData (GqlHttp.Error String) Transaction)
+    | SaveTransaction_Response (RemoteData (GqlHttp.Error Transaction) Transaction)
     | AcceptTransaction TransactionId
     | AcceptAllVisibleTransactions
 
@@ -337,7 +338,7 @@ updateCards ctx msg =
                                         { description = t.description
                                         , amount = t.amount
                                         , payorId = t.payorId
-                                        , tags = Just t.tags
+                                        , tags = t.tags
                                         , beneficientIds = t.beneficientIds
                                         }
 
@@ -416,11 +417,12 @@ updateCards ctx msg =
                             newModelCards =
                                 { modelCards | editingTransaction = Just newEdit }
 
-                            cmds =
-                                -- TODO request saving transaction on real backend
-                                Cmd.batch []
+                            sendReqCmd =
+                                transactionEdit
+                                    |> editTransaction transactionId
+                                    |> sendMutationRequest (lift << SaveTransaction_Response)
                         in
-                        Just <| ({ model | cards = newModelCards } |> Cmd.Extra.with cmds |> Cmd.Extra.pure)
+                        Just <| ({ model | cards = newModelCards } |> Cmd.Extra.with sendReqCmd |> Cmd.Extra.pure)
                     )
                 |> Maybe.withDefault (model |> noCmd |> noCmd)
 
