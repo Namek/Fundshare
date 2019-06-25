@@ -25,6 +25,15 @@ transactions =
       , acceptanceIds = []
       , insertedAt = Time.millisToPosix 1561245752000
       }
+    , { id = 3
+      , amount = 500
+      , description = Just "car cleaning"
+      , tags = [ "car" ]
+      , payorId = 2
+      , beneficientIds = [ 1, 2 ]
+      , acceptanceIds = []
+      , insertedAt = Time.millisToPosix 1561245782000
+      }
     ]
 
 

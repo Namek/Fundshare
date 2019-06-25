@@ -60,6 +60,7 @@ handlePageCmd model pageCmdMsg =
                                     , description = data.description
                                     , beneficientIds = data.beneficientIds
                                     , tags = data.tags
+                                    , acceptanceIds = [ model.session.id ]
                                 }
 
                             answerWithEditedTransaction =

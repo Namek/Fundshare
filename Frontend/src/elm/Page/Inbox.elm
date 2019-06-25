@@ -17,11 +17,13 @@ import List.Extra
 import Misc exposing (attrWhen, css, dayRelative, edges, either, noCmd, noShadow, styledButton, userSelectNone, viewIcon, viewIf, viewLoadingBar, viewModal)
 import Misc.Colors as Colors
 import Misc.DataExtra exposing (toggle)
+import Process
 import RemoteData exposing (RemoteData)
 import Request.Common exposing (..)
 import Request.EditTransaction exposing (editTransaction)
 import Request.Transactions exposing (AcceptTransactionsResult, TransactionList, acceptTransactions, getUserInboxTransactions)
 import Set exposing (Set)
+import Task
 import Time exposing (Posix)
 import Views.TransactionComposeForm as TransactionComposeForm exposing (Event(..), ViewState(..))
 
@@ -57,7 +59,13 @@ type alias ModelCards =
 
 
 type alias ModelCommon =
-    { inboxTransactions : Maybe (List Transaction) }
+    { inboxTransactions : Maybe (List TransactionView) }
+
+
+type alias TransactionView =
+    { data : Transaction
+    , animateToBeDeleted : Bool
+    }
 
 
 type alias EditingTransaction =
@@ -133,6 +141,7 @@ type Msg
       -- common messages
     | RefreshTransactions
     | RefreshTransactions_Response (RemoteData (GqlHttp.Error TransactionList) TransactionList)
+    | RemoveTransactionFromList TransactionId
 
 
 type MsgTable
@@ -176,7 +185,15 @@ update ctx topMsg =
                     { modelCommon
                         | inboxTransactions =
                             Just <|
-                                List.filter (isTransactionInInboxForUser session.id) transactionList.transactions
+                                List.filterMap
+                                    (\t ->
+                                        if isTransactionInInboxForUser session.id t then
+                                            Just { data = t, animateToBeDeleted = False }
+
+                                        else
+                                            Nothing
+                                    )
+                                    transactionList.transactions
                     }
             in
             { model | common = newModelCommon }
@@ -185,6 +202,21 @@ update ctx topMsg =
 
         RefreshTransactions_Response _ ->
             ( ( model, Cmd.none ), Cmd.none )
+
+        RemoveTransactionFromList transactionId ->
+            let
+                newInboxTransactions =
+                    case modelCommon.inboxTransactions of
+                        Nothing ->
+                            Nothing
+
+                        Just list ->
+                            Just (list |> List.filter (\t -> not t.animateToBeDeleted))
+
+                newModelCommon =
+                    { modelCommon | inboxTransactions = newInboxTransactions }
+            in
+            { model | common = newModelCommon } |> noCmd |> noCmd
 
         MsgTable msgTable ->
             let
@@ -244,7 +276,7 @@ updateTable { model, session } msg =
 
                             else
                                 modelCommon.inboxTransactions
-                                    |> Maybe.map (List.map .id)
+                                    |> Maybe.map (List.map (.data >> .id))
                                     |> Maybe.withDefault []
                                     |> Set.fromList
                     }
@@ -279,7 +311,7 @@ updateTable { model, session } msg =
 
                         transactionsLeft =
                             modelCommon.inboxTransactions
-                                |> Maybe.map (List.filter (.id >> shouldBeLeft))
+                                |> Maybe.map (List.filter (.data >> .id >> shouldBeLeft))
                                 |> Maybe.withDefault []
 
                         newModelTable =
@@ -325,7 +357,8 @@ updateCards ctx msg =
                 transaction : Maybe Transaction
                 transaction =
                     model.common.inboxTransactions
-                        |> Maybe.andThen (\ts -> List.Extra.find (\t -> t.id == transactionId) ts)
+                        |> Maybe.andThen (\ts -> List.Extra.find (\t -> t.data.id == transactionId) ts)
+                        |> Maybe.map .data
 
                 edit : Maybe EditingTransaction
                 edit =
@@ -433,7 +466,15 @@ updateCards ctx msg =
                         let
                             newTransactions =
                                 modelCommon.inboxTransactions
-                                    |> Maybe.andThen (Just << List.Extra.updateIf (\t -> t.id == editedTransaction.id) (\t -> editedTransaction))
+                                    |> Maybe.andThen
+                                        (Just
+                                            << List.Extra.updateIf (\t -> t.data.id == editedTransaction.id)
+                                                (\t -> { data = editedTransaction, animateToBeDeleted = True })
+                                        )
+
+                            cmdDeleteTransaction =
+                                Process.sleep removeAnimationDuration
+                                    |> Task.perform (always <| RemoveTransactionFromList editedTransaction.id)
 
                             newModelCommon =
                                 { modelCommon | inboxTransactions = newTransactions }
@@ -441,7 +482,9 @@ updateCards ctx msg =
                             newModelCards =
                                 { modelCards | editingTransaction = Nothing }
                         in
-                        { model | common = newModelCommon, cards = newModelCards } |> noCmd |> noCmd
+                        { model | common = newModelCommon, cards = newModelCards }
+                            |> Cmd.Extra.with cmdDeleteTransaction
+                            |> noCmd
                     )
                 |> RemoteData.withDefault (model |> noCmd |> noCmd)
 
@@ -456,13 +499,19 @@ updateCards ctx msg =
 -- VIEW --
 
 
+{-| milliseconds
+-}
+removeAnimationDuration =
+    450
+
+
 view : Context msg -> Element msg
 view ctx =
     let
         { model, session } =
             ctx
 
-        viewInbox : List Transaction -> Element msg
+        viewInbox : List TransactionView -> Element msg
         viewInbox transactions =
             column []
                 [ Misc.styledButton [ centerX ]
@@ -479,7 +528,7 @@ view ctx =
                             , commonData = ctx.commonData
                             , todayDate = ctx.todayDate
                             }
-                            transactions
+                            (transactions |> List.map .data)
 
                     Cards ->
                         viewInbox_cards
@@ -495,8 +544,12 @@ view ctx =
     in
     case model.common.inboxTransactions of
         Just inboxTransactions ->
-            hasAnyNewTransaction session.id inboxTransactions
-                |> either (viewInbox inboxTransactions) (el [ padding 15 ] <| text "Inbox is empty.")
+            case inboxTransactions of
+                [] ->
+                    el [ padding 15 ] <| text "Inbox is empty."
+
+                filteredTransactions ->
+                    viewInbox filteredTransactions
 
         Nothing ->
             viewLoadingBar
@@ -504,7 +557,7 @@ view ctx =
 
 {-| List of all cards and UI on top
 -}
-viewInbox_cards : ViewNew msg -> List Transaction -> Element msg
+viewInbox_cards : ViewNew msg -> List TransactionView -> Element msg
 viewInbox_cards ctx inboxTransactions =
     let
         { model } =
@@ -540,11 +593,11 @@ viewTransactionEdit ctx edit =
     viewModal [ TransactionComposeForm.viewForm formCtx edit.viewState ]
 
 
-viewCard : ViewNew msg -> Transaction -> Element msg
+viewCard : ViewNew msg -> TransactionView -> Element msg
 viewCard ctx transaction =
     let
         diff =
-            amountDifferenceForMyAccount ctx.session.id transaction
+            amountDifferenceForMyAccount ctx.session.id transaction.data
 
         diffAmountEl =
             diff
@@ -553,11 +606,11 @@ viewCard ctx transaction =
                 |> Element.el [ Font.color Colors.white ]
 
         totalAmountEl =
-            viewIf (transaction.amount /= abs diff) <|
-                (Element.el [ Font.color Colors.gray300 ] <| text <| " / " ++ amountToMoneyString transaction.amount)
+            viewIf (transaction.data.amount /= abs diff) <|
+                (Element.el [ Font.color Colors.gray300 ] <| text <| " / " ++ amountToMoneyString transaction.data.amount)
 
         transactionDate =
-            Date.fromPosix Time.utc transaction.insertedAt
+            Date.fromPosix Time.utc transaction.data.insertedAt
 
         datetimeEl =
             column
@@ -577,13 +630,18 @@ viewCard ctx transaction =
         , Border.rounded 2
         , Background.color Colors.teal700
         , Border.shadow { offset = ( 3, 3 ), size = 1, blur = 20, color = rgba 0 0 0 0.2 }
-        , inFront <|
-            Element.el
-                [ alignBottom
-                , width fill
-                ]
-            <|
-                viewButtons ctx transaction
+        , attrWhen (not transaction.animateToBeDeleted) <|
+            inFront <|
+                Element.el
+                    [ alignBottom
+                    , width fill
+                    ]
+                <|
+                    viewButtons ctx transaction.data
+        , attrWhen transaction.animateToBeDeleted <|
+            css "transition" ("opacity " ++ String.fromInt removeAnimationDuration ++ "ms ease-in, transform 0.2s cubic-bezier(0.88, -0.24, 1, 0.77)")
+        , attrWhen transaction.animateToBeDeleted <| css "opacity" "0"
+        , attrWhen transaction.animateToBeDeleted <| css "transform" "scale(0)"
         ]
         [ row
             [ Font.size 16
@@ -597,7 +655,7 @@ viewCard ctx transaction =
             , totalAmountEl
             , Element.el [ Font.color Colors.gray300 ] <| text " zł"
             ]
-        , viewDetails ctx transaction
+        , viewDetails ctx transaction.data
         ]
 
 
