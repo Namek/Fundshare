@@ -463,41 +463,43 @@ view ctx =
             ctx
 
         viewInbox : List Transaction -> Element msg
-        viewInbox =
-            case model.viewType of
-                Table ->
-                    { lift = ctx.lift << MsgTable
-                    , model = ctx.model.table
-                    , modelCommon = ctx.model.common
-                    , session = ctx.session
-                    , commonData = ctx.commonData
-                    , todayDate = ctx.todayDate
+        viewInbox transactions =
+            column []
+                [ Misc.styledButton [ centerX ]
+                    { onPress = Just <| ctx.lift <| ToggleViewMode
+                    , label = text "Toggle view mode"
                     }
-                        |> viewInbox_old
+                , case model.viewType of
+                    Table ->
+                        viewInbox_old
+                            { lift = ctx.lift << MsgTable
+                            , model = ctx.model.table
+                            , modelCommon = ctx.model.common
+                            , session = ctx.session
+                            , commonData = ctx.commonData
+                            , todayDate = ctx.todayDate
+                            }
+                            transactions
 
-                Cards ->
-                    { lift = ctx.lift << MsgCards
-                    , model = ctx.model.cards
-                    , modelCommon = ctx.model.common
-                    , session = ctx.session
-                    , commonData = ctx.commonData
-                    , todayDate = ctx.todayDate
-                    }
-                        |> viewInbox_cards
+                    Cards ->
+                        viewInbox_cards
+                            { lift = ctx.lift << MsgCards
+                            , model = ctx.model.cards
+                            , modelCommon = ctx.model.common
+                            , session = ctx.session
+                            , commonData = ctx.commonData
+                            , todayDate = ctx.todayDate
+                            }
+                            transactions
+                ]
     in
-    column []
-        [ Misc.styledButton [ centerX ]
-            { onPress = Just <| ctx.lift <| ToggleViewMode
-            , label = text "Toggle view mode"
-            }
-        , case model.common.inboxTransactions of
-            Just inboxTransactions ->
-                hasAnyNewTransaction session.id inboxTransactions
-                    |> either (viewInbox inboxTransactions) Element.none
+    case model.common.inboxTransactions of
+        Just inboxTransactions ->
+            hasAnyNewTransaction session.id inboxTransactions
+                |> either (viewInbox inboxTransactions) (el [ padding 15 ] <| text "Inbox is empty.")
 
-            Nothing ->
-                viewLoadingBar
-        ]
+        Nothing ->
+            viewLoadingBar
 
 
 {-| List of all cards and UI on top
