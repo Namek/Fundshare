@@ -72,7 +72,7 @@ let main argv =
 
   let executor = Executor(schema, [ ExecutorMiddleware(execute = authorize) ])
 
-  let introspectionResult = executor.AsyncExecute(Introspection.introspectionQuery) |> Async.RunSynchronously
+  let introspectionResult = executor.AsyncExecute(Introspection.IntrospectionQuery) |> Async.RunSynchronously
   let schemaStr : string =
     match introspectionResult with
       | Direct (data, errors) -> json data.["data"]
@@ -175,7 +175,7 @@ let main argv =
 
                 executor.AsyncExecute(query, data = session)
             | None, _ ->
-                executor.AsyncExecute(Introspection.introspectionQuery)
+                executor.AsyncExecute(Introspection.IntrospectionQuery)
             |> Async.RunSynchronously
             |> Result.Ok
           with

@@ -14,7 +14,7 @@
     <Compile Include="Api.fs" />
     <Compile Include="Program.fs" />
     <PackageReference Include="Chiron" Version="6.3.1" />
-    <PackageReference Include="FSharp.Data.GraphQL.Server" Version="0.0.18-beta" />
+    <PackageReference Include="FSharp.Data.GraphQL.Server" Version="1.0.0-beta9" />
     <PackageReference Include="Newtonsoft.Json" Version="12.0.1" />
     <PackageReference Include="Npgsql" Version="4.0.0" />
     <PackageReference Include="Paseto" Version="1.1.2" />
