@@ -160,6 +160,9 @@ void buildStyles()
 {
     var files = Directory.EnumerateFiles(stylesFolder, "*.css", SearchOption.AllDirectories);
     var finalDir = Path.Combine(outputDir, "css");
+    
+    if (!Directory.Exists(finalDir))
+        Directory.CreateDirectory(finalDir);
 
     log("Copying styles...");
     foreach (var file in files)
