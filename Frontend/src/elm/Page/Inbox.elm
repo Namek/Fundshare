@@ -216,8 +216,18 @@ update ctx topMsg =
 
                 newModelCommon =
                     { modelCommon | inboxTransactions = newInboxTransactions }
+
+                cmdUpdateInboxSizeBadge =
+                    case newModelCommon.inboxTransactions of
+                        Nothing ->
+                            Cmd.none
+
+                        Just list ->
+                            Cmd.Extra.perform <| UpdateInboxSize <| List.length list
             in
-            { model | common = newModelCommon } |> noCmd |> noCmd
+            { model | common = newModelCommon }
+                |> noCmd
+                |> Cmd.Extra.with cmdUpdateInboxSizeBadge
 
         MsgTable msgTable ->
             let
