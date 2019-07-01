@@ -20,8 +20,6 @@ type alias Model subModel =
 
 type Msg msg
     = GotPageMsg msg
-      -- those below are here just to unpack messages from commands
-    | GotPageCmd msg
     | GotGlobalCmd GlobalMsg
 
 
@@ -55,7 +53,7 @@ init subInit =
             subInit session
 
         caughtCmds =
-            Cmd.map (Debug.log "init" << GotPageCmd) <| subCmds
+            Cmd.map (Debug.log "init" << GotPageMsg) <| subCmds
 
         commonData : CommonData
         commonData =
@@ -71,53 +69,37 @@ init subInit =
     ( model, caughtCmds )
 
 
-update subUpdate handlePageCmdMsg handleGlobalCmdMsg msg model =
+update subUpdate handlePageMsg handleGlobalCmdMsg msg model =
     case msg of
         GotPageMsg pageMsg ->
             let
-                -- ctx : Context
-                ctx =
-                    makeCtx model
-
-                ( ( newModel, localCmds ), globalCmds ) =
-                    subUpdate ctx pageMsg
-            in
-            ( { model | subModel = newModel }
-            , Cmd.batch
-                [ Cmd.map (Debug.log "update" << GotPageCmd) <| localCmds
-                , Cmd.map (Debug.log "update" << GotGlobalCmd) <| globalCmds
-                ]
-            )
-
-        GotPageCmd pageCmdMsg ->
-            let
                 dbg =
-                    Debug.log "pageCmd -> Msg" pageCmdMsg
+                    Debug.log "GotPageMsg" pageMsg
             in
-            case handlePageCmdMsg model pageCmdMsg of
-                Just ( newModel, cmds ) ->
-                    ( newModel, cmds )
-
+            case handlePageMsg model pageMsg of
                 Nothing ->
                     let
                         -- ctx : Context
                         ctx =
                             makeCtx model
 
-                        ( ( newModel, localCmds ), globalCmds ) =
-                            subUpdate ctx pageCmdMsg
+                        ( ( newSubModel, localCmds ), globalCmds ) =
+                            subUpdate ctx pageMsg
                     in
-                    ( { model | subModel = newModel }
+                    ( { model | subModel = newSubModel }
                     , Cmd.batch
-                        [ Cmd.map (Debug.log "update" << GotPageCmd) <| localCmds
-                        , Cmd.map (Debug.log "update" << GotGlobalCmd) <| globalCmds
+                        [ Cmd.map (Debug.log "GotPageMsg: update" << GotPageMsg) <| localCmds
+                        , Cmd.map (Debug.log "GotPageMsg: update" << GotGlobalCmd) <| globalCmds
                         ]
                     )
+
+                Just ( model2, givenCmds ) ->
+                    ( model2, givenCmds )
 
         GotGlobalCmd globalCmdMsg ->
             let
                 dbg =
-                    Debug.log "globalCmd -> Msg" globalCmdMsg
+                    Debug.log "GotGlobalCmd: Msg" globalCmdMsg
             in
             case handleGlobalCmdMsg model globalCmdMsg of
                 Just ( newModel, cmds ) ->

@@ -158,6 +158,7 @@ type MsgCards
     | SaveTransaction TransactionId TransactionEdit
     | SaveTransaction_Response (RemoteData (GqlHttp.Error Transaction) Transaction)
     | AcceptTransaction TransactionId
+    | AcceptTransaction_Response (RemoteData (GqlHttp.Error AcceptTransactionsResult) AcceptTransactionsResult)
     | AcceptAllVisibleTransactions
 
 
@@ -226,11 +227,7 @@ update ctx topMsg =
             ( ( newModel, cmds ), globalCmds )
 
         MsgCards msgCards ->
-            let
-                ( ( newModel, cmds ), globalCmds ) =
-                    updateCards ctx msgCards
-            in
-            ( ( newModel, cmds ), globalCmds )
+            updateCards ctx msgCards
 
         ToggleViewMode ->
             let
@@ -489,7 +486,50 @@ updateCards ctx msg =
                 |> RemoteData.withDefault (model |> noCmd |> noCmd)
 
         AcceptTransaction transactionId ->
-            model |> noCmd |> noCmd
+            let
+                cmdReq =
+                    acceptTransactions [ transactionId ]
+                        |> sendMutationRequest (lift << AcceptTransaction_Response)
+            in
+            model |> Cmd.Extra.with cmdReq |> noCmd
+
+        AcceptTransaction_Response result ->
+            result
+                |> RemoteData.map
+                    (\{ acceptedIds, failedIds } ->
+                        case ( acceptedIds, failedIds ) of
+                            ( id :: [], [] ) ->
+                                let
+                                    newInboxTransactions =
+                                        case modelCommon.inboxTransactions of
+                                            Nothing ->
+                                                Nothing
+
+                                            Just list ->
+                                                Just <|
+                                                    List.Extra.updateIf
+                                                        (\t -> t.data.id == id)
+                                                        (\t -> { t | animateToBeDeleted = True })
+                                                        list
+
+                                    newModelCommon =
+                                        { modelCommon | inboxTransactions = newInboxTransactions }
+
+                                    cmdDeleteTransaction =
+                                        Process.sleep removeAnimationDuration
+                                            |> Task.perform (always <| RemoveTransactionFromList id)
+                                in
+                                { model | common = newModelCommon } |> Cmd.Extra.with cmdDeleteTransaction |> noCmd
+
+                            anything ->
+                                let
+                                    -- TODO notify about error?
+                                    omg =
+                                        Debug.log "transaction acceptance not happening" anything
+                                in
+                                model |> noCmd |> noCmd
+                    )
+                |> RemoteData.withDefault (model |> noCmd |> noCmd)
 
         AcceptAllVisibleTransactions ->
             model |> noCmd |> noCmd

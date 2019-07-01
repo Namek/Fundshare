@@ -18,7 +18,7 @@ main =
     Browser.element
         { init = always <| Dev.init ThePage.init
         , view = view
-        , update = \msg model -> Dev.update ThePage.update handlePageCmd handleGlobalCmd msg model
+        , update = \msg model -> Dev.update ThePage.update handlePageMsg handleGlobalCmd msg model
         , subscriptions = always Sub.none
         }
 
@@ -35,8 +35,9 @@ type alias Msg =
     Dev.Msg ThePage.Msg
 
 
-handlePageCmd model pageCmdMsg =
-    case pageCmdMsg of
+handlePageMsg : Model -> ThePage.Msg -> Maybe ( Model, Cmd Msg )
+handlePageMsg model pageMsg =
+    case pageMsg of
         RefreshTransactions ->
             let
                 answerWithTransactionList =
@@ -74,11 +75,24 @@ handlePageCmd model pageCmdMsg =
 
                             -- let the SaveTransaction cmd itself update the subModel for saving animation
                             ( ( newSubModel, localCmds ), globalCmds ) =
-                                ThePage.update (Dev.makeCtx model) pageCmdMsg
+                                ThePage.update (Dev.makeCtx model) pageMsg
                         in
                         Just ( { model | subModel = newSubModel }, Cmd.batch [ answerWithEditedTransaction ] )
                     )
                 |> Maybe.withDefault Nothing
+
+        MsgCards (AcceptTransaction id) ->
+            let
+                answerWithAcceptedTransactions =
+                    -- simulate some time delay to let the animation show off
+                    Process.sleep 1000
+                        |> Task.perform
+                            (always <|
+                                (GotPageMsg << MsgCards) <|
+                                    AcceptTransaction_Response (RemoteData.succeed { acceptedIds = [ id ], failedIds = [] })
+                            )
+            in
+            Just ( model, Cmd.batch [ answerWithAcceptedTransactions ] )
 
         _ ->
             Nothing
