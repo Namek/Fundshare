@@ -1,30 +1,27 @@
-module Page.Inbox exposing (Context, Model, Msg(..), MsgCards(..), init, reinit, update, view)
+module Page.Inbox exposing (Context, Model, Msg(..), init, reinit, update, view)
 
 import Cmd.Extra
 import Data.CommonData exposing (CommonData)
 import Data.Context exposing (ContextData, GlobalMsg(..), Logged)
-import Data.Person exposing (Person, PersonId, personIdToName)
+import Data.Person exposing (personIdToName)
 import Data.Session exposing (Session)
-import Data.Transaction exposing (Transaction, TransactionEdit, TransactionId, amountDifferenceForMyAccount, amountToMoney, amountToMoneyChangeLeftPad, amountToMoneyString, isTransactionInInboxForUser)
+import Data.Transaction exposing (Transaction, TransactionEdit, TransactionId, amountDifferenceForMyAccount, amountToMoneyChangeLeftPad, amountToMoneyString, isTransactionInInboxForUser)
 import Date exposing (Date)
 import Element exposing (Element, above, alignBottom, alignRight, centerX, centerY, column, el, fill, height, inFront, minimum, padding, paddingEach, paddingXY, paragraph, px, rgba, row, shrink, spaceEvenly, spacing, table, text, width, wrappedRow)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
-import Element.Input as Input
 import Graphql.Http as GqlHttp
 import List.Extra
-import Misc exposing (attrWhen, css, dayRelative, edges, either, noCmd, noShadow, styledButton, userSelectNone, viewIcon, viewIf, viewLoadingBar, viewModal)
+import Misc exposing (attrWhen, css, dayRelative, edges, either, noCmd, styledButton, viewIf, viewLoadingBar, viewModal)
 import Misc.Colors as Colors
-import Misc.DataExtra exposing (toggle)
 import Process
 import RemoteData exposing (RemoteData)
-import Request.Common exposing (..)
+import Request.Common exposing (sendMutationRequest, sendQueryRequest)
 import Request.EditTransaction exposing (editTransaction)
 import Request.Transactions exposing (AcceptTransactionsResult, TransactionList, acceptTransactions, getUserInboxTransactions)
-import Set exposing (Set)
 import Task
-import Time exposing (Posix)
+import Time
 import Views.TransactionComposeForm as TransactionComposeForm exposing (Event(..), ViewState(..))
 
 
@@ -37,29 +34,9 @@ type alias Context msg =
 
 
 type alias Model =
-    { viewType : CardsViewType
-    , table : ModelTable
-    , cards : ModelCards
-    , common : ModelCommon
+    { editingTransaction : Maybe EditingTransaction
+    , inboxTransactions : Maybe (List TransactionView)
     }
-
-
-type CardsViewType
-    = Table
-    | Cards
-
-
-type alias ModelTable =
-    { selectedInboxTransactionIds : Set TransactionId
-    }
-
-
-type alias ModelCards =
-    { editingTransaction : Maybe EditingTransaction }
-
-
-type alias ModelCommon =
-    { inboxTransactions : Maybe (List TransactionView) }
 
 
 type alias TransactionView =
@@ -75,32 +52,10 @@ type alias EditingTransaction =
     }
 
 
-type alias ViewCtx parentMsg localMsg localModel =
-    { lift : localMsg -> parentMsg
-    , model : localModel
-    , modelCommon : ModelCommon
-    , session : Session
-    , commonData : CommonData
-    , todayDate : Date
-    }
-
-
-type alias ViewNew msg =
-    ViewCtx msg MsgCards ModelCards
-
-
-type alias ViewOld msg =
-    ViewCtx msg MsgTable ModelTable
-
-
 init : Session -> ( Model, Cmd Msg )
 init session =
-    ( { viewType = Cards
-      , common = { inboxTransactions = Nothing }
-      , table =
-            { selectedInboxTransactionIds = Set.empty
-            }
-      , cards = { editingTransaction = Nothing }
+    ( { inboxTransactions = Nothing
+      , editingTransaction = Nothing
       }
     , initialCmds
     )
@@ -117,42 +72,15 @@ initialCmds =
         [ Cmd.Extra.perform RefreshTransactions ]
 
 
-hasAnyNewTransaction : PersonId -> List Transaction -> Bool
-hasAnyNewTransaction userId transactions =
-    transactions |> List.any (isTransactionInInboxForUser userId)
-
-
-allSelected inboxTransactions selectedInboxTransactionIds =
-    List.length inboxTransactions == Set.size selectedInboxTransactionIds
-
-
-someSelected model =
-    not <| Set.isEmpty model.selectedInboxTransactionIds
-
-
 
 -- UPDATE --
 
 
 type Msg
-    = MsgTable MsgTable
-    | MsgCards MsgCards
-    | ToggleViewMode
-      -- common messages
-    | RefreshTransactions
+    = RefreshTransactions
     | RefreshTransactions_Response (RemoteData (GqlHttp.Error TransactionList) TransactionList)
     | RemoveTransactionFromList TransactionId
-
-
-type MsgTable
-    = ToggleInboxTransaction TransactionId
-    | ToggleCheckAllInboxTransactions
-    | AcceptSelectedTransactions
-    | AcceptSelectedTransactions_Response (RemoteData (GqlHttp.Error AcceptTransactionsResult) AcceptTransactionsResult)
-
-
-type MsgCards
-    = OpenTransactionEdit TransactionId
+    | OpenTransactionEdit TransactionId
     | GotComposingFormMsg TransactionComposeForm.Msg
     | CancelTransactionEdit
     | SaveTransaction TransactionId TransactionEdit
@@ -167,9 +95,6 @@ update ctx topMsg =
     let
         { model, session } =
             ctx
-
-        modelCommon =
-            model.common
     in
     case topMsg of
         RefreshTransactions ->
@@ -182,8 +107,8 @@ update ctx topMsg =
 
         RefreshTransactions_Response (RemoteData.Success transactionList) ->
             let
-                newModelCommon =
-                    { modelCommon
+                newModel =
+                    { model
                         | inboxTransactions =
                             Just <|
                                 List.filterMap
@@ -197,7 +122,7 @@ update ctx topMsg =
                                     transactionList.transactions
                     }
             in
-            { model | common = newModelCommon }
+            newModel
                 |> noCmd
                 |> noCmd
 
@@ -207,163 +132,33 @@ update ctx topMsg =
         RemoveTransactionFromList transactionId ->
             let
                 newInboxTransactions =
-                    case modelCommon.inboxTransactions of
+                    case model.inboxTransactions of
                         Nothing ->
                             Nothing
 
                         Just list ->
                             Just (list |> List.filter (\t -> not t.animateToBeDeleted))
 
-                newModelCommon =
-                    { modelCommon | inboxTransactions = newInboxTransactions }
+                newModel =
+                    { model | inboxTransactions = newInboxTransactions }
 
                 cmdUpdateInboxSizeBadge =
-                    case newModelCommon.inboxTransactions of
+                    case newModel.inboxTransactions of
                         Nothing ->
                             Cmd.none
 
                         Just list ->
                             Cmd.Extra.perform <| UpdateInboxSize <| List.length list
             in
-            { model | common = newModelCommon }
+            newModel
                 |> noCmd
                 |> Cmd.Extra.with cmdUpdateInboxSizeBadge
 
-        MsgTable msgTable ->
-            let
-                ( ( newModel, cmds ), globalCmds ) =
-                    updateTable ctx msgTable
-            in
-            ( ( newModel, cmds ), globalCmds )
-
-        MsgCards msgCards ->
-            updateCards ctx msgCards
-
-        ToggleViewMode ->
-            let
-                newViewType =
-                    case ctx.model.viewType of
-                        Cards ->
-                            Table
-
-                        Table ->
-                            Cards
-            in
-            ( ( { model | viewType = newViewType }, Cmd.none ), Cmd.none )
-
-
-updateTable : Context msg -> MsgTable -> ( ( Model, Cmd Msg ), Cmd GlobalMsg )
-updateTable { model, session } msg =
-    let
-        lift =
-            MsgTable
-
-        modelTable =
-            model.table
-
-        modelCommon =
-            model.common
-    in
-    case msg of
-        ToggleInboxTransaction tid ->
-            { model
-                | table =
-                    { modelTable | selectedInboxTransactionIds = toggle tid modelTable.selectedInboxTransactionIds }
-            }
-                |> noCmd
-                |> noCmd
-
-        ToggleCheckAllInboxTransactions ->
-            { model
-                | table =
-                    { modelTable
-                        | selectedInboxTransactionIds =
-                            if someSelected modelTable then
-                                Set.empty
-
-                            else
-                                modelCommon.inboxTransactions
-                                    |> Maybe.map (List.map (.data >> .id))
-                                    |> Maybe.withDefault []
-                                    |> Set.fromList
-                    }
-            }
-                |> noCmd
-                |> noCmd
-
-        AcceptSelectedTransactions ->
-            let
-                cmd =
-                    modelTable.selectedInboxTransactionIds
-                        |> Set.toList
-                        |> acceptTransactions
-                        |> sendMutationRequest AcceptSelectedTransactions_Response
-                        |> Cmd.map lift
-            in
-            ( model, cmd ) |> noCmd
-
-        AcceptSelectedTransactions_Response response ->
-            case response of
-                RemoteData.Success data ->
-                    let
-                        acceptedIds =
-                            Set.fromList data.acceptedIds
-
-                        failedIds =
-                            Set.fromList data.failedIds
-
-                        shouldBeLeft tid =
-                            (not <| Set.member tid acceptedIds)
-                                || Set.member tid failedIds
-
-                        transactionsLeft =
-                            modelCommon.inboxTransactions
-                                |> Maybe.map (List.filter (.data >> .id >> shouldBeLeft))
-                                |> Maybe.withDefault []
-
-                        newModelTable =
-                            { modelTable
-                                | selectedInboxTransactionIds = Set.diff modelTable.selectedInboxTransactionIds acceptedIds
-                            }
-
-                        newModelCommon =
-                            { modelCommon | inboxTransactions = Just transactionsLeft }
-
-                        newModel =
-                            { model | table = newModelTable, common = newModelCommon }
-                    in
-                    ( newModel
-                        |> noCmd
-                    , Cmd.Extra.perform <| UpdateInboxSize <| List.length transactionsLeft
-                    )
-
-                _ ->
-                    model
-                        |> noCmd
-                        |> noCmd
-
-
-updateCards : Context msg -> MsgCards -> ( ( Model, Cmd Msg ), Cmd GlobalMsg )
-updateCards ctx msg =
-    let
-        { model } =
-            ctx
-
-        lift =
-            MsgCards
-
-        modelCards =
-            model.cards
-
-        modelCommon =
-            model.common
-    in
-    case msg of
         OpenTransactionEdit transactionId ->
             let
                 transaction : Maybe Transaction
                 transaction =
-                    model.common.inboxTransactions
+                    model.inboxTransactions
                         |> Maybe.andThen (\ts -> List.Extra.find (\t -> t.data.id == transactionId) ts)
                         |> Maybe.map .data
 
@@ -395,17 +190,17 @@ updateCards ctx msg =
                                 et
                             )
             in
-            { model | cards = { modelCards | editingTransaction = edit } }
+            { model | editingTransaction = edit }
                 |> noCmd
                 |> Cmd.Extra.with (Cmd.Extra.perform <| SetScrollbarsVisibility False)
 
         CancelTransactionEdit ->
-            { model | cards = { modelCards | editingTransaction = Nothing } }
+            { model | editingTransaction = Nothing }
                 |> noCmd
                 |> Cmd.Extra.with (Cmd.Extra.perform <| SetScrollbarsVisibility True)
 
         GotComposingFormMsg subMsg ->
-            modelCards.editingTransaction
+            model.editingTransaction
                 |> Maybe.andThen
                     (\edit ->
                         let
@@ -423,8 +218,8 @@ updateCards ctx msg =
                             newEdit =
                                 { edit | form = newModelForm }
 
-                            newModelCards =
-                                { modelCards | editingTransaction = Just newEdit }
+                            newModel =
+                                { model | editingTransaction = Just newEdit }
 
                             passEvents : List (Cmd Msg)
                             passEvents =
@@ -432,37 +227,37 @@ updateCards ctx msg =
                                     (\evt ->
                                         case evt of
                                             OnSaveTransaction t ->
-                                                (SaveTransaction edit.id t |> lift) |> Cmd.Extra.perform
+                                                SaveTransaction edit.id t |> Cmd.Extra.perform
 
                                             OnCloseClicked ->
-                                                CancelTransactionEdit |> lift |> Cmd.Extra.perform
+                                                CancelTransactionEdit |> Cmd.Extra.perform
                                     )
                                     events
 
                             cmds =
-                                Cmd.batch <| Cmd.map (lift << GotComposingFormMsg) nextSubMsg :: passEvents
+                                Cmd.batch <| Cmd.map GotComposingFormMsg nextSubMsg :: passEvents
                         in
-                        Just <| ({ model | cards = newModelCards } |> Cmd.Extra.with cmds |> Cmd.Extra.with globalMsg)
+                        Just <| (newModel |> Cmd.Extra.with cmds |> Cmd.Extra.with globalMsg)
                     )
                 |> Maybe.withDefault (model |> noCmd |> noCmd)
 
         SaveTransaction transactionId transactionEdit ->
-            modelCards.editingTransaction
+            model.editingTransaction
                 |> Maybe.andThen
                     (\edit ->
                         let
                             newEdit =
                                 { edit | viewState = EditSaving }
 
-                            newModelCards =
-                                { modelCards | editingTransaction = Just newEdit }
+                            newModel =
+                                { model | editingTransaction = Just newEdit }
 
                             sendReqCmd =
                                 transactionEdit
                                     |> editTransaction transactionId
-                                    |> sendMutationRequest (lift << SaveTransaction_Response)
+                                    |> sendMutationRequest SaveTransaction_Response
                         in
-                        Just <| ({ model | cards = newModelCards } |> Cmd.Extra.with sendReqCmd |> Cmd.Extra.pure)
+                        Just <| (newModel |> Cmd.Extra.with sendReqCmd |> Cmd.Extra.pure)
                     )
                 |> Maybe.withDefault (model |> noCmd |> noCmd)
 
@@ -472,7 +267,7 @@ updateCards ctx msg =
                     (\editedTransaction ->
                         let
                             newTransactions =
-                                modelCommon.inboxTransactions
+                                model.inboxTransactions
                                     |> Maybe.andThen
                                         (Just
                                             << List.Extra.updateIf (\t -> t.data.id == editedTransaction.id)
@@ -483,13 +278,10 @@ updateCards ctx msg =
                                 Process.sleep removeAnimationDuration
                                     |> Task.perform (always <| RemoveTransactionFromList editedTransaction.id)
 
-                            newModelCommon =
-                                { modelCommon | inboxTransactions = newTransactions }
-
-                            newModelCards =
-                                { modelCards | editingTransaction = Nothing }
+                            newModel =
+                                { model | inboxTransactions = newTransactions, editingTransaction = Nothing }
                         in
-                        { model | common = newModelCommon, cards = newModelCards }
+                        newModel
                             |> Cmd.Extra.with cmdDeleteTransaction
                             |> noCmd
                     )
@@ -499,7 +291,7 @@ updateCards ctx msg =
             let
                 cmdReq =
                     acceptTransactions [ transactionId ]
-                        |> sendMutationRequest (lift << AcceptTransaction_Response)
+                        |> sendMutationRequest AcceptTransaction_Response
             in
             model |> Cmd.Extra.with cmdReq |> noCmd
 
@@ -511,7 +303,7 @@ updateCards ctx msg =
                             ( id :: [], [] ) ->
                                 let
                                     newInboxTransactions =
-                                        case modelCommon.inboxTransactions of
+                                        case model.inboxTransactions of
                                             Nothing ->
                                                 Nothing
 
@@ -522,14 +314,14 @@ updateCards ctx msg =
                                                         (\t -> { t | animateToBeDeleted = True })
                                                         list
 
-                                    newModelCommon =
-                                        { modelCommon | inboxTransactions = newInboxTransactions }
+                                    newModel =
+                                        { model | inboxTransactions = newInboxTransactions }
 
                                     cmdDeleteTransaction =
                                         Process.sleep removeAnimationDuration
                                             |> Task.perform (always <| RemoveTransactionFromList id)
                                 in
-                                { model | common = newModelCommon } |> Cmd.Extra.with cmdDeleteTransaction |> noCmd
+                                newModel |> Cmd.Extra.with cmdDeleteTransaction |> noCmd
 
                             anything ->
                                 let
@@ -549,6 +341,15 @@ updateCards ctx msg =
 -- VIEW --
 
 
+type alias ViewCtx parentMsg =
+    { lift : Msg -> parentMsg
+    , model : Model
+    , session : Session
+    , todayDate : Date
+    , commonData : CommonData
+    }
+
+
 {-| milliseconds
 -}
 removeAnimationDuration =
@@ -563,36 +364,16 @@ view ctx =
 
         viewInbox : List TransactionView -> Element msg
         viewInbox transactions =
-            column []
-                [ Misc.styledButton [ centerX ]
-                    { onPress = Just <| ctx.lift <| ToggleViewMode
-                    , label = text "Toggle view mode"
-                    }
-                , case model.viewType of
-                    Table ->
-                        viewInbox_old
-                            { lift = ctx.lift << MsgTable
-                            , model = ctx.model.table
-                            , modelCommon = ctx.model.common
-                            , session = ctx.session
-                            , commonData = ctx.commonData
-                            , todayDate = ctx.todayDate
-                            }
-                            (transactions |> List.map .data)
-
-                    Cards ->
-                        viewInbox_cards
-                            { lift = ctx.lift << MsgCards
-                            , model = ctx.model.cards
-                            , modelCommon = ctx.model.common
-                            , session = ctx.session
-                            , commonData = ctx.commonData
-                            , todayDate = ctx.todayDate
-                            }
-                            transactions
-                ]
+            viewInbox_cards
+                { lift = ctx.lift
+                , model = ctx.model
+                , session = ctx.session
+                , todayDate = ctx.todayDate
+                , commonData = ctx.commonData
+                }
+                transactions
     in
-    case model.common.inboxTransactions of
+    case model.inboxTransactions of
         Just inboxTransactions ->
             case inboxTransactions of
                 [] ->
@@ -607,7 +388,7 @@ view ctx =
 
 {-| List of all cards and UI on top
 -}
-viewInbox_cards : ViewNew msg -> List TransactionView -> Element msg
+viewInbox_cards : ViewCtx msg -> List TransactionView -> Element msg
 viewInbox_cards ctx inboxTransactions =
     let
         { model } =
@@ -629,7 +410,7 @@ viewInbox_cards ctx inboxTransactions =
         List.map (viewCard ctx) inboxTransactions
 
 
-viewTransactionEdit : ViewNew msg -> EditingTransaction -> Element msg
+viewTransactionEdit : ViewCtx msg -> EditingTransaction -> Element msg
 viewTransactionEdit ctx edit =
     let
         formCtx =
@@ -643,7 +424,7 @@ viewTransactionEdit ctx edit =
     viewModal [ TransactionComposeForm.viewForm formCtx edit.viewState ]
 
 
-viewCard : ViewNew msg -> TransactionView -> Element msg
+viewCard : ViewCtx msg -> TransactionView -> Element msg
 viewCard ctx transaction =
     let
         diff =
@@ -709,7 +490,7 @@ viewCard ctx transaction =
         ]
 
 
-viewDetails : ViewNew msg -> Transaction -> Element msg
+viewDetails : ViewCtx msg -> Transaction -> Element msg
 viewDetails ctx t =
     let
         pidToName =
@@ -763,7 +544,7 @@ viewTag tag =
         (text tag)
 
 
-viewButtons : ViewNew msg -> Transaction -> Element msg
+viewButtons : ViewCtx msg -> Transaction -> Element msg
 viewButtons ctx transaction =
     row
         [ width fill
@@ -777,79 +558,5 @@ viewButtons ctx transaction =
         , styledButton [ Background.color Colors.teal400 ]
             { onPress = Just <| ctx.lift <| AcceptTransaction transaction.id
             , label = text "Accept"
-            }
-        ]
-
-
-
--- old view --
-
-
-viewInbox_old : ViewOld msg -> List Transaction -> Element msg
-viewInbox_old ctx inboxTransactions =
-    let
-        { session, model } =
-            ctx
-
-        areAllSelected =
-            allSelected inboxTransactions model.selectedInboxTransactionIds
-    in
-    column [ spacing 15 ]
-        [ row [ width fill, paddingEach { edges | right = 20 } ]
-            [ styledButton [ alignRight, centerY ]
-                { onPress =
-                    someSelected model
-                        |> either
-                            (Just <| ctx.lift AcceptSelectedTransactions)
-                            Nothing
-                , label = text "Accept selected"
-                }
-            ]
-        , table [ Font.size 14, spacing 8 ]
-            { data = inboxTransactions
-            , columns =
-                [ { header =
-                        Input.button
-                            [ userSelectNone
-                            , noShadow
-                            , Font.color Colors.gray500 |> attrWhen (someSelected model && not areAllSelected)
-                            , width shrink
-                            ]
-                            { onPress = Just <| ctx.lift ToggleCheckAllInboxTransactions
-                            , label =
-                                if someSelected model then
-                                    viewIcon [] "check"
-
-                                else
-                                    viewIcon [] "check-empty"
-                            }
-                  , width = shrink
-                  , view =
-                        \t ->
-                            Input.checkbox [ userSelectNone ]
-                                { onChange = \selected -> ctx.lift <| ToggleInboxTransaction t.id
-                                , icon = either "check" "check-empty" >> viewIcon []
-                                , checked = Set.member t.id model.selectedInboxTransactionIds
-                                , label = Input.labelRight [] <| text ""
-                                }
-                  }
-                , { header = el [ Font.bold ] <| text "Tags"
-                  , width = fill
-                  , view = \t -> text (String.join ", " t.tags)
-                  }
-                , { header = el [ Font.bold ] <| text "Amount"
-                  , width = px 100
-                  , view = \t -> text (t.amount |> amountToMoney |> String.fromFloat)
-                  }
-                , { header = el [ Font.bold ] <| text "Change"
-                  , width = px 100
-                  , view =
-                        \t ->
-                            amountDifferenceForMyAccount session.id t
-                                |> amountToMoney
-                                |> String.fromFloat
-                                |> text
-                  }
-                ]
             }
         ]

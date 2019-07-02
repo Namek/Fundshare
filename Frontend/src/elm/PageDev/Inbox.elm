@@ -5,7 +5,7 @@ import Cmd.Extra
 import Data.Transaction exposing (Transaction)
 import Html exposing (Html)
 import List.Extra
-import Page.Inbox as ThePage exposing (Msg(..), MsgCards(..))
+import Page.Inbox as ThePage exposing (Msg(..))
 import PageDev.Data.Transactions as Transactions
 import PageDev.DevCommon as Dev exposing (Msg(..))
 import Process
@@ -46,7 +46,7 @@ handlePageMsg model pageMsg =
             in
             Just ( model, Cmd.batch [ answerWithTransactionList ] )
 
-        MsgCards (SaveTransaction id data) ->
+        SaveTransaction id data ->
             Transactions.transactions
                 |> List.Extra.find (\t -> t.id == id)
                 |> Maybe.map
@@ -69,7 +69,7 @@ handlePageMsg model pageMsg =
                                 Process.sleep 1000
                                     |> Task.perform
                                         (always <|
-                                            (GotPageMsg << MsgCards) <|
+                                            GotPageMsg <|
                                                 SaveTransaction_Response (RemoteData.succeed editedTransaction)
                                         )
 
@@ -81,14 +81,14 @@ handlePageMsg model pageMsg =
                     )
                 |> Maybe.withDefault Nothing
 
-        MsgCards (AcceptTransaction id) ->
+        AcceptTransaction id ->
             let
                 answerWithAcceptedTransactions =
                     -- simulate some time delay to let the animation show off
                     Process.sleep 1000
                         |> Task.perform
                             (always <|
-                                (GotPageMsg << MsgCards) <|
+                                GotPageMsg <|
                                     AcceptTransaction_Response (RemoteData.succeed { acceptedIds = [ id ], failedIds = [] })
                             )
             in
