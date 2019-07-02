@@ -1,11 +1,11 @@
-module PageDev.Inbox exposing (Model, Msg, main, view)
+module PageDev.Mailbox exposing (Model, Msg, main, view)
 
 import Browser
 import Cmd.Extra
 import Data.Transaction exposing (Transaction)
 import Html exposing (Html)
 import List.Extra
-import Page.Inbox as ThePage exposing (Msg(..))
+import Page.Mailbox as ThePage exposing (Msg(..))
 import PageDev.Data.Transactions as Transactions
 import PageDev.DevCommon as Dev exposing (Msg(..))
 import Process

@@ -13,8 +13,8 @@ import Graphql.Http
 import Misc exposing (css, noCmd)
 import Page.Balances as Balances
 import Page.Errored as Errored exposing (PageLoadError(..))
-import Page.Inbox as Inbox
 import Page.Login as Login
+import Page.Mailbox as Mailbox
 import Page.NewTransaction as NewTransaction
 import Page.NotFound as NotFound
 import Page.Transaction as Transaction
@@ -176,10 +176,10 @@ viewPage model page =
                         , commonData = getAuthorizedCommonData ()
                         }
 
-                Inbox subModel ->
-                    Inbox.view
+                Mailbox subModel ->
+                    Mailbox.view
                         { model = subModel
-                        , lift = InboxMsg
+                        , lift = MailboxMsg
                         , todayDate = model.todayDate
                         , session = getAuthorizedSession ()
                         , commonData = getAuthorizedCommonData ()
@@ -202,8 +202,8 @@ viewPage model page =
                 Balances _ ->
                     Route_Balances
 
-                Inbox _ ->
-                    Route_Inbox
+                Mailbox _ ->
+                    Route_Mailbox
 
                 TransactionHistory _ ->
                     Route_History
@@ -240,7 +240,7 @@ type Msg
     | NewTransactionMsg NewTransaction.Msg
     | BalancesMsg Balances.Msg
     | TransactionMsg Transaction.Msg
-    | InboxMsg Inbox.Msg
+    | MailboxMsg Mailbox.Msg
     | TransactionHistoryMsg TransactionHistory.Msg
 
 
@@ -447,12 +447,12 @@ updatePage page msg model =
             in
             toPageWithGlobalMsgs (Transaction paymentId) TransactionMsg (Transaction.update ctx) subMsg
 
-        ( InboxMsg subMsg, Inbox subModel, LoggedSession session ) ->
+        ( MailboxMsg subMsg, Mailbox subModel, LoggedSession session ) ->
             let
                 ctx =
-                    buildCtx subModel InboxMsg session
+                    buildCtx subModel MailboxMsg session
             in
-            toPageWithGlobalMsgs Inbox InboxMsg (Inbox.update ctx) subMsg
+            toPageWithGlobalMsgs Mailbox MailboxMsg (Mailbox.update ctx) subMsg
 
         ( TransactionHistoryMsg subMsg, TransactionHistory subModel, LoggedSession session ) ->
             let
@@ -531,17 +531,17 @@ initRoute maybeRoute model =
         Just (Route.Transaction paymentId) ->
             initWhenLogged (Transaction.init paymentId) (Page.Transaction paymentId) TransactionMsg
 
-        Just Route.Inbox ->
+        Just Route.Mailbox ->
             let
                 initFn =
                     case model.page of
-                        Page.Inbox subModel ->
-                            Inbox.reinit subModel
+                        Page.Mailbox subModel ->
+                            Mailbox.reinit subModel
 
                         _ ->
-                            Inbox.init
+                            Mailbox.init
             in
-            initWhenLogged initFn Page.Inbox InboxMsg
+            initWhenLogged initFn Page.Mailbox MailboxMsg
 
         Just (Route.TransactionHistory pageNo) ->
             let

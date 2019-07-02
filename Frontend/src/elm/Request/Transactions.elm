@@ -2,7 +2,7 @@ module Request.Transactions exposing
     ( AcceptTransactionsResult
     , TransactionList
     , acceptTransactions
-    , getUserInboxTransactions
+    , getUserMailboxTransactions
     , getUserTransactions
     , transaction
     )
@@ -87,8 +87,8 @@ getUserTransactions offset limit =
     }
 
 -}
-getUserInboxTransactions : SelectionSet TransactionList RootQuery
-getUserInboxTransactions =
+getUserMailboxTransactions : SelectionSet TransactionList RootQuery
+getUserMailboxTransactions =
     let
         params =
             { offset = Absent
@@ -101,7 +101,7 @@ getUserInboxTransactions =
     SelectionSet.succeed (Maybe.withDefault defaultResult)
         |> with
             (Query.currentUser
-                (User.inboxTransactions (always params) transaction
+                (User.mailboxTransactions (always params) transaction
                     |> SelectionSet.map (\t -> { defaultResult | transactions = t, limit = List.length t + 1 })
                 )
             )

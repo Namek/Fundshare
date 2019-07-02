@@ -8,6 +8,7 @@ module Data.Transaction exposing
     , amountToMoneyChangeLeftPad
     , amountToMoneyString
     , isTransactionInInboxForUser
+    , isTransactionInOutboxForUser
     )
 
 import Data.Person exposing (PersonId)
@@ -46,6 +47,10 @@ type alias TransactionId =
 
 isTransactionInInboxForUser personId transaction =
     not <| List.member personId transaction.acceptanceIds
+
+
+isTransactionInOutboxForUser personId transaction =
+    List.member personId transaction.acceptanceIds
 
 
 amountToMoney : Int -> Float

@@ -14,8 +14,8 @@ import Misc exposing (attrWhen, defaultShadow, edges, either, viewBadge, viewIf)
 import Misc.Colors as Colors
 import Page.Balances as Balances
 import Page.Errored as Errored exposing (PageLoadError(..))
-import Page.Inbox as Inbox
 import Page.Login as Login
+import Page.Mailbox as Inbox
 import Page.NewTransaction as NewTransaction
 import Page.NotFound as NotFound
 import Page.Transaction as Transaction
@@ -32,14 +32,14 @@ type Page
     | NewTransaction NewTransaction.Model
     | Balances Balances.Model
     | Transaction TransactionId Transaction.Model
-    | Inbox Inbox.Model
+    | Mailbox Inbox.Model
     | TransactionHistory TransactionHistory.Model
 
 
 type ActivePage
     = Route_Unknown
     | Route_Balances
-    | Route_Inbox
+    | Route_Mailbox
     | Route_History
     | Route_NewTransaction
 
@@ -96,7 +96,7 @@ viewMenu sessionState activePage =
                             )
                             |> attrWhen (session.inboxSize > 0)
                         ]
-                        (alink (Just Route_Inbox) Route.Inbox "Inbox")
+                        (alink (Just Route_Mailbox) Route.Mailbox "Mail")
                     , alink (Just Route_History) (Route.TransactionHistory Nothing) "History"
                     , alink (Just Route_NewTransaction) Route.NewTransaction "Add transaction"
                     , alink Nothing Route.Logout "Logout"

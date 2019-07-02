@@ -81,7 +81,7 @@ let rec User = Define.Object<User>("User", fieldsFn = fun () -> [
       let limit = ctx.Arg "limit"
       Repo.getUserTransactions user.id None offset limit
   )
-  Define.Field("inboxTransactions", ListOf UserTransaction, "Transactions that this user can accept or modify.",
+  Define.Field("inboxTransactions", ListOf UserTransaction, "Transactions coming from other users and not yet accepted by this user.",
     [ Define.Input("offset", Nullable Int, Some 0)
       Define.Input("limit", Nullable Int, None)
     ],
@@ -89,6 +89,24 @@ let rec User = Define.Object<User>("User", fieldsFn = fun () -> [
       let offset = ctx.Arg "offset"
       let limit = ctx.Arg "limit"
       Repo.getUserInboxTransactions user.id offset limit
+  )
+  Define.Field("outboxTransactions", ListOf UserTransaction, "Transactions made by or accepted by this user or made by but edited by someone else.",
+    [ Define.Input("offset", Nullable Int, Some 0)
+      Define.Input("limit", Nullable Int, None)
+    ],
+    fun ctx user ->
+      let offset = ctx.Arg "offset"
+      let limit = ctx.Arg "limit"
+      Repo.getUserOutboxTransactions user.id offset limit
+  )
+  Define.Field("mailboxTransactions", ListOf UserTransaction, "Both inbox and outbox transactions.",
+    [ Define.Input("offset", Nullable Int, Some 0)
+      Define.Input("limit", Nullable Int, None)
+    ],
+    fun ctx user ->
+      let offset = ctx.Arg "offset"
+      let limit = ctx.Arg "limit"
+      Repo.getUserMailboxTransactions user.id offset limit
   )
 ])
 and UserTransaction = Define.Object<UserTransaction>("UserTransaction", fieldsFn = fun () -> [

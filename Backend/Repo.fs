@@ -464,6 +464,15 @@ let getUserInboxTransactions (userId : int) (offset : int option) (limit : int o
   let qwhere = uid + " != all(acceptance_ids)" 
   getUserTransactions userId (Some qwhere) offset limit
 
+let getUserOutboxTransactions (userId : int) (offset : int option) (limit : int option) : UserTransaction list =
+  let uid = userId.ToString()
+  let qwhere = uid + " = any(acceptance_ids)" 
+  getUserTransactions userId (Some qwhere) offset limit
+
+let getUserMailboxTransactions (userId : int) (offset : int option) (limit : int option) : UserTransaction list =
+  let uid = userId.ToString()
+  let qwhere = uid + " != all(acceptance_ids) OR " + uid + " = any(acceptance_ids)" 
+  getUserTransactions userId (Some qwhere) offset limit
 
 let editTransaction (transactionId : int) (args : Input_EditTransaction) (userModifyingId : int) : Result<UserTransaction, String> =
   let transaction =

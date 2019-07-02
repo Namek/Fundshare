@@ -19,7 +19,7 @@ type Route
     | NewTransaction
     | Balances
     | Transaction TransactionId
-    | Inbox
+    | Mailbox
     | TransactionHistory (Maybe Int)
 
 
@@ -31,7 +31,7 @@ parseRoute =
         , map NewTransaction (s "pay")
         , map Balances (s "balances")
         , map Transaction (s "transaction" </> int)
-        , map Inbox (s "inbox")
+        , map Mailbox (s "mailbox")
         , map TransactionHistory (s "history" <?> Query.int "page")
         ]
 
@@ -56,8 +56,8 @@ routeToString page =
                 Transaction id ->
                     "transaction/" ++ String.fromInt id
 
-                Inbox ->
-                    "inbox"
+                Mailbox ->
+                    "mailbox"
 
                 TransactionHistory Nothing ->
                     "history"

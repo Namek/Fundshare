@@ -2,7 +2,7 @@
 -- https://github.com/dillonkearns/elm-graphql
 
 
-module Api.Object.User exposing (InboxTransactionsOptionalArguments, TransactionsOptionalArguments, balances, email, id, inboxTransactions, name, transactions)
+module Api.Object.User exposing (InboxTransactionsOptionalArguments, MailboxTransactionsOptionalArguments, OutboxTransactionsOptionalArguments, TransactionsOptionalArguments, balances, email, id, inboxTransactions, mailboxTransactions, name, outboxTransactions, transactions)
 
 import Api.InputObject
 import Api.Interface
@@ -40,7 +40,7 @@ type alias InboxTransactionsOptionalArguments =
     }
 
 
-{-| Transactions that this user can accept or modify.
+{-| Transactions coming from other users and not yet accepted by this user.
 -}
 inboxTransactions : (InboxTransactionsOptionalArguments -> InboxTransactionsOptionalArguments) -> SelectionSet decodesTo Api.Object.UserTransaction -> SelectionSet (List decodesTo) Api.Object.User
 inboxTransactions fillInOptionals object_ =
@@ -55,9 +55,51 @@ inboxTransactions fillInOptionals object_ =
     Object.selectionForCompositeField "inboxTransactions" optionalArgs object_ (identity >> Decode.list)
 
 
+type alias MailboxTransactionsOptionalArguments =
+    { offset : OptionalArgument Int
+    , limit : OptionalArgument Int
+    }
+
+
+{-| Both inbox and outbox transactions.
+-}
+mailboxTransactions : (MailboxTransactionsOptionalArguments -> MailboxTransactionsOptionalArguments) -> SelectionSet decodesTo Api.Object.UserTransaction -> SelectionSet (List decodesTo) Api.Object.User
+mailboxTransactions fillInOptionals object_ =
+    let
+        filledInOptionals =
+            fillInOptionals { offset = Absent, limit = Absent }
+
+        optionalArgs =
+            [ Argument.optional "offset" filledInOptionals.offset Encode.int, Argument.optional "limit" filledInOptionals.limit Encode.int ]
+                |> List.filterMap identity
+    in
+    Object.selectionForCompositeField "mailboxTransactions" optionalArgs object_ (identity >> Decode.list)
+
+
 name : SelectionSet String Api.Object.User
 name =
     Object.selectionForField "String" "name" [] Decode.string
+
+
+type alias OutboxTransactionsOptionalArguments =
+    { offset : OptionalArgument Int
+    , limit : OptionalArgument Int
+    }
+
+
+{-| Transactions made by or accepted by this user or made by but edited by someone else.
+-}
+outboxTransactions : (OutboxTransactionsOptionalArguments -> OutboxTransactionsOptionalArguments) -> SelectionSet decodesTo Api.Object.UserTransaction -> SelectionSet (List decodesTo) Api.Object.User
+outboxTransactions fillInOptionals object_ =
+    let
+        filledInOptionals =
+            fillInOptionals { offset = Absent, limit = Absent }
+
+        optionalArgs =
+            [ Argument.optional "offset" filledInOptionals.offset Encode.int, Argument.optional "limit" filledInOptionals.limit Encode.int ]
+                |> List.filterMap identity
+    in
+    Object.selectionForCompositeField "outboxTransactions" optionalArgs object_ (identity >> Decode.list)
 
 
 type alias TransactionsOptionalArguments =
