@@ -154,7 +154,7 @@ update model msg =
                                     Just <| not isExpanded
 
                                 Nothing ->
-                                    Just True
+                                    Just False
                         )
                         timeline.dayViewsExpanded
             in
