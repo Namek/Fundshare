@@ -213,7 +213,7 @@ update ctx topMsg =
             in
             { model | editingTransaction = edit }
                 |> noCmd
-                |> Cmd.Extra.with (Cmd.Extra.perform <| SetScrollbarsVisibility False)
+                |> noCmd
 
         CancelTransactionEdit ->
             { model | editingTransaction = Nothing }
@@ -278,7 +278,11 @@ update ctx topMsg =
                                     |> editTransaction transactionId
                                     |> sendMutationRequest SaveTransaction_Response
                         in
-                        Just <| (newModel |> Cmd.Extra.with sendReqCmd |> Cmd.Extra.pure)
+                        Just <|
+                            (newModel
+                                |> Cmd.Extra.with sendReqCmd
+                                |> Cmd.Extra.with (Cmd.Extra.perform <| SetScrollbarsVisibility True)
+                            )
                     )
                 |> Maybe.withDefault (model |> noCmd |> noCmd)
 
