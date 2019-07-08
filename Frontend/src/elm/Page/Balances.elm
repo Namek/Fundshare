@@ -1,4 +1,4 @@
-module Page.Balances exposing (Model, Msg, init, update, view)
+module Page.Balances exposing (Context, Model, Msg(..), init, update, view)
 
 import Cmd.Extra
 import Data.Balance exposing (Balance)
