@@ -88,7 +88,7 @@ type Msg
     = SwitchBoxType
     | RefreshTransactions
     | RefreshTransactions_Response (RemoteData (GqlHttp.Error TransactionList) TransactionList)
-    | RemoveTransactionFromList TransactionId
+    | RemoveMarkedTransactionsFromList
     | OpenTransactionEdit TransactionId
     | GotComposingFormMsg TransactionComposeForm.Msg
     | CancelTransactionEdit
@@ -151,7 +151,7 @@ update ctx topMsg =
         RefreshTransactions_Response _ ->
             ( ( model, Cmd.none ), Cmd.none )
 
-        RemoveTransactionFromList transactionId ->
+        RemoveMarkedTransactionsFromList ->
             let
                 newTransactions =
                     case model.allTransactions of
@@ -292,17 +292,25 @@ update ctx topMsg =
                 |> RemoteData.map
                     (\editedTransaction ->
                         let
+                            shouldDelete =
+                                model.boxType == Inbox
+
                             newTransactions =
                                 model.allTransactions
                                     |> Maybe.andThen
                                         (Just
-                                            << List.Extra.updateIf (\t -> t.data.id == editedTransaction.id)
-                                                (\t -> { data = editedTransaction, animateToBeDeleted = True })
+                                            << List.Extra.updateIf
+                                                (\t -> t.data.id == editedTransaction.id)
+                                                (\t -> { t | data = editedTransaction, animateToBeDeleted = shouldDelete })
                                         )
 
                             cmdDeleteTransaction =
-                                Process.sleep removeAnimationDuration
-                                    |> Task.perform (always <| RemoveTransactionFromList editedTransaction.id)
+                                if shouldDelete then
+                                    Process.sleep removeAnimationDuration
+                                        |> Task.perform (always <| RemoveMarkedTransactionsFromList)
+
+                                else
+                                    Cmd.none
 
                             newModel =
                                 { model | allTransactions = newTransactions, editingTransaction = Nothing }
@@ -345,7 +353,7 @@ update ctx topMsg =
 
                                     cmdDeleteTransaction =
                                         Process.sleep removeAnimationDuration
-                                            |> Task.perform (always <| RemoveTransactionFromList id)
+                                            |> Task.perform (always <| RemoveMarkedTransactionsFromList)
                                 in
                                 newModel |> Cmd.Extra.with cmdDeleteTransaction |> noCmd
 
