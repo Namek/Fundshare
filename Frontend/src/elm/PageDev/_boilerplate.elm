@@ -12,7 +12,7 @@ main =
     Browser.element
         { init = always <| Dev.init ThePage.init
         , view = view
-        , update = \msg model -> Dev.update ThePage.update (handlePageCmd model) msg model
+        , update = \msg model -> Dev.update ThePage.update handlePageMsg handleGlobalCmd msg model
         , subscriptions = always Sub.none
         }
 
@@ -29,11 +29,16 @@ type alias Msg =
     Dev.Msg ThePage.Msg
 
 
-handlePageCmd model pageCmdMsg =
-    ( model, Cmd.none )
+handlePageMsg : Model -> ThePage.Msg -> Maybe ( Model, Cmd Msg )
+handlePageMsg model pageMsg =
+    Nothing
+
+
+handleGlobalCmd model globalCmdMsg =
+    Nothing
 
 
 view : Model -> Html Msg
 view model =
-    Element.layout [] <|
+    Dev.view <|
         ThePage.view (Dev.makeCtx model)
