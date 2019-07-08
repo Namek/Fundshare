@@ -1,4 +1,4 @@
-module Page.TransactionHistory exposing (Model, Msg, init, reinit, update, view)
+module Page.TransactionHistory exposing (Context, Model, Msg(..), init, reinit, update, view)
 
 import Cmd.Extra
 import Data.Context exposing (ContextData, GlobalMsg, Logged, subContext)
