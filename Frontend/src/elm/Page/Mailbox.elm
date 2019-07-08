@@ -12,6 +12,7 @@ import Element.Background as Background
 import Element.Border as Border
 import Element.Font as Font
 import Graphql.Http as GqlHttp
+import I18n.I18n as I18n
 import List.Extra
 import Misc exposing (attrWhen, css, dayRelative, edges, either, noCmd, styledButton, viewIf, viewLoadingBar, viewModal)
 import Misc.Colors as Colors
@@ -474,9 +475,16 @@ viewCard ctx transaction =
                 |> text
                 |> Element.el [ Font.color Colors.white ]
 
+        isShared =
+            transaction.data.amount /= abs diff
+
         totalAmountEl =
-            viewIf (transaction.data.amount /= abs diff) <|
-                (Element.el [ Font.color Colors.gray300 ] <| text <| " / " ++ amountToMoneyString transaction.data.amount)
+            row [ Font.color Colors.gray300 ]
+                [ viewIf isShared <|
+                    (text <| " / " ++ amountToMoneyString transaction.data.amount)
+                , el [ Font.size 12, Element.alignBottom, paddingEach { edges | bottom = 1 } ] <|
+                    text (" " ++ I18n.currency.suffixOrCode)
+                ]
 
         transactionDate =
             Date.fromPosix Time.utc transaction.data.insertedAt
@@ -522,7 +530,6 @@ viewCard ctx transaction =
             ]
             [ diffAmountEl
             , totalAmountEl
-            , Element.el [ Font.color Colors.gray300 ] <| text " zł"
             ]
         , viewDetails ctx transaction.data
         ]

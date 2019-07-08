@@ -11,6 +11,7 @@ import Element.Border as Border
 import Element.Font as Font exposing (center, justify)
 import Element.Input as Input
 import Element.Lazy
+import I18n.I18n as I18n
 import List
 import Misc exposing (attrWhen, css, dayRelative, edges, either, getUpdatedProperty, noCmd, noShadow, userSelectNone, viewIf)
 import Misc.Colors as Colors exposing (red50)
@@ -294,7 +295,7 @@ viewDay ctx dayView =
                         , Font.color <| either Colors.green800 Colors.red500 (daySum > 0)
                         , paddingEach { edges | left = 7 }
                         ]
-                        (text <| amountToMoneyChangeLeftPad True maxIntegralDigits daySum ++ " zł")
+                        (text <| amountToMoneyChangeLeftPad True maxIntegralDigits daySum ++ " " ++ I18n.currency.suffixOrCode)
                     )
 
              else

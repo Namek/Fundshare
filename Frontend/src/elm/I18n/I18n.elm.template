@@ -1,0 +1,28 @@
+module I18n.I18n exposing (currency, tag)
+
+import I18n.I18n_eur as I18n
+
+
+currency :
+    { code : String
+    , prefix : String
+    , suffix : String
+
+    -- when currency uses prefix instead of suffix but
+    -- we can't show anything between a sign and number due to layout:
+    , suffixOrCode : String
+    }
+currency =
+    I18n.currency
+
+
+tag :
+    { food : String
+    , travel : String
+    , car : String
+    , home : String
+    , cash : String
+    , tools : String
+    }
+tag =
+    I18n.tag

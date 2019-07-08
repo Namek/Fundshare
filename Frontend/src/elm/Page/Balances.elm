@@ -14,6 +14,7 @@ import Element.Input as Input
 import Graphql.Http
 import Html
 import Html.Attributes
+import I18n.I18n as I18n
 import Json.Decode as Json
 import List.Extra
 import Maybe.Extra
@@ -263,18 +264,18 @@ viewBalanceCard ctx cardData =
                     ]
                 ]
             , row
-                [ alignRight, alignBottom, spacing 4 ]
+                [ alignRight, alignBottom, spacing 4, paddingEach { edges | left = 7 } ]
                 [ viewIf (cardData.totalBalance /= 0)
                     (paragraph
                         [ comparedColor, centerY, Font.size 22 ]
                         [ text (valueSign ++ " ") ]
                     )
                 , paragraph
-                    [ Font.color white, Font.size 36, alignBottom, moveDown 2 ]
+                    [ Font.color white, Font.size 32, alignBottom, moveDown 2 ]
                     [ text <| String.fromFloat <| abs (((cardData.totalBalance * 100 |> round) |> toFloat) / 100) ]
                 , paragraph
-                    [ Font.color grayed, Font.size 18, alignBottom ]
-                    [ text "zł" ]
+                    [ Font.color grayed, Font.size 16, alignBottom ]
+                    [ text I18n.currency.suffixOrCode ]
                 ]
             ]
 

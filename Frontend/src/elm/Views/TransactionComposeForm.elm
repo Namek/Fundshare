@@ -10,6 +10,7 @@ import Element.Border as Border
 import Element.Font as Font
 import Element.Input as Input
 import Html.Events
+import I18n.I18n as I18n
 import Json.Decode as Json
 import List.Extra
 import Misc exposing (attr, attrWhen, either, moneyRegex, noCmd, noShadow, pairToTriple, userSelectNone, viewIcon, viewIconButton, viewIf)
@@ -388,7 +389,7 @@ viewAmount ctx =
         { onChange = ctx.lift << SetAmount
         , label = Input.labelAbove [] Element.none
         , text = model.transaction.amount
-        , placeholder = Just (Input.placeholder [] <| text "Money amount (PLN)")
+        , placeholder = Just (Input.placeholder [] <| text <| "Money amount (" ++ I18n.currency.code ++ ")")
         }
 
 
@@ -506,12 +507,12 @@ viewUsualTags : Context msg -> Element msg
 viewUsualTags ctx =
     let
         iconizedTags =
-            [ ( "wycieczka", "flight" )
-            , ( "narzędzia", "wrench" )
-            , ( "auto", "cab" )
-            , ( "gotówka", "wallet" )
-            , ( "jedzenie", "food" )
-            , ( "mieszkanie", "home" )
+            [ ( I18n.tag.travel, "flight" )
+            , ( I18n.tag.tools, "wrench" )
+            , ( I18n.tag.car, "cab" )
+            , ( I18n.tag.cash, "wallet" )
+            , ( I18n.tag.food, "food" )
+            , ( I18n.tag.home, "home" )
             ]
     in
     column [ spacing 15 ] <|

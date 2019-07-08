@@ -17,6 +17,7 @@ RUN dotnet publish -c Release -o out
 
 WORKDIR /frontend/
 COPY Frontend/src/ ./src
+RUN false | cp -i ./src/elm/I18n/I18n.elm.template ./src/elm/I18n/I18n.elm
 COPY Frontend/build.csx ./
 RUN rm -rf ./src/elm/elm-stuff && \
     dotnet script build.csx build
