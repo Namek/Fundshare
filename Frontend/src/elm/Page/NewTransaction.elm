@@ -1,4 +1,4 @@
-module Page.NewTransaction exposing (Model, Msg, init, update, view)
+module Page.NewTransaction exposing (Context, Model, Msg(..), init, update, view)
 
 import Cmd.Extra
 import Data.Context exposing (..)

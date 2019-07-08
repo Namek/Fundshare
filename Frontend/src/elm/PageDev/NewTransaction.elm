@@ -1,10 +1,11 @@
-module PageDev._boilerplate exposing (Model, Msg, main, view)
+module PageDev.NewTransaction exposing (Model, Msg, main, view)
 
 import Browser
 import Cmd.Extra
 import Html exposing (Html)
-import Page.<your_page> as ThePage exposing (Msg(..))
+import Page.NewTransaction as ThePage exposing (Msg(..))
 import PageDev.DevCommon as Dev exposing (Msg(..))
+import RemoteData
 
 
 main : Program () Model Msg
@@ -31,7 +32,20 @@ type alias Msg =
 
 handlePageMsg : Model -> ThePage.Msg -> Maybe ( Model, Cmd Msg )
 handlePageMsg model pageMsg =
-    Nothing
+    case pageMsg of
+        SaveTransaction edit ->
+            let
+                transactionId =
+                    1
+
+                answerWithTransactionList =
+                    (Cmd.Extra.perform << GotPageMsg) <|
+                        SaveTransaction_Response (RemoteData.succeed transactionId)
+            in
+            Just ( model, Cmd.batch [ answerWithTransactionList ] )
+
+        _ ->
+            Nothing
 
 
 handleGlobalCmd model globalCmdMsg =
