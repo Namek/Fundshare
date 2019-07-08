@@ -6,6 +6,7 @@
     <ProjectGuid>{62783400-47A5-4FE9-8724-6DC6A562FB88}</ProjectGuid>
   </PropertyGroup>
   <ItemGroup>
+    <None Include="Migrations\V1.model.sql" />
     <Compile Include="AppConfig.fs" />
     <Compile Include="Utils\Md5.fs" />
     <Compile Include="Utils\Sql.fs" />
@@ -18,6 +19,8 @@
     <PackageReference Include="Newtonsoft.Json" Version="12.0.1" />
     <PackageReference Include="Npgsql" Version="4.0.0" />
     <PackageReference Include="Paseto" Version="1.1.2" />
+    <PackageReference Include="Rezoom.SQL.Provider" Version="0.7.2.40976" />
+    <PackageReference Include="Rezoom.SQL.Provider.Postgres" Version="0.7.0" />
     <PackageReference Include="SqlFrags" Version="3.0.0" />
     <PackageReference Include="suave" Version="2.5.4" />
   </ItemGroup>
