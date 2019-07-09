@@ -387,16 +387,17 @@ view ctx =
         { model, session } =
             ctx
 
-        filterFunc =
+        filterFunc { data, animateToBeDeleted } =
             case model.boxType of
                 Inbox ->
-                    isTransactionInInboxForUser session.id
+                    isTransactionInInboxForUser session.id data
+                        || animateToBeDeleted
 
                 Outbox ->
-                    isTransactionInOutboxForUser session.id
+                    isTransactionInOutboxForUser session.id data
 
         filteredTransactions =
-            model.allTransactions |> Maybe.map (List.filter (.data >> filterFunc))
+            model.allTransactions |> Maybe.map (List.filter filterFunc)
 
         viewSwitchButton boxType =
             styledButton [ width <| fillPortion 1 ]
