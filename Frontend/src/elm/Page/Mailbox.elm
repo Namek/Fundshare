@@ -170,7 +170,9 @@ update ctx topMsg =
                             Cmd.none
 
                         Just list ->
-                            Cmd.Extra.perform <| UpdateInboxSize <| List.length list
+                            Cmd.Extra.perform <|
+                                UpdateInboxSize <|
+                                    List.Extra.count (.data >> isTransactionInInboxForUser session.id) list
             in
             newModel
                 |> noCmd
