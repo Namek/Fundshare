@@ -7,7 +7,9 @@ import Html exposing (Html)
 import Page.Balances as ThePage exposing (Msg(..))
 import PageDev.Data.Balances as Balances
 import PageDev.DevCommon as Dev exposing (Msg(..))
+import Process
 import RemoteData
+import Task
 
 
 main : Program () Model Msg
@@ -38,8 +40,12 @@ handlePageMsg model pageMsg =
         RefreshBalances ->
             let
                 answerWithBalances =
-                    (Cmd.Extra.perform << GotPageMsg) <|
-                        RefreshBalances_Response (RemoteData.succeed Balances.balances)
+                    Process.sleep 1000
+                        |> Task.perform
+                            (always <|
+                                GotPageMsg <|
+                                    RefreshBalances_Response (RemoteData.succeed Balances.balances)
+                            )
             in
             Just ( model, Cmd.batch [ answerWithBalances ] )
 

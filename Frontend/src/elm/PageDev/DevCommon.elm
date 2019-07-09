@@ -4,7 +4,7 @@ import Data.CommonData exposing (CommonData)
 import Data.Context exposing (GlobalMsg)
 import Data.Session exposing (Session)
 import Date exposing (Date)
-import Element exposing (Element, column)
+import Element exposing (Element, centerX, column, fill, padding, width)
 import Html exposing (Html)
 import Html.Attributes exposing (property)
 import Json.Encode
@@ -110,7 +110,7 @@ update subUpdate handlePageMsg handleGlobalCmdMsg msg model =
 
 
 view : Element msg -> Html msg
-view el =
+view content =
     let
         str =
             Json.Encode.string
@@ -119,8 +119,8 @@ view el =
             Html.node "link" [ property "rel" (str "stylesheet"), property "href" (str href) ] []
     in
     Element.layout [] <|
-        column []
+        column [ width fill, padding 10 ]
             [ Element.html <| linkStylesheet "/css/app.css"
             , Element.html <| linkStylesheet "/css/fontello-embedded.css"
-            , el
+            , Element.el [ centerX ] <| content
             ]

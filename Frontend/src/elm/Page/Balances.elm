@@ -18,7 +18,7 @@ import I18n.I18n as I18n
 import Json.Decode as Json
 import List.Extra
 import Maybe.Extra
-import Misc exposing (attrWhen, css, edges, either, noCmd, noShadow, userSelectNone, viewBadge, viewIcon, viewIconButton, viewIf)
+import Misc exposing (attrWhen, css, edges, either, noCmd, noShadow, userSelectNone, viewBadge, viewIcon, viewIconButton, viewIf, viewLoadingBar)
 import Misc.Colors exposing (grayed, teal500, teal700, white)
 import Misc.Time exposing (timeDistanceInWords)
 import RemoteData exposing (RemoteData)
@@ -34,7 +34,7 @@ import Time exposing (Posix, now)
 
 
 type alias Model =
-    { balances : List Balance
+    { balances : Maybe (List Balance)
     , dateTimeNow : Maybe Posix
     }
 
@@ -60,7 +60,7 @@ type InteractedBalanceCard
 
 init : Session -> ( Model, Cmd Msg )
 init session =
-    ( { balances = []
+    ( { balances = Nothing
       , dateTimeNow = Nothing
       }
     , Cmd.batch
@@ -110,7 +110,7 @@ update ctx msg =
 
         RefreshBalances_Response result ->
             ( result
-                |> RemoteData.andThen (\balances -> RemoteData.Success { model | balances = balances })
+                |> RemoteData.andThen (\balances -> RemoteData.Success { model | balances = Just balances })
                 |> RemoteData.withDefault model
             , Cmd.none
             )
@@ -134,10 +134,17 @@ update ctx msg =
 
 view : Context msg -> Element msg
 view ctx =
-    let
-        balances =
-            ctx.model.balances
+    case ctx.model.balances of
+        Nothing ->
+            viewLoadingBar
 
+        Just balances ->
+            viewBalances ctx balances
+
+
+viewBalances : Context msg -> List Balance -> Element msg
+viewBalances ctx balances =
+    let
         extractCardData : Balance -> BalanceCard
         extractCardData balance =
             { title = balance.name
@@ -154,7 +161,7 @@ view ctx =
     in
     wrappedRow
         [ centerX, css "justify-content" "center" ]
-        ((viewBalanceSummaryCard ctx
+        ((viewBalanceSummaryCard ctx balances
             :: (balances
                     |> List.map (extractCardData >> viewBalanceCard ctx)
                )
@@ -163,12 +170,9 @@ view ctx =
         )
 
 
-viewBalanceSummaryCard : Context msg -> Element msg
-viewBalanceSummaryCard ctx =
+viewBalanceSummaryCard : Context msg -> List Balance -> Element msg
+viewBalanceSummaryCard ctx balances =
     let
-        balances =
-            ctx.model.balances
-
         totalBalance =
             balances
                 |> List.map
