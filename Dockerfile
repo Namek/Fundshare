@@ -1,9 +1,9 @@
 FROM fsharp:10.2.1-netcore AS build
 
 WORKDIR /bin
-RUN curl -sL https://github.com/elm/compiler/releases/download/0.19.0/binaries-for-linux.tar.gz --output elm.tar.gz && \
-    tar -xzf elm.tar.gz && rm elm.tar.gz && \
-    dotnet tool install -g dotnet-script && \
+RUN curl -sL https://github.com/elm/compiler/releases/download/0.19.1/binary-for-linux-64-bit.gz --output elm.gz && \
+    gzip -d elm.gz && chmod +x elm && \
+    dotnet tool install -g dotnet-script --version 0.25.0 && \
     ln -sfn /root/.dotnet/tools/dotnet-script /bin/dotnet-script
 
 WORKDIR /app/
